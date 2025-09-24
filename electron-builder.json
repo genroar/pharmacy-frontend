@@ -1,0 +1,50 @@
+{
+  "appId": "com.medibill.pulse",
+  "productName": "MediBill Pulse",
+  "directories": {
+    "output": "release"
+  },
+  "files": [
+    "dist/**/*",
+    "electron/**/*",
+    "node_modules/**/*",
+    "package.json"
+  ],
+  "extraResources": [
+    {
+      "from": "public",
+      "to": "public"
+    }
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "public/icon.ico",
+    "requestedExecutionLevel": "asInvoker"
+  },
+  "mac": {
+    "target": "dmg",
+    "icon": "public/icon.icns",
+    "category": "public.app-category.medical"
+  },
+  "linux": {
+    "target": "AppImage",
+    "icon": "public/icon.png",
+    "category": "Medical"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "MediBill Pulse"
+  },
+  "publish": {
+    "provider": "github",
+    "releaseType": "release"
+  }
+}

@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Dashboard Exact Theme Colors */
+
+@layer base {
+  :root {
+    /* Core Backgrounds */
+    --background: 220 23% 97%;      /* #F7F9FB - very light gray */
+    --foreground: 215 25% 20%;      /* #1E293B - dark text */
+
+    /* Cards */
+    --card: 0 0% 100%;              /* #FFFFFF */
+    --card-foreground: 215 25% 20%;
+
+    /* Primary Green (Items Sold box) */
+    --primary: 152 62% 33%;         /* #1F7C47 ✅ exact */
+    --primary-foreground: 0 0% 100%;
+
+    /* Sidebar / Secondary */
+    --secondary: 210 40% 96%;       /* #F3F6F9 ✅ sidebar bg */
+    --secondary-foreground: 215 25% 20%;
+
+    /* Accent Blue (icons, highlights) */
+    --accent: 200 90% 55%;          /* #2CA6E2 */
+    --accent-foreground: 0 0% 100%;
+
+    /* Muted Texts & Backgrounds */
+    --muted: 210 20% 95%;           /* #F5F7FA */
+    --muted-foreground: 215 15% 45%;/* #6B7280 */
+
+    /* Status Colors */
+    --success: 152 62% 33%;         /* same green */
+    --warning: 38 92% 50%;          /* #F59E0B amber */
+    --destructive: 152 62% 33%;       /* #EF4444 red */
+
+    /* Borders / Inputs */
+    --border: 214 32% 91%;          /* #E5E7EB */
+    --input: 214 32% 91%;
+    --ring: 152 62% 33%;            /* green focus */
+
+    /* Shadows */
+    --shadow-soft: 0 2px 8px -2px hsl(215 25% 20% / 0.08);
+    --shadow-medium: 0 4px 16px -4px hsl(215 25% 20% / 0.12);
+    --shadow-strong: 0 8px 32px -8px hsl(215 25% 20% / 0.16);
+
+    /* Radius */
+    --radius: 0.75rem;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+.green-color {
+  @apply bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)]
+}
