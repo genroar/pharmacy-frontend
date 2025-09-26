@@ -224,8 +224,8 @@ const POSInterface = () => {
           }
 
           const url = branchId
-            ? `http://localhost:5001/api/products?limit=1000&branchId=${branchId}`
-            : `http://localhost:5001/api/products?limit=1000`;
+            ? `http://localhost:5000/api/products?limit=1000&branchId=${branchId}`
+            : `http://localhost:5000/api/products?limit=1000`;
 
           const response = await fetch(url, {
             headers: {
@@ -270,7 +270,7 @@ const POSInterface = () => {
     const loadCategoriesSimple = async () => {
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch('http://localhost:5001/api/categories', {
+        const response = await fetch('http://localhost:5000/api/categories', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -297,8 +297,8 @@ const POSInterface = () => {
 
           // Get all products for current branch to filter categories
           const url = branchId
-            ? `http://localhost:5001/api/products?branchId=${branchId}&limit=1000`
-            : `http://localhost:5001/api/products?limit=1000`;
+            ? `http://localhost:5000/api/products?branchId=${branchId}&limit=1000`
+            : `http://localhost:5000/api/products?limit=1000`;
 
           const productsResponse = await fetch(url, {
             headers: {
@@ -429,8 +429,8 @@ const POSInterface = () => {
         // Fallback to direct fetch
         const token = localStorage.getItem('token');
         const url = branchId
-          ? `http://localhost:5001/api/products?limit=1000&branchId=${branchId}`
-          : `http://localhost:5001/api/products?limit=1000`;
+          ? `http://localhost:5000/api/products?limit=1000&branchId=${branchId}`
+          : `http://localhost:5000/api/products?limit=1000`;
 
         const directResponse = await fetch(url, {
           headers: {
@@ -2219,7 +2219,7 @@ Sale amount has been deducted from reports.`);
                   console.log('🚀 Loading products directly...');
                   try {
                     const token = localStorage.getItem('token');
-                    const response = await fetch(`http://localhost:5001/api/products?limit=1000&branchId=${user?.branchId || 'cmfprkvh6000t7yyp8q2197xa'}`, {
+                    const response = await fetch(`http://localhost:5000/api/products?limit=1000&branchId=${user?.branchId || 'cmfprkvh6000t7yyp8q2197xa'}`, {
                       headers: {
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'

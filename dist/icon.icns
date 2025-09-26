@@ -1,0 +1,4 @@
+# This is a placeholder for the macOS icon file
+# You'll need to create a proper .icns file
+# You can use online tools like https://cloudconvert.com/png-to-icns
+# Or use the iconutil command on macOS: iconutil -c icns icon.iconset

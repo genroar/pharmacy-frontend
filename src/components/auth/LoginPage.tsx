@@ -32,7 +32,7 @@ const LoginPage = () => {
             </div>
             <span className="text-2xl font-bold text-foreground">MediBill Pulse</span>
           </div>
-          
+
           {/* Connection Status */}
           <div className="flex items-center justify-center space-x-2">
             {isOnline ? (
@@ -55,7 +55,7 @@ const LoginPage = () => {
             <CardTitle className="text-center text-xl text-foreground">
               Welcome Back
             </CardTitle>
-            
+
             {/* Role Selection */}
             <div className="space-y-2">
               <Label className="text-sm font-medium text-muted-foreground">Select Role</Label>
@@ -124,7 +124,7 @@ const LoginPage = () => {
                   className="h-11"
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <Input
@@ -137,7 +137,7 @@ const LoginPage = () => {
             </div>
 
             {/* Login Button */}
-            <Button 
+            <Button
               className="w-full h-11 bg-gradient-primary hover:opacity-90 transition-opacity"
               onClick={() => {
                 if (isAdminMode) {

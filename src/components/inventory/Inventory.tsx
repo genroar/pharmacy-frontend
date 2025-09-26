@@ -250,7 +250,7 @@ const Inventory = () => {
       console.log('Response success:', response.success);
       console.log('Response data:', response.data);
       console.log('Response data type:', typeof response.data);
-      console.log('Response error:', response.error);
+      console.log('Response message:', response.message);
 
       if (response.success && response.data) {
         const allProducts = response.data.products;
@@ -658,7 +658,8 @@ const Inventory = () => {
       stock: product.stock.toString(),
       minStock: product.minStock.toString(),
       maxStock: product.maxStock?.toString() || "",
-      barcode: product.barcode || ""
+      barcode: product.barcode || "",
+      unitsPerPack: product.unitsPerPack.toString()
     });
     setIsEditDialogOpen(true);
   };
@@ -676,8 +677,8 @@ const Inventory = () => {
         name: newMedicine.name,
         description: editingProduct.description || "",
         categoryId: newMedicine.categoryId,
-        supplierId: editingProduct.supplierId,
-        branchId: editingProduct.branchId,
+        supplierId: editingProduct.supplier.id,
+        branchId: editingProduct.branch.id,
         costPrice: parseFloat(newMedicine.costPrice) || 0,
         sellingPrice: parseFloat(newMedicine.sellingPrice),
         stock: parseInt(newMedicine.stock),
@@ -895,7 +896,7 @@ const Inventory = () => {
         // Reload data to get the updated list
         await loadData();
         setSelectedProducts([]);
-        console.log(`Successfully bulk deleted ${response.data.deletedCount} products`);
+        console.log(`Successfully bulk deleted ${response.data.data.deletedCount} products`);
       } else {
         alert(response.message || "Failed to bulk delete products");
       }
@@ -1077,16 +1078,27 @@ const Inventory = () => {
       console.log('Total products extracted:', extractedData.length);
       console.log('All extracted products:', extractedData);
 
-      // Validate extracted data
-      const validProducts = extractedData.filter(product =>
-        product.name && product.name.trim() !== '' &&
-        product.sellingPrice && product.sellingPrice > 0
-      );
+      // Validate extracted data with more lenient validation
+      const validProducts = extractedData.filter(product => {
+        const hasName = product.name && product.name.trim() !== '';
+        const hasPrice = product.sellingPrice && !isNaN(parseFloat(product.sellingPrice)) && parseFloat(product.sellingPrice) > 0;
+
+        console.log(`Product "${product.name}" validation:`, {
+          hasName,
+          hasPrice,
+          sellingPrice: product.sellingPrice,
+          sellingPriceType: typeof product.sellingPrice
+        });
+
+        return hasName && hasPrice;
+      });
 
       console.log('Valid products after validation:', validProducts.length);
+      console.log('All extracted products:', extractedData);
+      console.log('Valid products:', validProducts);
 
       if (validProducts.length === 0) {
-        alert('No valid products found in the file. Please ensure your CSV has:\n- Product names\n- Selling prices\n- Categories (optional, will use default)');
+        alert('No valid products found in the file. Please ensure your CSV has:\n- Product names (non-empty)\n- Selling prices (numeric values > 0)\n- Categories (optional, will use default)');
         return;
       }
 
@@ -1300,24 +1312,48 @@ const Inventory = () => {
         console.log('BranchId type:', typeof branchId);
         console.log('BranchId length:', branchId?.length);
 
+        // Ensure all numeric fields are properly converted
+        const sellingPrice = parseFloat(productData.sellingPrice) || 0;
+        const costPrice = parseFloat(productData.costPrice) || (sellingPrice * 0.7); // Default to 70% of selling price
+        const stock = parseInt(productData.stock) || 0;
+        const minStock = parseInt(productData.minStock) || 10;
+
+        console.log(`Product ${productData.name} numeric conversion:`, {
+          originalSellingPrice: productData.sellingPrice,
+          convertedSellingPrice: sellingPrice,
+          originalCostPrice: productData.costPrice,
+          convertedCostPrice: costPrice,
+          originalStock: productData.stock,
+          convertedStock: stock
+        });
+
         const productToImport = {
-          name: productData.name,
-          description: productData.description || "",
+          name: productData.name.trim(),
+          description: (productData.description || "").trim(),
           categoryId: productData.categoryId, // Use the categoryId we set (either existing or 'auto-create')
           categoryName: productData.categoryName, // Include categoryName for auto-creation
           supplierId: supplierId, // Will be handled as default-supplier
           branchId: branchId,
-          costPrice: productData.costPrice || 0,
-          sellingPrice: productData.sellingPrice,
-          stock: parseInt(productData.stock) || 0, // Ensure stock is always a valid number
-          minStock: productData.minStock || 10,
+          costPrice: costPrice,
+          sellingPrice: sellingPrice,
+          stock: stock,
+          minStock: minStock,
           maxStock: productData.maxStock || null,
-          unitType: productData.unitType || "tablets",
+          unitType: (productData.unitType || "tablets").trim(),
           unitsPerPack: 1, // Always 1 for unit pricing
-          barcode: productData.barcode || null,
-          requiresPrescription: productData.requiresPrescription || false,
+          barcode: (productData.barcode || "").trim() || null,
+          requiresPrescription: Boolean(productData.requiresPrescription),
           isActive: true
         };
+
+        // Final validation before adding to import list
+        if (!productToImport.name || productToImport.sellingPrice <= 0) {
+          console.error(`Skipping invalid product: ${productData.name}`, {
+            name: productToImport.name,
+            sellingPrice: productToImport.sellingPrice
+          });
+          continue;
+        }
 
         productsToImport.push(productToImport);
         console.log(`Added product to import list: ${productData.name}`);
@@ -1337,12 +1373,22 @@ const Inventory = () => {
       console.log('=== CALLING BULK IMPORT API ===');
       console.log('Products to import:', productsToImport);
       console.log('Number of products:', productsToImport.length);
-      console.log('API Base URL:', 'http://localhost:5001/api');
+      console.log('API Base URL:', 'http://localhost:5000/api');
       console.log('Token present:', !!localStorage.getItem('token'));
       console.log('User from context:', user);
 
+      // Validate products before sending
+      const invalidProducts = productsToImport.filter(p => !p.name || p.sellingPrice <= 0 || !p.branchId);
+      if (invalidProducts.length > 0) {
+        console.error('Invalid products found:', invalidProducts);
+        alert(`Found ${invalidProducts.length} invalid products. Please check the data and try again.`);
+        setLoading(false);
+        return;
+      }
+
       let response;
       try {
+        console.log('Sending request to backend...');
         response = await apiService.bulkImportProducts(productsToImport);
         console.log('=== BULK IMPORT API RESPONSE ===');
         console.log('Response:', response);
@@ -1358,7 +1404,26 @@ const Inventory = () => {
       } catch (error) {
         console.error('=== BULK IMPORT API ERROR ===');
         console.error('Error details:', error);
-        alert(`Import failed with error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+        console.error('Error message:', error instanceof Error ? error.message : 'Unknown error');
+
+        // More detailed error message
+        let errorMessage = 'Unknown error occurred';
+        if (error instanceof Error) {
+          if (error.message.includes('Network')) {
+            errorMessage = 'Network error: Please check your internet connection and try again.';
+          } else if (error.message.includes('401')) {
+            errorMessage = 'Authentication error: Please log in again.';
+          } else if (error.message.includes('403')) {
+            errorMessage = 'Permission denied: You do not have permission to import products.';
+          } else if (error.message.includes('500')) {
+            errorMessage = 'Server error: Please try again later or contact support.';
+          } else {
+            errorMessage = `Import failed: ${error.message}`;
+          }
+        }
+
+        alert(errorMessage);
         setLoading(false);
         return;
       }

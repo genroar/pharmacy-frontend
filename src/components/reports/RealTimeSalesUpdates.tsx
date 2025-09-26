@@ -47,7 +47,7 @@ const RealTimeSalesUpdates = () => {
         return;
       }
 
-      const response = await fetch('http://localhost:5001/api/reports/dashboard', {
+      const response = await fetch('http://localhost:5000/api/reports/dashboard', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,

@@ -1,7 +1,7 @@
 
 
 
-const API_BASE_URL = 'http://localhost:5001/api';
+const API_BASE_URL = 'http://localhost:5000/api';
 
 interface ApiResponse<T> {
   success: boolean;
@@ -230,7 +230,45 @@ class ApiService {
       username: string;
       name: string;
       role: string;
+      email: string;
+      branchId: string;
+      branch?: {
+        id: string;
+        name: string;
+      };
     }>('/auth/profile');
+  }
+
+  async changePassword(passwordData: {
+    currentPassword: string;
+    newPassword: string;
+  }) {
+    return this.request<{
+      success: boolean;
+      message: string;
+    }>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify(passwordData),
+    });
+  }
+
+  async updateProfile(profileData: {
+    name?: string;
+    username?: string;
+    email?: string;
+  }) {
+    return this.request<{
+      id: string;
+      username: string;
+      name: string;
+      email: string;
+      role: string;
+      branchId: string;
+      updatedAt: string;
+    }>('/auth/update-profile', {
+      method: 'PUT',
+      body: JSON.stringify(profileData),
+    });
   }
 
   // Branches
@@ -1175,7 +1213,7 @@ class ApiService {
     phone: string;
     company: string;
     plan: 'basic' | 'premium' | 'enterprise';
-    branchId: string;
+    branchId: string | null;
     password: string;
   }) {
     console.log('API createAdmin called with data:', adminData);

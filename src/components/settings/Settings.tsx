@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
 import {
   Settings as SettingsIcon,
   User,
@@ -24,8 +25,11 @@ import {
   Edit,
   X
 } from "lucide-react";
+import SuperAdminSettings from "./SuperAdminSettings";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Settings = () => {
+  const { user } = useAuth();
   const [isOnline, setIsOnline] = useState(true);
   const [isEditingPharmacy, setIsEditingPharmacy] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -107,14 +111,14 @@ const Settings = () => {
   const loadSettings = async () => {
     try {
       // Load settings
-      const settingsResponse = await fetch('http://localhost:5001/api/settings', {
+      const settingsResponse = await fetch('http://localhost:5000/api/settings', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
 
       // Load user profile
-      const userResponse = await fetch('http://localhost:5001/api/auth/profile', {
+      const userResponse = await fetch('http://localhost:5000/api/auth/profile', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -169,7 +173,7 @@ const Settings = () => {
 
   const handleSaveSettings = async () => {
     try {
-      const response = await fetch('http://localhost:5001/api/settings', {
+      const response = await fetch('http://localhost:5000/api/settings', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -345,7 +349,7 @@ const Settings = () => {
     }
 
     try {
-      const response = await fetch('http://localhost:5001/api/auth/change-password', {
+      const response = await fetch('http://localhost:5000/api/auth/change-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -375,7 +379,7 @@ const Settings = () => {
 
   const handleUpdateProfile = async () => {
     try {
-      const response = await fetch('http://localhost:5001/api/auth/update-profile', {
+      const response = await fetch('http://localhost:5000/api/auth/update-profile', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -442,6 +446,11 @@ const Settings = () => {
 
     input.click();
   };
+
+  // Show SuperAdminSettings for super admin users
+  if (user?.role === 'SUPERADMIN') {
+    return <SuperAdminSettings />;
+  }
 
   return (
     <div className="p-6 space-y-6 bg-background min-h-screen">

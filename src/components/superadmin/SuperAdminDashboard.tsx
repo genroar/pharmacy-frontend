@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef, memo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { apiService } from "@/services/api";
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminUserManagement from "../admin/AdminUserManagement";
+import SuperAdminSettings from "../settings/SuperAdminSettings";
 import {
   Users,
   UserPlus,
@@ -99,7 +100,7 @@ const SuperAdminDashboard = () => {
   const [selectedAdmin, setSelectedAdmin] = useState<Admin | null>(null);
   const [isViewUsersOpen, setIsViewUsersOpen] = useState(false);
 
-  console.log('🔍 SuperAdminDashboard: Component rendered with user:', user);
+  // console.log('🔍 SuperAdminDashboard: Component rendered with user:', user);
   const [isViewAdminDetailsOpen, setIsViewAdminDetailsOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'overview' | 'admins' | 'users' | 'payments' | 'settings' | 'user-management'>('overview');
   const [isLoading, setIsLoading] = useState(false);
@@ -118,7 +119,7 @@ const SuperAdminDashboard = () => {
     totalSales: 0,
     activeAdmins: 0
   });
-  const [allBranches, setAllBranches] = useState<Array<{id: string, name: string}>>([]);
+  const [allBranches, setAllBranches] = useState<Array<{ id: string, name: string }>>([]);
   const [newAdmin, setNewAdmin] = useState({
     name: "",
     email: "",
@@ -134,6 +135,7 @@ const SuperAdminDashboard = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [activeStatTab, setActiveStatTab] = useState(0); // Only first card is active, no changes allowed
   const { toast } = useToast();
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load data on component mount
   useEffect(() => {
@@ -141,19 +143,25 @@ const SuperAdminDashboard = () => {
     loadBranches();
   }, []);
 
-  // Update date and time every second
+  // Update date and time every second - optimized to prevent unnecessary re-renders
   useEffect(() => {
-    const timer = setInterval(() => {
+    const updateDateTime = () => {
       setCurrentDateTime(new Date());
-    }, 1000);
+    };
 
-    return () => clearInterval(timer);
+    // Initial update
+    updateDateTime();
+
+    // Set up timer
+    timerRef.current = setInterval(updateDateTime, 1000);
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
   }, []);
-
-  // Debug branches state
-  useEffect(() => {
-    console.log('Branches state updated:', branches);
-  }, [branches]);
 
   // Clear success message after 5 seconds
   useEffect(() => {
@@ -165,7 +173,7 @@ const SuperAdminDashboard = () => {
     }
   }, [success]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setIsLoading(true);
     setError("");
     try {
@@ -198,9 +206,9 @@ const SuperAdminDashboard = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const loadBranches = async () => {
+  const loadBranches = useCallback(async () => {
     try {
       const response = await apiService.getBranches();
       console.log('Branches response:', response);
@@ -217,7 +225,7 @@ const SuperAdminDashboard = () => {
     } catch (error) {
       console.error('Error loading branches:', error);
     }
-  };
+  }, []);
 
   const loadAdminUsers = async (adminId: string) => {
     try {
@@ -433,7 +441,7 @@ const SuperAdminDashboard = () => {
         phone: newAdmin.phone,
         company: newAdmin.company,
         plan: 'basic', // Default plan
-        branchId: null, // No branch required for admin
+        branchId: null, // Will be created by backend
         password: newAdmin.password
       };
 
@@ -518,11 +526,10 @@ const SuperAdminDashboard = () => {
                   setActiveTab(item.id);
                   setViewMode(item.id as any);
                 }}
-                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${
-                  (activeTab === item.id && viewMode !== 'user-management')
+                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${(activeTab === item.id && viewMode !== 'user-management')
                     ? 'bg-primary text-primary-foreground'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                }`}
+                  }`}
               >
                 <IconComponent className="w-5 h-5" />
                 <span className="font-medium">{item.label}</span>
@@ -794,7 +801,7 @@ const SuperAdminDashboard = () => {
                           : 'bg-white hover:bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)] hover:shadow-lg hover:scale-105'
                         }
                       `}
-                      onClick={() => {}} // No click action - only first card stays active
+                      onClick={() => { }} // No click action - only first card stays active
                     >
                       <CardContent className="p-6">
                         <div className="flex items-center justify-between">
@@ -882,98 +889,132 @@ const SuperAdminDashboard = () => {
                 </Button>
               </div>
 
-              {/* Admins Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredAdmins.map((admin) => (
-                  <Card key={admin.id} className="hover:shadow-lg transition-shadow">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                            <Shield className="w-6 h-6 text-blue-600" />
-                          </div>
-                          <div>
-                            <CardTitle className="text-lg">{admin.name}</CardTitle>
-                            <p className="text-sm text-muted-foreground">{admin.company}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <Badge className={`${getStatusColor(admin.status)}`}>
-                            {admin.status === 'active' ? <UserCheck className="w-3 h-3 mr-1" /> : <UserX className="w-3 h-3 mr-1" />}
-                            {admin.status.toUpperCase()}
-                          </Badge>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="space-y-2">
-                        <div className="flex items-center space-x-2 text-sm">
-                          <Mail className="w-4 h-4 text-gray-400" />
-                          <span>{admin.email}</span>
-                        </div>
-                        <div className="flex items-center space-x-2 text-sm">
-                          <Phone className="w-4 h-4 text-gray-400" />
-                          <span>{admin.phone}</span>
-                        </div>
-                        <div className="flex items-center space-x-2 text-sm">
-                          <MapPin className="w-4 h-4 text-gray-400" />
-                          <span>{admin.address}</span>
-                        </div>
-                      </div>
+              {/* Admins Table */}
+              <Card>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 border-b">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Admin
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Company
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Contact
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Users
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Last Active
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {filteredAdmins.map((admin) => (
+                          <tr key={admin.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                  <Shield className="w-5 h-5 text-blue-600" />
+                                </div>
+                                <div className="ml-4">
+                                  <div className="text-sm font-medium text-gray-900">{admin.name}</div>
+                                  <div className="text-sm text-gray-500">{admin.email}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">{admin.company}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="space-y-1">
+                                <div className="flex items-center text-sm text-gray-900">
+                                  <Phone className="w-4 h-4 text-gray-400 mr-2" />
+                                  {admin.phone}
+                                </div>
+                                <div className="flex items-center text-sm text-gray-500">
+                                  <MapPin className="w-4 h-4 text-gray-400 mr-2" />
+                                  <span className="truncate max-w-xs">{admin.address}</span>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <Badge
+                                className={`flex items-center space-x-1 px-2 py-1 rounded-md text-xs font-medium w-fit ${getStatusColor(
+                                  admin.status
+                                )}`}
+                              >
+                                {admin.status === "active" ? (
+                                  <UserCheck className="w-3 h-3" />
+                                ) : (
+                                  <UserX className="w-3 h-3" />
+                                )}
+                                <span>{admin.status.toUpperCase()}</span>
+                              </Badge>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm font-medium text-gray-900">{admin.userCount}</div>
+                              <div className="text-sm text-gray-500">{admin.managerCount} managers</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {admin.lastActive}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                              <div className="flex items-center space-x-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => toggleAdminStatus(admin.id, admin.status)}
+                                  className="flex items-center gap-1"
+                                >
+                                  {admin.status === "active" ? (
+                                    <ToggleRight className="w-4 h-4 text-green-600" />
+                                  ) : (
+                                    <ToggleLeft className="w-4 h-4 text-gray-400" />
+                                  )}
+                                  <span className="text-xs">
+                                    {admin.status === "active" ? "Deactivate" : "Activate"}
+                                  </span>
+                                </Button>
 
-                      <div className="grid grid-cols-1 gap-4 pt-2 border-t">
-                        <div className="text-center">
-                          <p className="text-2xl font-bold text-blue-600">{admin.userCount}</p>
-                          <p className="text-xs text-muted-foreground">Total Users</p>
-                        </div>
-                      </div>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleViewAdminDetails(admin)}
+                                  className="flex items-center gap-1"
+                                >
+                                  <Settings className="w-4 h-4" />
+                                  <span className="text-xs">Details</span>
+                                </Button>
 
-                      <div className="flex items-center justify-between pt-2">
-                        <div className="text-xs text-muted-foreground">
-                          Last active: {admin.lastActive}
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => toggleAdminStatus(admin.id, admin.status)}
-                            className="flex items-center space-x-1"
-                            title={admin.status === 'active' ? 'Deactivate Admin' : 'Activate Admin'}
-                          >
-                            {admin.status === 'active' ? (
-                              <ToggleRight className="w-4 h-4 text-green-600" />
-                            ) : (
-                              <ToggleLeft className="w-4 h-4 text-gray-400" />
-                            )}
-                            <span className="text-xs">
-                              {admin.status === 'active' ? 'Deactivate' : 'Activate'}
-                            </span>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleViewAdminDetails(admin)}
-                            className="flex items-center space-x-1"
-                          >
-                            <Settings className="w-4 h-4" />
-                            <span>Manage</span>
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => handleDeleteAdmin(admin)}
-                            className="flex items-center space-x-1"
-                            title="Delete Admin Permanently"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                            <span>Delete</span>
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleDeleteAdmin(admin)}
+                                  className="flex items-center gap-1 bg-red-600 text-white hover:bg-red-700"
+                                  title="Delete Admin Permanently"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                  <span className="text-xs">Delete</span>
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           )}
 
@@ -1262,19 +1303,7 @@ const SuperAdminDashboard = () => {
 
           {/* Settings Tab */}
           {viewMode === 'settings' && (
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Settings className="w-5 h-5 text-primary" />
-                    <span>Platform Settings</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">Platform configuration settings will be available here.</p>
-                </CardContent>
-              </Card>
-            </div>
+            <SuperAdminSettings />
           )}
 
           {/* User Management View */}
@@ -1655,4 +1684,4 @@ const SuperAdminDashboard = () => {
   );
 };
 
-export default SuperAdminDashboard;
+export default memo(SuperAdminDashboard);

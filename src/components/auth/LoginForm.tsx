@@ -15,13 +15,14 @@ import { apiService } from "@/services/api";
 
 interface LoginFormProps {
   onLogin: (user: { id: string; name: string; role: string; branchId: string }) => void;
+  onNavigateToSignup?: () => void;
 }
 
 
-const LoginForm = ({ onLogin }: LoginFormProps) => {
+const LoginForm = ({ onLogin, onNavigateToSignup }: LoginFormProps) => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    usernameOrEmail: "",
+    username: "",
     password: ""
   });
   const [showPassword, setShowPassword] = useState(false);
@@ -35,9 +36,9 @@ const LoginForm = ({ onLogin }: LoginFormProps) => {
     setError("");
 
     try {
-      console.log('🔍 Attempting login with:', { usernameOrEmail: formData.usernameOrEmail });
+      console.log('🔍 Attempting login with:', { usernameOrEmail: formData.username });
       const response = await apiService.login({
-        usernameOrEmail: formData.usernameOrEmail,
+        usernameOrEmail: formData.username,
         password: formData.password
       });
 
@@ -80,129 +81,126 @@ const LoginForm = ({ onLogin }: LoginFormProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Logo/Header */}
-        <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)] rounded-full flex items-center justify-center mx-auto mb-4">
-            <Shield className="w-10 h-10 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">MediBill Pulse</h1>
-          <p className="text-gray-600">Pharmacy Management System</p>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-purple-600 to-purple-800 flex">
+      {/* Left Side - Sign In (White Background) */}
+      <div className="w-full bg-white lg:w-3/5 flex items-center justify-center rounded-tr-[50px] rounded-br-[50px] p-8 lg:p-12">
+        <div className="w-full max-w-md">
+          {/* Title */}
+          <h1 className="text-4xl font-bold text-gray-900 mb-8">Sign In</h1>
 
-        {/* Login Form */}
-        <Card className="shadow-xl border-0">
-          <CardHeader className="text-center pb-4">
-            <CardTitle className="text-2xl font-bold text-gray-900">Welcome Back</CardTitle>
-            <p className="text-gray-600">Sign in to your account</p>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Username or Email */}
-              <div className="space-y-2">
-                <Label htmlFor="usernameOrEmail" className="text-sm font-medium text-gray-700">
-                  Username or Email
-                </Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input
-                    id="usernameOrEmail"
-                    type="text"
-                    placeholder="Enter your username or email"
-                    value={formData.usernameOrEmail}
-                    onChange={(e) => handleInputChange("usernameOrEmail", e.target.value)}
-                    className="pl-10 h-12 border-gray-300 focus:border-green-500 focus:ring-green-500"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Password */}
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium text-gray-700">
-                  Password
-                </Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
-                    value={formData.password}
-                    onChange={(e) => handleInputChange("password", e.target.value)}
-                    className="pl-10 pr-10 h-12 border-gray-300 focus:border-green-500 focus:ring-green-500"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-6">
+                    <div>
+                      <label htmlFor="login-username" className="block text-sm font-medium text-gray-700 mb-2">
+                        Username
+                      </label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <input
+                          id="login-username"
+                          type="text"
+                          value={formData.username}
+                          onChange={(e) => handleInputChange("username", e.target.value)}
+                          className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          placeholder="Enter your username"
+                          required
+                        />
+                      </div>
+                    </div>
 
 
-              {/* Error Message */}
-              {error && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-                  <p className="text-sm text-red-600">{error}</p>
-                </div>
-              )}
-
-              {/* Login Button */}
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="w-full h-12 text-white bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)] hover:opacity-90 transition-opacity"
-              >
-                {isLoading ? (
-                  <div className="flex items-center space-x-2">
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>Signing in...</span>
-                  </div>
-                ) : (
-                  "Sign In"
-                )}
-              </Button>
-            </form>
-
-
-            {/* Demo Credentials */}
-            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-              <h4 className="text-sm font-medium text-gray-700 mb-2">Demo Credentials:</h4>
-              <div className="space-y-1 text-xs text-gray-600">
-                <p><strong>SuperAdmin:</strong> superadmin / password123</p>
-                <p><strong>Admin:</strong> admin / password123</p>
-                <p><strong>Manager:</strong> manager / password123</p>
-                <p><strong>Cashier:</strong> cashier / password123</p>
-                <p className="text-gray-500 mt-2">You can also use email addresses if available</p>
-              </div>
-            </div>
-
-            {/* Signup Link */}
-            <div className="mt-4 text-center">
-              <p className="text-sm text-gray-600">
-                Don't have an account?{" "}
-                <a
-                  href="/signup"
-                  className="text-green-600 hover:text-green-700 font-medium underline"
+            <div>
+              <label htmlFor="login-password" className="block text-sm font-medium text-gray-700 mb-2">
+                Password
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  id="login-password"
+                  type={showPassword ? "text" : "password"}
+                  value={formData.password}
+                  onChange={(e) => handleInputChange("password", e.target.value)}
+                  className="w-full pl-12 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="Enter your password"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  Create Admin Account
-                </a>
-              </p>
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Footer */}
-        <div className="text-center mt-8">
-          <p className="text-sm text-gray-500">
-            © 2024 MediBill Pulse. All rights reserved.
-          </p>
+            {/* Error Message */}
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-sm text-red-600">{error}</p>
+              </div>
+            )}
+
+            {/* Forgot Password */}
+            <div className="text-right">
+              <a href="#" className="text-sm text-gray-600 hover:text-purple-600">
+                Forgot Your Password?
+              </a>
+            </div>
+
+            {/* Sign In Button */}
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full bg-purple-600 text-white py-3 rounded-lg font-medium hover:bg-purple-700 transition-colors disabled:opacity-50"
+            >
+              {isLoading ? (
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Signing in...</span>
+                </div>
+              ) : (
+                "Sign In"
+              )}
+            </button>
+          </form>
+
+          {/* Demo Credentials */}
+          <div className="mt-8 p-4 bg-gray-50 rounded-lg">
+            <h4 className="text-sm font-medium text-gray-700 mb-2">Demo Credentials:</h4>
+            <div className="space-y-1 text-xs text-gray-600">
+              <p><strong>SuperAdmin:</strong> superadmin / password123</p>
+              <p><strong>Admin:</strong> admin / password123</p>
+              <p><strong>Manager:</strong> manager / password123</p>
+              <p><strong>Cashier:</strong> cashier / password123</p>
+            </div>
+          </div>
         </div>
+      </div>
+
+      {/* Right Side - Welcome (Purple Background) */}
+      <div className="hidden lg:flex lg:w-2/5  relative">
+        {/* Curved edge */}
+
+         <div className="flex justify-center w-[100%] items-center text-white p-8 relative z-10">
+           <div className="text-center w-[100%] flex flex-col items-center justify-center space-y-6">
+             <h2 className="text-4xl font-bold">Welcome Back!</h2>
+             <p className="text-lg text-purple-100 max-w-xs">
+               Welcome to the world's best pharmacy POS system
+             </p>
+             <div className="flex items-center space-x-4">
+               <div className="w-8 h-px bg-white/30"></div>
+               <span className="text-white/70 font-medium">OR</span>
+               <div className="w-8 h-px bg-white/30"></div>
+             </div>
+            <button
+              onClick={onNavigateToSignup}
+              className="px-8 py-3 border-2 border-white text-white rounded-lg font-medium hover:bg-white hover:text-purple-600 transition-colors"
+            >
+              SIGN UP
+            </button>
+           </div>
+         </div>
       </div>
     </div>
   );

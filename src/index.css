@@ -57,3 +57,10 @@
 .green-color {
   @apply bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)]
 }
+
+/* Login form hero background */
+.login-hero-bg {
+  background-image: url('/images/loginpage.jpeg');
+  background-size: cover;
+  background-position: center;
+}

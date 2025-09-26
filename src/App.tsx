@@ -7,6 +7,7 @@ import { AdminProvider } from "./contexts/AdminContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import LoginForm from "./components/auth/LoginForm";
 import AdminSignupForm from "./components/auth/AdminSignupForm";
+import AuthContainer from "./components/auth/AuthContainer";
 import MainLayout from "./components/layout/MainLayout";
 import Index from "./pages/Index";
 import POS from "./pages/POS";
@@ -97,8 +98,8 @@ const AppRoutes = () => {
     <BrowserRouter>
       <Routes>
         {/* Public Routes */}
-        <Route path="/login" element={<LoginForm onLogin={(user) => login(user as any)} />} />
-        <Route path="/signup" element={<AdminSignupForm />} />
+        <Route path="/login" element={<AuthContainer />} />
+        <Route path="/signup" element={<AuthContainer />} />
 
         {/* Protected Routes */}
         <Route path="/" element={
