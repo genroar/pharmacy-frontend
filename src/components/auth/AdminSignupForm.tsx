@@ -93,15 +93,20 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
       ...prev,
       [field]: value
     }));
-    if (error) setError("");
+    if (error) setError("")
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-800 to-purple-600 flex">
+    <div className="min-h-screen bg-gradient-to-br from-[#0c2c8a] to-[#153186] flex">
       {/* Left Side - Welcome Content */}
       <div className="hidden lg:flex lg:w-2/5 relative">
         <div className="flex justify-center w-[100%] items-center text-white p-8 relative z-10">
           <div className="text-center w-[100%] flex flex-col items-center justify-center space-y-6">
+            <div className="text-center flex flex-col items-center ">
+              <div className="w-[70px] h-[70px] text-[50px] flex items-center justify-center bg-white text-blue-900 rounded-full font-bold">N</div>
+               <h1 className="text-2xl font-bold text-white/90 mb-2">NextBill</h1>
+               <div className="w-16 h-0.5 bg-white/30 mx-auto"></div>
+             </div>
             <h2 className="text-4xl font-bold">Create Account!</h2>
             <p className="text-lg text-purple-100 max-w-xs">
               Join the world's best pharmacy POS system and transform your business
@@ -113,7 +118,7 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
             </div>
             <button
               onClick={onNavigateToLogin}
-              className="px-8 py-3 border-2 border-white text-white rounded-lg font-medium hover:bg-white hover:text-purple-600 transition-colors"
+              className="px-8 py-3 border-2 border-white text-white rounded-lg font-medium hover:bg-white hover:text-[#0c2c8a] transition-colors"
             >
               SIGN IN
             </button>
@@ -149,41 +154,41 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
                   </h3>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div className="space-y-1">
-                              <Label htmlFor="signup-name" className="text-sm font-medium text-gray-700">
-                                Full Name *
-                              </Label>
-                              <div className="relative">
-                                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                <Input
-                                  id="signup-name"
-                                  type="text"
-                                  placeholder="Enter your full name"
-                                  value={formData.name}
-                                  onChange={(e) => handleInputChange("name", e.target.value)}
-                                  className="pl-10 h-10 border-gray-300 focus:border-green-500 focus:ring-green-500"
-                                  required
-                                />
-                              </div>
-                            </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="signup-name" className="text-sm font-medium text-gray-700">
+                        Full Name *
+                      </Label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <Input
+                          id="signup-name"
+                          type="text"
+                          placeholder="Enter your full name"
+                          value={formData.name}
+                          onChange={(e) => handleInputChange("name", e.target.value)}
+                          className="pl-10 h-10 border-gray-300 focus:border-green-500 focus:ring-green-500"
+                          required
+                        />
+                      </div>
+                    </div>
 
-                            <div className="space-y-1">
-                              <Label htmlFor="signup-username" className="text-sm font-medium text-gray-700">
-                                Username *
-                              </Label>
-                              <div className="relative">
-                                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                <Input
-                                  id="signup-username"
-                                  type="text"
-                                  placeholder="Choose a username"
-                                  value={formData.username}
-                                  onChange={(e) => handleInputChange("username", e.target.value)}
-                                  className="pl-10 h-10 border-gray-300 focus:border-green-500 focus:ring-green-500"
-                                  required
-                                />
-                              </div>
-                            </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="signup-username" className="text-sm font-medium text-gray-700">
+                        Username *
+                      </Label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <Input
+                          id="signup-username"
+                          type="text"
+                          placeholder="Choose a username"
+                          value={formData.username}
+                          onChange={(e) => handleInputChange("username", e.target.value)}
+                          className="pl-10 h-10 border-gray-300 focus:border-green-500 focus:ring-green-500"
+                          required
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   <div className="space-y-1">
@@ -212,55 +217,55 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
                   </h3>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div className="space-y-1">
-                              <Label htmlFor="signup-password" className="text-sm font-medium text-gray-700">
-                                Password *
-                              </Label>
-                              <div className="relative">
-                                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                <Input
-                                  id="signup-password"
-                                  type={showPassword ? "text" : "password"}
-                                  placeholder="Create a password"
-                                  value={formData.password}
-                                  onChange={(e) => handleInputChange("password", e.target.value)}
-                                  className="pl-10 pr-10 h-10 border-gray-300 focus:border-green-500 focus:ring-green-500"
-                                  required
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => setShowPassword(!showPassword)}
-                                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                >
-                                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                </button>
-                              </div>
-                            </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="signup-password" className="text-sm font-medium text-gray-700">
+                        Password *
+                      </Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <Input
+                          id="signup-password"
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Create a password"
+                          value={formData.password}
+                          onChange={(e) => handleInputChange("password", e.target.value)}
+                          className="pl-10 pr-10 h-10 border-gray-300 focus:border-green-500 focus:ring-green-500"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
 
-                            <div className="space-y-1">
-                              <Label htmlFor="signup-confirmPassword" className="text-sm font-medium text-gray-700">
-                                Confirm Password *
-                              </Label>
-                              <div className="relative">
-                                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                <Input
-                                  id="signup-confirmPassword"
-                                  type={showConfirmPassword ? "text" : "password"}
-                                  placeholder="Confirm your password"
-                                  value={formData.confirmPassword}
-                                  onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
-                                  className="pl-10 pr-10 h-10 border-gray-300 focus:border-green-500 focus:ring-green-500"
-                                  required
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                >
-                                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                </button>
-                              </div>
-                            </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="signup-confirmPassword" className="text-sm font-medium text-gray-700">
+                        Confirm Password *
+                      </Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <Input
+                          id="signup-confirmPassword"
+                          type={showConfirmPassword ? "text" : "password"}
+                          placeholder="Confirm your password"
+                          value={formData.confirmPassword}
+                          onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
+                          className="pl-10 pr-10 h-10 border-gray-300 focus:border-green-500 focus:ring-green-500"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -271,53 +276,53 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
                   </h3>
 
                   <div className="space-y-3">
-                            <div className="space-y-1">
-                              <Label htmlFor="signup-branchName" className="text-sm font-medium text-gray-700">
-                                Pharmacy Name *
-                              </Label>
-                              <div className="relative">
-                                <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                <Input
-                                  id="signup-branchName"
-                                  type="text"
-                                  placeholder="Enter your pharmacy name"
-                                  value={formData.branchName}
-                                  onChange={(e) => handleInputChange("branchName", e.target.value)}
-                                  className="pl-10 h-10 border-gray-300 focus:border-green-500 focus:ring-green-500"
-                                  required
-                                />
-                              </div>
-                            </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="signup-branchName" className="text-sm font-medium text-gray-700">
+                        Pharmacy Name *
+                      </Label>
+                      <div className="relative">
+                        <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <Input
+                          id="signup-branchName"
+                          type="text"
+                          placeholder="Enter your pharmacy name"
+                          value={formData.branchName}
+                          onChange={(e) => handleInputChange("branchName", e.target.value)}
+                          className="pl-10 h-10 border-gray-300 focus:border-green-500 focus:ring-green-500"
+                          required
+                        />
+                      </div>
+                    </div>
 
-                            <div className="space-y-1">
-                              <Label htmlFor="signup-branchAddress" className="text-sm font-medium text-gray-700">
-                                Pharmacy Address *
-                              </Label>
-                              <Input
-                                id="signup-branchAddress"
-                                type="text"
-                                placeholder="Enter your pharmacy address"
-                                value={formData.branchAddress}
-                                onChange={(e) => handleInputChange("branchAddress", e.target.value)}
-                                className="h-10 border-gray-300 focus:border-green-500 focus:ring-green-500"
-                                required
-                              />
-                            </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="signup-branchAddress" className="text-sm font-medium text-gray-700">
+                        Pharmacy Address *
+                      </Label>
+                      <Input
+                        id="signup-branchAddress"
+                        type="text"
+                        placeholder="Enter your pharmacy address"
+                        value={formData.branchAddress}
+                        onChange={(e) => handleInputChange("branchAddress", e.target.value)}
+                        className="h-10 border-gray-300 focus:border-green-500 focus:ring-green-500"
+                        required
+                      />
+                    </div>
 
-                            <div className="space-y-1">
-                              <Label htmlFor="signup-branchPhone" className="text-sm font-medium text-gray-700">
-                                Pharmacy Phone *
-                              </Label>
-                              <Input
-                                id="signup-branchPhone"
-                                type="tel"
-                                placeholder="Enter your pharmacy phone number"
-                                value={formData.branchPhone}
-                                onChange={(e) => handleInputChange("branchPhone", e.target.value)}
-                                className="h-10 border-gray-300 focus:border-green-500 focus:ring-green-500"
-                                required
-                              />
-                            </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="signup-branchPhone" className="text-sm font-medium text-gray-700">
+                        Pharmacy Phone *
+                      </Label>
+                      <Input
+                        id="signup-branchPhone"
+                        type="tel"
+                        placeholder="Enter your pharmacy phone number"
+                        value={formData.branchPhone}
+                        onChange={(e) => handleInputChange("branchPhone", e.target.value)}
+                        className="h-10 border-gray-300 focus:border-green-500 focus:ring-green-500"
+                        required
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -338,7 +343,7 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
                 <Button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full h-10 text-white bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)] hover:opacity-90 transition-opacity"
+                  className="w-full h-10 text-white bg-[#0c2c8a]  hover:bg-[#153186] transition-opacity"
                 >
                   {isLoading ? (
                     <div className="flex items-center space-x-2">

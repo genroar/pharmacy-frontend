@@ -81,7 +81,7 @@ const LoginForm = ({ onLogin, onNavigateToSignup }: LoginFormProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-600 to-purple-800 flex">
+    <div className="min-h-screen bg-gradient-to-br from-[#0c2c8a] to-[#153186] flex">
       {/* Left Side - Sign In (White Background) */}
       <div className="w-full bg-white lg:w-3/5 flex items-center justify-center rounded-tr-[50px] rounded-br-[50px] p-8 lg:p-12">
         <div className="w-full max-w-md">
@@ -152,7 +152,7 @@ const LoginForm = ({ onLogin, onNavigateToSignup }: LoginFormProps) => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-purple-600 text-white py-3 rounded-lg font-medium hover:bg-purple-700 transition-colors disabled:opacity-50"
+              className="w-full bg-[#0c2c8a] text-white py-3 rounded-lg font-medium hover:bg-[#153186] transition-colors disabled:opacity-50"
             >
               {isLoading ? (
                 <div className="flex items-center justify-center space-x-2">
@@ -184,6 +184,11 @@ const LoginForm = ({ onLogin, onNavigateToSignup }: LoginFormProps) => {
 
          <div className="flex justify-center w-[100%] items-center text-white p-8 relative z-10">
            <div className="text-center w-[100%] flex flex-col items-center justify-center space-y-6">
+             <div className="text-center flex flex-col items-center ">
+              <div className="w-[70px] h-[70px] text-[50px] flex items-center justify-center bg-white text-blue-900 rounded-full font-bold">N</div>
+               <h1 className="text-2xl font-bold text-white/90 mb-2">NextBill</h1>
+               <div className="w-16 h-0.5 bg-white/30 mx-auto"></div>
+             </div>
              <h2 className="text-4xl font-bold">Welcome Back!</h2>
              <p className="text-lg text-purple-100 max-w-xs">
                Welcome to the world's best pharmacy POS system
@@ -195,7 +200,7 @@ const LoginForm = ({ onLogin, onNavigateToSignup }: LoginFormProps) => {
              </div>
             <button
               onClick={onNavigateToSignup}
-              className="px-8 py-3 border-2 border-white text-white rounded-lg font-medium hover:bg-white hover:text-purple-600 transition-colors"
+              className="px-8 py-3 border-2 border-white text-white rounded-lg font-medium hover:bg-white hover:text-[#0c2c8a] transition-colors"
             >
               SIGN UP
             </button>

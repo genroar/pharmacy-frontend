@@ -6,16 +6,38 @@ import { Bell, Menu, LogOut, User, Building2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/AdminContext";
 import { useState, useEffect, useRef } from "react";
+import { createContext, useContext } from "react";
 
 interface MainLayoutProps {
   children: React.ReactNode;
 }
 
+// Create a context for sidebar state
+const SidebarContext = createContext<{
+  isCollapsed: boolean;
+  setIsCollapsed: (collapsed: boolean) => void;
+}>({
+  isCollapsed: false,
+  setIsCollapsed: () => {}
+});
+
+export const useSidebarContext = () => useContext(SidebarContext);
+
 const MainLayout = ({ children }: MainLayoutProps) => {
   const { user, logout } = useAuth();
   const { selectedBranch, selectedBranchId } = useAdmin();
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    // Initialize from localStorage if available
+    const saved = localStorage.getItem('sidebar-collapsed');
+    return saved ? JSON.parse(saved) : false;
+  });
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Save sidebar state to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('sidebar-collapsed', JSON.stringify(isCollapsed));
+  }, [isCollapsed]);
 
   // Temporarily disabled timer to test re-rendering issue
   // useEffect(() => {
@@ -36,74 +58,18 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-background">
-        <RoleBasedSidebar />
+      <SidebarContext.Provider value={{ isCollapsed, setIsCollapsed }}>
+        <div className="h-screen pr-[20px] py-[20px] flex w-full bg-[#0c2c8a] overflow-hidden">
+          <RoleBasedSidebar />
 
-        <div className="flex-1 flex flex-col ml-64">
-          {/* Top Header */}
-          <header className="h-14 flex items-center justify-between px-6 border-b border-border bg-card">
-            <div className="flex  items-center ">
-              <SidebarTrigger className="lg:hidden">
-                <Menu className="w-5 h-5" />
-              </SidebarTrigger>
-              <div className="flex items-center space-x-2">
-                <Building2 className="w-5 h-5 text-primary" />
-                <div>
-                  <h1 className="text-lg font-semibold text-foreground">
-                    {selectedBranchId ? selectedBranch?.name : "Admin Dashboard"}
-                  </h1>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-4">
-              {/* Date and Time */}
-              <div className="text-right text-sm">
-                <p className="text-foreground font-medium">
-                  {currentDateTime.toLocaleDateString('en-US', {
-                    weekday: 'short',
-                    month: 'short',
-                    day: 'numeric'
-                  })}
-                </p>
-                <p className="text-muted-foreground text-xs">
-                  {currentDateTime.toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit',
-                    hour12: true
-                  })}
-                </p>
-              </div>
-
-              {/* User Info */}
-              <div className="flex items-center space-x-2 text-sm">
-                <User className="w-4 h-4 text-muted-foreground" />
-                <span className="text-foreground">{user?.name}</span>
-                <span className="text-muted-foreground">({user?.role})</span>
-              </div>
-
-              <Button variant="ghost" size="sm">
-                <Bell className="w-5 h-5" />
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={logout}
-                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-              >
-                <LogOut className="w-4 h-4" />
-              </Button>
-            </div>
-          </header>
-
-          {/* Main Content */}
-          <main className="flex-1 overflow-auto">
-            {children}
-          </main>
+          <div className={`flex-1 flex flex-col h-full transition-all duration-300 ${isCollapsed ? 'ml-16' : 'ml-64'}`}>
+            {/* Main Content */}
+            <main className="flex-1 overflow-y-auto rounded-lg bg-white">
+              {children}
+            </main>
+          </div>
         </div>
-      </div>
+      </SidebarContext.Provider>
     </SidebarProvider>
   );
 };

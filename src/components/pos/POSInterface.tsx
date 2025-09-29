@@ -166,6 +166,7 @@ const POSInterface = () => {
   const [splitPayments, setSplitPayments] = useState<SplitPayment[]>([]);
   const [isSplitPayment, setIsSplitPayment] = useState(false);
   const [isRefundDialogOpen, setIsRefundDialogOpen] = useState(false);
+  const [settingsUpdateTrigger, setSettingsUpdateTrigger] = useState(0);
   const [refundReceiptNumber, setRefundReceiptNumber] = useState("");
   const [refundReason, setRefundReason] = useState("");
   const [refundItems, setRefundItems] = useState<RefundItem[]>([]);
@@ -224,8 +225,8 @@ const POSInterface = () => {
           }
 
           const url = branchId
-            ? `http://localhost:5000/api/products?limit=1000&branchId=${branchId}`
-            : `http://localhost:5000/api/products?limit=1000`;
+            ? `http://localhost:5001/api/products?limit=1000&branchId=${branchId}`
+            : `http://localhost:5001/api/products?limit=1000`;
 
           const response = await fetch(url, {
             headers: {
@@ -270,7 +271,7 @@ const POSInterface = () => {
     const loadCategoriesSimple = async () => {
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch('http://localhost:5000/api/categories', {
+        const response = await fetch('http://localhost:5001/api/categories', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -297,8 +298,8 @@ const POSInterface = () => {
 
           // Get all products for current branch to filter categories
           const url = branchId
-            ? `http://localhost:5000/api/products?branchId=${branchId}&limit=1000`
-            : `http://localhost:5000/api/products?limit=1000`;
+            ? `http://localhost:5001/api/products?branchId=${branchId}&limit=1000`
+            : `http://localhost:5001/api/products?limit=1000`;
 
           const productsResponse = await fetch(url, {
             headers: {
@@ -429,8 +430,8 @@ const POSInterface = () => {
         // Fallback to direct fetch
         const token = localStorage.getItem('token');
         const url = branchId
-          ? `http://localhost:5000/api/products?limit=1000&branchId=${branchId}`
-          : `http://localhost:5000/api/products?limit=1000`;
+          ? `http://localhost:5001/api/products?limit=1000&branchId=${branchId}`
+          : `http://localhost:5001/api/products?limit=1000`;
 
         const directResponse = await fetch(url, {
           headers: {
@@ -588,6 +589,21 @@ const POSInterface = () => {
     };
   }, []);
 
+  // Listen for POS settings updates to refresh tax calculation
+  React.useEffect(() => {
+    const handleSettingsUpdate = (event: CustomEvent) => {
+      console.log('POS settings updated:', event.detail);
+      // Force re-render by updating the trigger state
+      setSettingsUpdateTrigger(prev => prev + 1);
+    };
+
+    window.addEventListener('posSettingsUpdated', handleSettingsUpdate as EventListener);
+
+    return () => {
+      window.removeEventListener('posSettingsUpdated', handleSettingsUpdate as EventListener);
+    };
+  }, []);
+
 
   const getUnitIcon = (unitType: string) => {
     switch (unitType) {
@@ -644,8 +660,37 @@ const POSInterface = () => {
   };
 
   const subtotal = cart.reduce((sum, item) => sum + item.totalPrice, 0);
-  const tax = subtotal * 0.17; // 17% GST
+
+  // Get tax rate from settings (default to 17% if not set)
+  const getTaxRate = () => {
+    try {
+      // First try to get from global variable
+      if ((window as any).globalPOSSettings?.defaultTax !== undefined) {
+        return (window as any).globalPOSSettings.defaultTax / 100;
+      }
+
+      // Then try localStorage
+      const savedSettings = localStorage.getItem('pos_settings');
+      if (savedSettings) {
+        const posSettings = JSON.parse(savedSettings);
+        return (posSettings.defaultTax || 17) / 100;
+      }
+
+      // Default fallback
+      return 0.17; // 17%
+    } catch (error) {
+      console.error('Error getting tax rate:', error);
+      return 0.17; // Default to 17%
+    }
+  };
+
+  // Make tax rate reactive by recalculating it each time
+  const taxRate = getTaxRate();
+  const tax = subtotal * taxRate;
   const total = subtotal + tax - discountAmount;
+
+  // Debug log to see current tax rate
+  console.log('🧾 Current tax rate:', (taxRate * 100).toFixed(0) + '%', 'Tax amount:', tax.toFixed(2));
 
   const paymentMethods = [
     { id: 'cash', label: 'Cash', icon: Banknote },
@@ -1430,7 +1475,7 @@ const POSInterface = () => {
                 <span>PKR ${currentReceipt.subtotal.toFixed(2)}</span>
               </div>
               <div class="total-line">
-                <span>GST (17%):</span>
+                <span>GST (${(taxRate * 100).toFixed(0)}%):</span>
                 <span>PKR ${currentReceipt.tax.toFixed(2)}</span>
               </div>
               <div class="total-line total-final">
@@ -1657,7 +1702,7 @@ const POSInterface = () => {
             <span>PKR ${receipt.subtotal.toFixed(2)}</span>
           </div>
           <div class="total-row">
-            <span>GST (17%):</span>
+            <span>GST (${(taxRate * 100).toFixed(0)}%):</span>
             <span>PKR ${receipt.tax.toFixed(2)}</span>
           </div>
           <div class="total-row total-final">
@@ -1770,7 +1815,7 @@ ${currentReceipt.items.map(item => `
 
 Summary:
 - Subtotal: PKR ${currentReceipt.subtotal.toFixed(2)}
-- GST (17%): PKR ${currentReceipt.tax.toFixed(2)}
+- GST (${(taxRate * 100).toFixed(0)}%): PKR ${currentReceipt.tax.toFixed(2)}
 - Total: PKR ${currentReceipt.total.toFixed(2)}
 - Payment Method: ${currentReceipt.paymentMethod.toUpperCase()}
 
@@ -2165,13 +2210,13 @@ Sale amount has been deducted from reports.`);
           <CardHeader>
             <div className="flex items-center justify-between">
             <CardTitle className="flex items-center space-x-2">
-              <Search className="w-5 h-5 text-primary" />
+              <Search className="w-5 h-5 text-[#0c2c8a]" />
               <span>Pharmacy Product Search</span>
             </CardTitle>
               <div className="flex space-x-2">
                 <Button
                   onClick={() => setIsInvoiceDialogOpen(true)}
-                  className="text-white bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)] hover:opacity-90"
+                  className="text-white bg-[#0c2c8a] hover:bg-transparent hover:text-[#0c2c8a] border-[1px] border-[#0c2c8a]"
                 >
                   <Receipt className="w-4 h-4 mr-2" />
                   Create Invoice for New Customer
@@ -2219,7 +2264,7 @@ Sale amount has been deducted from reports.`);
                   console.log('🚀 Loading products directly...');
                   try {
                     const token = localStorage.getItem('token');
-                    const response = await fetch(`http://localhost:5000/api/products?limit=1000&branchId=${user?.branchId || 'cmfprkvh6000t7yyp8q2197xa'}`, {
+                    const response = await fetch(`http://localhost:5001/api/products?limit=1000&branchId=${user?.branchId || 'cmfprkvh6000t7yyp8q2197xa'}`, {
                       headers: {
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
@@ -2246,7 +2291,7 @@ Sale amount has been deducted from reports.`);
                     console.error('🚀 Error:', error);
                   }
                 }}
-                className="h-12 px-3 text-white bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)] hover:opacity-90"
+                className="h-12 px-3 text-white bg-transparent text-[#0c2c8a] border-[1px] border-[#0c2c8a]"
                 title="Load Products"
               >
                 Load Products
@@ -2272,7 +2317,7 @@ Sale amount has been deducted from reports.`);
                   size="sm"
                   onClick={() => setSelectedCategory(category)}
                   className={`capitalize ${selectedCategory === category
-                      ? "text-white bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)]"
+                      ? "text-white bg-[#0c2c8a] hover:bg-transparent hover:text-[#0c2c8a] border-[1px] border-[#0c2c8a]"
                       : ""
                     }`}
                 >
@@ -2304,7 +2349,7 @@ Sale amount has been deducted from reports.`);
 
                         {/* Price and Stock */}
                         <div className="flex items-center justify-between">
-                          <span className="text-lg font-bold text-primary">PKR {product.price}</span>
+                          <span className="text-lg font-bold text-[#0c2c8a]">PKR {product.price}</span>
                           <Badge variant="outline" className="text-xs">
                             {product.stock} left
                           </Badge>
@@ -2447,7 +2492,7 @@ Sale amount has been deducted from reports.`);
                   <span>PKR {currentReceipt.subtotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>GST (17%):</span>
+                  <span>GST ({(taxRate * 100).toFixed(0)}%):</span>
                   <span>PKR {currentReceipt.tax.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-lg font-bold border-t pt-2">
@@ -2851,8 +2896,8 @@ Sale amount has been deducted from reports.`);
                     <span className="font-medium">PKR {invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">GST (17%)</span>
-                    <span className="font-medium">PKR {(invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0) * 0.17).toFixed(2)}</span>
+                    <span className="text-muted-foreground">GST ({(taxRate * 100).toFixed(0)}%)</span>
+                    <span className="font-medium">PKR {(invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0) * taxRate).toFixed(2)}</span>
                   </div>
                   {discountAmount > 0 && (
                     <div className="flex justify-between text-sm text-green-600">
@@ -2926,37 +2971,7 @@ Sale amount has been deducted from reports.`);
                   variant="outline"
                   disabled={invoiceLookupLoading}
                 >
-                  {invoiceLookupLoading ? 'Looking up...' : 'Lookup Invoice'}
-                </Button>
-                <Button
-                  onClick={async () => {
-                    try {
-                      // Make API call to get sales data
-                      const response = await apiService.getSales({
-                        limit: 1000,
-                        startDate: undefined,
-                        endDate: undefined,
-                        branchId: undefined
-                      });
-
-                      if (response.success && response.data?.sales) {
-                        const receiptNumbers = response.data.sales
-                          .map((sale: any) => sale.receipts?.[0]?.receiptNumber)
-                          .filter(Boolean)
-                          .join('\n');
-                        alert(`Available Receipt Numbers:\n\n${receiptNumbers || 'None'}\n\nTry entering one of these receipt numbers to test the refund functionality.`);
-                      } else {
-                        alert('Failed to load invoices. Please try again.');
-                      }
-                    } catch (error) {
-                      console.error('Error loading receipts:', error);
-                      alert('Error loading receipts. Please try again.');
-                    }
-                  }}
-                  variant="outline"
-                  className="text-blue-600 border-blue-600 hover:bg-blue-50"
-                >
-                  Show Available
+                  {invoiceLookupLoading ? 'Loading...' : 'Show Invoice'}
                 </Button>
               </div>
             </div>
@@ -3034,7 +3049,7 @@ Sale amount has been deducted from reports.`);
                             <span>PKR {foundInvoice.subtotal.toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span>GST (17%):</span>
+                            <span>GST ({(taxRate * 100).toFixed(0)}%):</span>
                             <span>PKR {foundInvoice.taxAmount.toFixed(2)}</span>
                           </div>
                           {foundInvoice.discountAmount > 0 && (

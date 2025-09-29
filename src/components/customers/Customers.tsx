@@ -256,7 +256,6 @@ const Customers = () => {
         <div>
           <h1 className="text-3xl font-bold text-foreground">Customer Management</h1>
           <p className="text-muted-foreground">Manage customer relationships and loyalty</p>
-          <p className="text-xs text-muted-foreground">Debug: {customers.length} customers loaded</p>
         </div>
         <div className="flex space-x-2">
           <Button
@@ -267,7 +266,7 @@ const Customers = () => {
             <TrendingUp className="w-4 h-4 mr-2" />
             {loading ? 'Refreshing...' : 'Refresh'}
           </Button>
-          <Button className="text-white bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)] hover:opacity-90">
+          <Button className="text-white bg-[#0c2c8a] hover:bg-transparent hover:text-[#0c2c8a] border-[1px] border-[#0c2c8a] hover:opacity-90">
             <Plus className="w-4 h-4 mr-2" />
             Add Customer
           </Button>
@@ -276,7 +275,7 @@ const Customers = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="shadow-soft border-0">
+        <Card className="shadow-md border-[1px] border-[#0c2c8a]">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -288,7 +287,7 @@ const Customers = () => {
           </CardContent>
         </Card>
 
-        <Card className="shadow-soft border-0">
+        <Card className="shadow-md border-[1px] border-[#0c2c8a]">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -300,7 +299,7 @@ const Customers = () => {
           </CardContent>
         </Card>
 
-        <Card className="shadow-soft border-0">
+        <Card className="shadow-md border-[1px] border-[#0c2c8a]">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -312,7 +311,7 @@ const Customers = () => {
           </CardContent>
         </Card>
 
-        <Card className="shadow-soft border-0">
+        <Card className="shadow-md border-[1px] border-[#0c2c8a]">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -356,7 +355,7 @@ const Customers = () => {
                     onClick={() => setSelectedFilter(filter)}
                     className={`${
                       selectedFilter === filter
-                        ? "text-white bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)]"
+                        ? "text-white bg-[#0c2c8a] hover:bg-transparent hover:text-[#0c2c8a] border-[1px] border-[#0c2c8a]"
                         : ""
                     }`}
                   >
@@ -399,8 +398,8 @@ const Customers = () => {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                    <span className="text-lg font-semibold text-primary">
+                  <div className="w-12 h-12 bg-[#0c2c8a]/10 rounded-full flex items-center justify-center">
+                    <span className="text-lg font-semibold text-[#0c2c8a]">
                       {customer.name.split(' ').map(n => n[0]).join('')}
                     </span>
                   </div>
@@ -486,7 +485,8 @@ const Customers = () => {
               <Plus className="w-4 h-4 mr-2" />
               Add First Customer
             </Button>
-          </CardContent>
+          </CardContent>Recent Purchases
+
         </Card>
       )}
 
@@ -495,7 +495,7 @@ const Customers = () => {
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center space-x-2">
-              <Receipt className="w-5 h-5 text-primary" />
+              <Receipt className="w-5 h-5 text-[#0c2c8a]" />
               <span>Purchase History - {selectedCustomer?.name}</span>
             </DialogTitle>
           </DialogHeader>
@@ -537,8 +537,8 @@ const Customers = () => {
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                              <Receipt className="w-5 h-5 text-primary" />
+                            <div className="w-10 h-10 bg-[#0c2c8a]/10 rounded-full flex items-center justify-center">
+                              <Receipt className="w-5 h-5 text-[#0c2c8a]" />
                             </div>
                             <div>
                               <p className="font-semibold">Receipt #{purchase.id}</p>

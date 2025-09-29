@@ -258,7 +258,7 @@ const BranchManagement = () => {
           <div className="flex items-center space-x-4">
             <Button
               onClick={() => setIsCreateDialogOpen(true)}
-              className="flex items-center gap-2 bg-primary hover:bg-primary/90"
+              className="flex items-center gap-2 bg-[#0c2c8a] hover:bg-transparent hover:text-[#0c2c8a] border-[1px] border-[#0c2c8a] hover:opacity-90"
             >
               <Plus className="w-4 h-4" />
               Add Branch
@@ -293,120 +293,151 @@ const BranchManagement = () => {
         </CardContent>
       </Card>
 
-      {/* Branches Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredBranches.map((branch) => (
-          <Card key={branch.id} className="shadow-soft border-0 hover:shadow-lg transition-all duration-300 group">
-            <CardHeader className="pb-4">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <Building2 className="w-5 h-5 text-primary" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg font-semibold text-gray-900 group-hover:text-primary transition-colors">
-                      {branch.name}
-                    </CardTitle>
-                    <div className="flex items-center gap-2 mt-1">
+      {/* Branches Table */}
+      <Card className="shadow-soft border-0">
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Branch Details
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Contact Info
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Manager
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Statistics
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredBranches.map((branch) => (
+                  <tr key={branch.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-[#0c2c8a]/10 rounded-lg">
+                          <Building2 className="w-5 h-5 text-[#0c2c8a]" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-semibold text-gray-900">
+                            {branch.name}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Created {new Date(branch.createdAt).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-sm text-gray-700">
+                          <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                          <span className="truncate max-w-[200px]" title={branch.address}>
+                            {branch.address}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-gray-700">
+                          <Phone className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                          <span>{branch.phone}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-gray-700">
+                          <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                          <span className="truncate max-w-[200px]" title={branch.email}>
+                            {branch.email}
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <UserCheck className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {getManagerName(branch.managerId)}
+                          </div>
+                          {getManagerRole(branch.managerId) ? (
+                            <div className="text-xs text-gray-500">
+                              {getManagerRole(branch.managerId)}
+                            </div>
+                          ) : (
+                            <div className="text-xs text-gray-500">
+                              No manager assigned
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      {branch._count ? (
+                        <div className="flex gap-4 text-sm">
+                          <div className="text-center">
+                            <div className="font-semibold text-primary">
+                              {branch._count.users || 0}
+                            </div>
+                            <div className="text-xs text-gray-500">Users</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-semibold text-primary">
+                              {branch._count.products || 0}
+                            </div>
+                            <div className="text-xs text-gray-500">Products</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-semibold text-primary">
+                              {branch._count.customers || 0}
+                            </div>
+                            <div className="text-xs text-gray-500">Customers</div>
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-400">No data</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
                       <Badge
                         variant={branch.isActive ? "default" : "secondary"}
                         className={branch.isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}
                       >
                         {branch.isActive ? "Active" : "Inactive"}
                       </Badge>
-                      <span className="text-xs text-gray-500">
-                        {new Date(branch.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => openEditDialog(branch)}
-                    className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
-                  >
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => openDeleteDialog(branch)}
-                    className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Contact Information */}
-              <div className="space-y-3">
-                <div className="flex items-start gap-3 text-sm">
-                  <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                  <span className="text-gray-700 leading-relaxed">{branch.address}</span>
-                </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <Phone className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                  <span className="text-gray-700">{branch.phone}</span>
-                </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                  <span className="text-gray-700 truncate">{branch.email}</span>
-                </div>
-              </div>
-
-              {/* Manager Info */}
-              <div className="pt-3 border-t border-gray-100">
-                <div className="flex items-center gap-3">
-                  <UserCheck className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <div className="font-medium text-gray-900 text-sm">
-                      {getManagerName(branch.managerId)}
-                    </div>
-                    {getManagerRole(branch.managerId) ? (
-                      <div className="text-xs text-gray-500">
-                        {getManagerRole(branch.managerId)}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEditDialog(branch)}
+                          className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openDeleteDialog(branch)}
+                          className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
-                    ) : (
-                      <div className="text-xs text-gray-500">
-                        Assign manager in User Management
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Stats */}
-              {branch._count && (
-                <div className="pt-3 border-t border-gray-100">
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="text-center">
-                      <div className="text-xl font-bold text-primary">
-                        {branch._count.users || 0}
-                      </div>
-                      <div className="text-xs text-gray-500 font-medium">Users</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-xl font-bold text-primary">
-                        {branch._count.products || 0}
-                      </div>
-                      <div className="text-xs text-gray-500 font-medium">Products</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-xl font-bold text-primary">
-                        {branch._count.customers || 0}
-                      </div>
-                      <div className="text-xs text-gray-500 font-medium">Customers</div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Empty State */}
       {filteredBranches.length === 0 && !isLoading && (
@@ -427,7 +458,7 @@ const BranchManagement = () => {
             {!searchTerm && (
               <Button
                 onClick={() => setIsCreateDialogOpen(true)}
-                className="bg-primary hover:bg-primary/90"
+                className="bg-[#0c2c8a] hover:bg-transparent hover:text-[#0c2c8a] border-[1px] border-[#0c2c8a] hover:opacity-90"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Create First Branch

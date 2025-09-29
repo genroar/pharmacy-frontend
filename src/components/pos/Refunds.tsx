@@ -481,7 +481,7 @@ const Refunds = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
-              <RotateCcw className="w-5 h-5 text-primary" />
+              <RotateCcw className="w-5 h-5 text-[#0c2c8a]" />
               <span>Refunded Invoices</span>
             </CardTitle>
           </CardHeader>

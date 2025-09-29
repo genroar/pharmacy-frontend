@@ -14,6 +14,10 @@
     --card: 0 0% 100%;              /* #FFFFFF */
     --card-foreground: 215 25% 20%;
 
+    /* Popover */
+    --popover: 0 0% 100%;           /* #FFFFFF */
+    --popover-foreground: 215 25% 20%;
+
     /* Primary Green (Items Sold box) */
     --primary: 152 62% 33%;         /* #1F7C47 ✅ exact */
     --primary-foreground: 0 0% 100%;
@@ -25,6 +29,9 @@
     /* Accent Blue (icons, highlights) */
     --accent: 200 90% 55%;          /* #2CA6E2 */
     --accent-foreground: 0 0% 100%;
+
+    /* Ring */
+    --ring: 200 90% 55%;
 
     /* Muted Texts & Backgrounds */
     --muted: 210 20% 95%;           /* #F5F7FA */
@@ -51,6 +58,62 @@
 
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* Ensure all dropdowns and popovers have white backgrounds */
+  [data-radix-select-content],
+  [data-radix-popover-content],
+  [data-radix-dropdown-menu-content],
+  .radix-select-content,
+  .radix-popover-content,
+  .radix-dropdown-menu-content {
+    background-color: white !important;
+    border: 1px solid hsl(var(--border)) !important;
+    color: hsl(var(--foreground)) !important;
+  }
+
+  /* Ensure SelectTrigger has proper background */
+  [data-radix-select-trigger],
+  .radix-select-trigger {
+    background-color: white !important;
+    border: 1px solid hsl(var(--border)) !important;
+    color: hsl(var(--foreground)) !important;
+  }
+
+  /* Additional targeting for Select components */
+  [role="listbox"],
+  [data-radix-select-viewport],
+  .select-content,
+  .select-trigger {
+    background-color: white !important;
+    color: hsl(var(--foreground)) !important;
+  }
+
+  /* Target the actual dropdown content */
+  [data-radix-select-content] > div,
+  [data-radix-select-content] .radix-select-viewport {
+    background-color: white !important;
+    color: hsl(var(--foreground)) !important;
+  }
+
+  /* More comprehensive targeting */
+  div[data-radix-select-content],
+  div[data-radix-popover-content],
+  div[data-radix-dropdown-menu-content],
+  .select-content,
+  .popover-content,
+  .dropdown-menu-content {
+    background-color: white !important;
+    background: white !important;
+    color: hsl(var(--foreground)) !important;
+  }
+
+  /* Target any element with select-related classes */
+  [class*="select"],
+  [class*="dropdown"],
+  [class*="popover"] {
+    background-color: white !important;
+    color: hsl(var(--foreground)) !important;
   }
 }
 

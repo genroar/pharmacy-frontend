@@ -1373,7 +1373,7 @@ const Inventory = () => {
       console.log('=== CALLING BULK IMPORT API ===');
       console.log('Products to import:', productsToImport);
       console.log('Number of products:', productsToImport.length);
-      console.log('API Base URL:', 'http://localhost:5000/api');
+      console.log('API Base URL:', 'http://localhost:5001/api');
       console.log('Token present:', !!localStorage.getItem('token'));
       console.log('User from context:', user);
 
@@ -1583,10 +1583,30 @@ const Inventory = () => {
   return (
     <div className="p-6 space-y-6 bg-background min-h-screen">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Inventory Management</h1>
-          <p className="text-muted-foreground">Manage your pharmacy inventory</p>
+          <p className="text-muted-foreground text-sm mt-[5px]">Manage your pharmacy inventory</p>
+        </div>
+
+        {/* Date and Time Display */}
+        <div className="text-center">
+          <p className="text-sm font-medium text-foreground">
+            {new Date().toLocaleDateString('en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            })}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {new Date().toLocaleTimeString('en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+              hour12: true
+            })}
+          </p>
         </div>
         <div className="flex items-center space-x-3">
 
@@ -1596,7 +1616,7 @@ const Inventory = () => {
             <Button
               variant="outline"
               onClick={handleExportInventory}
-              className="text-white bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)] hover:opacity-90 border-0"
+              className="text-[#0c2c8a] border-[1px] border-[#0c2c8a] "
             >
               <Upload className="w-4 h-4 mr-2" />
               Export
@@ -1606,7 +1626,7 @@ const Inventory = () => {
               <DialogTrigger asChild>
                 <Button
                   variant="outline"
-                  className="text-white bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)] hover:opacity-90 border-0"
+                  className="text-[#1C623C]  border-[1px] border-[#1a623a]"
                 >
                   <Download className="w-4 h-4 mr-2" />
                   Import
@@ -1663,10 +1683,10 @@ const Inventory = () => {
                     </div>
 
                     {/* Image Upload */}
-                    <div className="border-2 border-dashed border-green-300 rounded-lg p-6 text-center hover:border-green-400 transition-colors">
+                    <div className="border-2 border-dashed border-[#0c2c8a] rounded-lg p-6 text-center hover:border-[#153186] transition-colors">
                       <div className="flex flex-col items-center space-y-3">
-                        <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                          <Image className="w-6 h-6 text-green-600" />
+                        <div className="w-12 h-12 bg-[#0c2c8a]/10 rounded-full flex items-center justify-center">
+                          <Image className="w-6 h-6 text-[#0c2c8a]" />
                         </div>
                         <div>
                           <h4 className="font-medium text-gray-900">Upload Photo</h4>
@@ -1683,7 +1703,7 @@ const Inventory = () => {
                         />
                         <Button
                           variant="outline"
-                          className="border-green-500 text-green-600 hover:bg-green-50"
+                          className="border-[#0c2c8a] text-[#0c2c8a] hover:bg-[#0c2c8a]/10"
                           onClick={() => document.getElementById('image-upload')?.click()}
                           disabled={processingImage}
                         >
@@ -1727,7 +1747,7 @@ const Inventory = () => {
           {/* Create Category Dialog */}
           <Dialog open={isCreateCategoryDialogOpen} onOpenChange={setIsCreateCategoryDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="text-white bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)] hover:opacity-90 border-0">
+              <Button variant="outline" className="text-white hover:text-[#0c2c8a] bg-[#0c2c8a]  border-[1px] border-[#0c2c8a]">
                 <Plus className="w-4 h-4 mr-2" />
                 Create Category
               </Button>
@@ -1735,7 +1755,7 @@ const Inventory = () => {
             <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle className="flex items-center space-x-2">
-                  <Plus className="w-5 h-5 text-primary" />
+                  <Plus className="w-5 h-5 text-[#0c2c8a]" />
                   <span>Create New Category</span>
                 </DialogTitle>
                 <DialogDescription>
@@ -1748,7 +1768,7 @@ const Inventory = () => {
                   <Label htmlFor="categoryName">Category Name *</Label>
                   <Input
                     id="categoryName"
-                    placeholder="e.g., Pain Relief"
+                    placeholder="e.g., Catagory Name"
                     value={newCategory.name}
                     onChange={(e) => setNewCategory({...newCategory, name: e.target.value})}
                   />
@@ -1770,7 +1790,7 @@ const Inventory = () => {
                 <Button variant="outline" onClick={() => setIsCreateCategoryDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleCreateCategory} disabled={loading}>
+                <Button className="text-white bg-[#0c2c8a] hover:bg-transparent  hover:text-[#0c2c8a]  border-[1px] border-[#0c2c8a] " onClick={handleCreateCategory} disabled={loading}>
                   {loading ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -1791,7 +1811,7 @@ const Inventory = () => {
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button
-                className="text-white bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)] hover:opacity-90"
+                className="text-white bg-[#0c2c8a] hover:bg-transparent  hover:text-[#0c2c8a]  border-[1px] border-[#0c2c8a] "
                 onClick={() => {
                   console.log('Add Product button clicked');
                   setIsAddDialogOpen(true);
@@ -1804,7 +1824,7 @@ const Inventory = () => {
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="flex items-center space-x-2">
-                  <Plus className="w-5 h-5 text-primary" />
+                  <Plus className="w-5 h-5 text-[#0c2c8a]" />
                   <span>Add New Medicine</span>
                 </DialogTitle>
                 <DialogDescription>
@@ -1931,7 +1951,7 @@ const Inventory = () => {
                 <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleAddMedicine} disabled={loading}>
+                <Button className="text-white bg-[#0c2c8a] hover:bg-transparent  hover:text-[#0c2c8a]  border-[1px] border-[#0c2c8a] " onClick={handleAddMedicine} disabled={loading}>
                   {loading ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -1940,7 +1960,7 @@ const Inventory = () => {
                   ) : (
                     <>
                       <Save className="w-4 h-4 mr-2" />
-                      Add Medicine
+                      Add Product
                     </>
                   )}
                 </Button>
@@ -2087,7 +2107,7 @@ const Inventory = () => {
                 <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleUpdateProduct} disabled={loading}>
+                <Button className="text-white bg-[#0c2c8a] hover:bg-transparent  hover:text-[#0c2c8a]  border-[1px] border-[#0c2c8a] " onClick={handleUpdateProduct} disabled={loading}>
                   {loading ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -2258,7 +2278,7 @@ const Inventory = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="shadow-soft border-0">
+        <Card className="shadow-md border-[1px] border-[#0c2c8a]">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -2270,7 +2290,7 @@ const Inventory = () => {
           </CardContent>
         </Card>
 
-        <Card className="shadow-soft border-0">
+        <Card className="shadow-md border-[1px] border-[#0c2c8a]">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -2282,7 +2302,7 @@ const Inventory = () => {
           </CardContent>
         </Card>
 
-        <Card className="shadow-soft border-0">
+        <Card className="shadow-md border-[1px] border-[#0c2c8a]">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -2294,7 +2314,7 @@ const Inventory = () => {
           </CardContent>
         </Card>
 
-        <Card className="shadow-soft border-0">
+        <Card className="shadow-md border-[1px] border-[#0c2c8a]">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -2329,21 +2349,7 @@ const Inventory = () => {
                 className="flex items-center gap-2"
               >
                 <FolderOpen className="w-4 h-4" />
-                Manage Categories
-              </Button>
-
-              <Button
-                variant={showAllProducts ? "default" : "outline"}
-                size="sm"
-                onClick={() => setShowAllProducts(!showAllProducts)}
-                className={`flex items-center gap-2 ${
-                  showAllProducts
-                    ? "text-white bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)] hover:opacity-90"
-                    : ""
-                }`}
-              >
-                <Package className="w-4 h-4" />
-                {showAllProducts ? "Show Active Only" : "Show All Products"}
+                View Categories
               </Button>
             </div>
           </div>
@@ -2403,7 +2409,7 @@ const Inventory = () => {
                               console.log('Empty state Add Product button clicked');
                               setIsAddDialogOpen(true);
                             }}
-                            className="mt-2 text-white bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)] hover:opacity-90"
+                            className="mt-2 text-[#0c2c8a] bg-transparent border-[1px] border-[#0c2c8a] hover:bg-transparent "
                           >
                             <Plus className="w-4 h-4 mr-2" />
                             Add Product

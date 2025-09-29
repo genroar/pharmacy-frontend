@@ -29,7 +29,7 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
     <Card className={`shadow-soft border-0 ${className}`}>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center space-x-2 text-sm">
-          <Calendar className="w-4 h-4" />
+          <Calendar className="w-4 h-4 text-[#0c2c8a]" />
           <span>Date Range Filter</span>
           {hasActiveFilter && (
             <Button

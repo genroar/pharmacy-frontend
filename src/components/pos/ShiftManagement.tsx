@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { 
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -14,11 +14,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { 
-  Clock, 
-  CheckCircle, 
-  XCircle, 
-  User, 
+import {
+  Clock,
+  CheckCircle,
+  XCircle,
+  User,
   Calendar,
   Timer,
   Play,
@@ -106,7 +106,7 @@ const ShiftManagement = () => {
       if (storedShifts) {
         try {
           const shifts = JSON.parse(storedShifts);
-          const activeShiftData = shifts.find((shift: any) => 
+          const activeShiftData = shifts.find((shift: any) =>
             shift.employeeId === user.id && shift.status === 'ACTIVE'
           );
           setActiveShift(activeShiftData || null);
@@ -232,8 +232,8 @@ const ShiftManagement = () => {
       if (storedShifts) {
         try {
           const shifts = JSON.parse(storedShifts);
-          const updatedShifts = shifts.map((shift: any) => 
-            shift.id === activeShift.id 
+          const updatedShifts = shifts.map((shift: any) =>
+            shift.id === activeShift.id
               ? {
                   ...shift,
                   endTime: new Date().toISOString(),
@@ -287,8 +287,8 @@ const ShiftManagement = () => {
       if (storedShifts) {
         try {
           const shifts = JSON.parse(storedShifts);
-          const updatedShifts = shifts.map((shift: any) => 
-            shift.id === activeShift.id 
+          const updatedShifts = shifts.map((shift: any) =>
+            shift.id === activeShift.id
               ? {
                   ...shift,
                   cashIn: newCashIn,
@@ -367,7 +367,7 @@ const ShiftManagement = () => {
           <h1 className="text-3xl font-bold text-foreground">Shift Management</h1>
           <p className="text-muted-foreground">Manage your work shifts and cash handling</p>
         </div>
-        
+
         <div className="flex items-center space-x-2">
           <User className="w-5 h-5 text-muted-foreground" />
           <span className="text-sm text-muted-foreground">

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -7,18 +7,19 @@ import {
   ShoppingCart,
   FileText,
   Settings,
-  UserCheck,
+  UserCog,
   Pill,
   Receipt,
   BarChart3,
-  Shield,
   Building2,
-  UserCog,
   CreditCard,
-  LogOut
+  LogOut,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { RoleGuard } from '@/components/auth/RoleGuard';
+import { useSidebarContext } from './MainLayout';
 
 interface NavItem {
   name: string;
@@ -27,218 +28,112 @@ interface NavItem {
   roles: string[];
   resource?: string;
   action?: string;
-  children?: NavItem[];
 }
 
 const navigationItems: NavItem[] = [
-  {
-    name: 'Dashboard',
-    href: '/',
-    icon: LayoutDashboard,
-    roles: ['MANAGER', 'ADMIN', 'SUPERADMIN'],
-    resource: 'dashboard',
-    action: 'read'
-  },
-  {
-    name: 'Inventory',
-    href: '/inventory',
-    icon: Package,
-    roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'],
-    resource: 'products',
-    action: 'read'
-  },
-  {
-    name: 'POS',
-    href: '/pos',
-    icon: ShoppingCart,
-    roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'],
-    resource: 'sales',
-    action: 'create'
-  },
-  {
-    name: 'Refunds',
-    href: '/refunds',
-    icon: Receipt,
-    roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'],
-    resource: 'refunds',
-    action: 'read'
-  },
-  {
-    name: 'Invoices',
-    href: '/invoices',
-    icon: FileText,
-    roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'],
-    resource: 'invoices',
-    action: 'read'
-  },
-  {
-    name: 'Customers',
-    href: '/customers',
-    icon: Users,
-    roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'],
-    resource: 'customers',
-    action: 'read'
-  },
-  {
-    name: 'Prescriptions',
-    href: '/prescriptions',
-    icon: Pill,
-    roles: ['ADMIN'],
-    resource: 'prescriptions',
-    action: 'read'
-  },
-  {
-    name: 'Reports',
-    href: '/reports',
-    icon: BarChart3,
-    roles: ['MANAGER', 'ADMIN'],
-    resource: 'reports',
-    action: 'read'
-  },
-  {
-    name: 'User Management',
-    href: '/admin/users',
-    icon: UserCog,
-    roles: ['ADMIN', 'SUPERADMIN'],
-    resource: 'users',
-    action: 'read'
-  },
-  {
-    name: 'Cashier Management',
-    href: '/manager/users',
-    icon: UserCog,
-    roles: ['MANAGER'],
-    resource: 'users',
-    action: 'read'
-  },
-  {
-    name: 'Branch Management',
-    href: '/admin/branches',
-    icon: Building2,
-    roles: ['ADMIN' ],
-    resource: 'branches',
-    action: 'manage'
-  },
-  {
-    name: 'Subscription',
-    href: '/admin/subscription',
-    icon: CreditCard,
-    roles: ['ADMIN', 'MANAGER'],
-    resource: 'subscription',
-    action: 'read'
-  },
-  {
-    name: 'Admin Payment',
-    href: '/superadmin/payments',
-    icon: CreditCard,
-    roles: ['SUPERADMIN']
-  },
-  {
-    name: 'Admin Management',
-    href: '/superadmin/admins',
-    icon: UserCog,
-    roles: ['SUPERADMIN']
-  },
-  {
-    name: 'Settings',
-    href: '/settings',
-    icon: Settings,
-    roles: ['ADMIN', 'SUPERADMIN'],
-    resource: 'settings',
-    action: 'read'
-  }
+  // Dashboard - Available to all roles
+  { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
+
+  // Core POS Operations - Available to all roles
+  { name: 'Inventory', href: '/inventory', icon: Package, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
+  { name: 'POS', href: '/pos', icon: ShoppingCart, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
+  { name: 'Refunds', href: '/refunds', icon: Receipt, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
+  { name: 'Invoices', href: '/invoices', icon: FileText, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
+  { name: 'Customers', href: '/customers', icon: Users, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
+
+  // Reports - Available to Manager, Admin, SuperAdmin
+  { name: 'Reports', href: '/reports', icon: BarChart3, roles: ['MANAGER', 'ADMIN', 'SUPERADMIN'] },
+
+  // Prescriptions - Available to Admin, SuperAdmin
+  { name: 'Prescriptions', href: '/prescriptions', icon: Pill, roles: ['ADMIN', 'SUPERADMIN'] },
+
+  // User Management - Available to Admin, SuperAdmin
+  { name: 'User Management', href: '/admin/users', icon: UserCog, roles: ['ADMIN', 'SUPERADMIN'] },
+
+  // Branch Management - Available to Admin, SuperAdmin
+  { name: 'Branch Management', href: '/admin/branches', icon: Building2, roles: ['ADMIN', 'SUPERADMIN'] },
+
+  // Subscription - Available to Manager, Admin, SuperAdmin
+  { name: 'Subscription', href: '/admin/subscription', icon: CreditCard, roles: ['MANAGER', 'ADMIN', 'SUPERADMIN'] },
+
+  // Settings - Available to Admin, SuperAdmin
+  { name: 'Settings', href: '/settings', icon: Settings, roles: ['ADMIN', 'SUPERADMIN'] }
 ];
 
-const NavItem: React.FC<{ item: NavItem }> = ({ item }) => {
+const NavItem: React.FC<{ item: NavItem; isCollapsed: boolean }> = React.memo(({ item, isCollapsed }) => {
   const location = useLocation();
   const isActive = location.pathname === item.href;
 
-  // Debug logging for SUPERADMIN tabs
-  if (item.name === 'Admin Payment' || item.name === 'Admin Management') {
-    console.log('🔍 Debug NavItem:', item.name, 'Roles:', item.roles, 'Resource:', item.resource);
-  }
-
   return (
-    <RoleGuard
-      roles={item.roles}
-      resource={item.resource}
-      action={item.action}
-    >
+    <RoleGuard roles={item.roles} resource={item.resource} action={item.action}>
       <Link
         to={item.href}
-        className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+        className={`flex items-center px-4 py-3 text-sm font-medium relative transition-all duration-300 ${
           isActive
-            ? 'bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)] text-white'
-            : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+            ? 'text-blue-900'
+            : 'text-white hover:bg-white hover:bg-opacity-10'
         }`}
+        style={{
+          backgroundColor: isActive ? '#f8f9fa' : 'transparent',
+          borderRadius: isActive ? '25px' : '0',
+          marginRight: isActive ? '0' : '0'
+        }}
+        title={isCollapsed ? item.name : undefined}
+        onClick={(e) => {
+          // Prevent sidebar from expanding when clicking navigation items
+          e.stopPropagation();
+        }}
       >
-        <item.icon className="w-5 h-5 mr-3" />
-        {item.name}
+        <item.icon className={`w-5 h-5 ${isCollapsed ? 'mr-0' : 'mr-3'} ${isActive ? 'text-blue-900' : 'text-white'}`} />
+        {!isCollapsed && <span className="ml-3">{item.name}</span>}
       </Link>
     </RoleGuard>
   );
-};
+});
 
 export const RoleBasedSidebar: React.FC = () => {
   const { user, logout } = useAuth();
+  const { isCollapsed, setIsCollapsed } = useSidebarContext();
 
-  console.log('🔍 RoleBasedSidebar: User:', user);
-  console.log('🔍 RoleBasedSidebar: User role:', user?.role);
-
-  if (!user) {
-    return null;
-  }
-
+  if (!user) return null;
 
   return (
-    <div className="fixed left-0 top-0 h-screen w-64 bg-background border-r border-border flex flex-col z-50">
-      <div className="flex items-center px-4 py-6">
-        <div className="flex items-center space-x-2">
-          <div className="w-8 h-8  rounded-lg flex items-center justify-center">
-            <img alt="logo" src="/public/images/pos_logo.png"  />
+    <div className={`fixed  top-0 left-0 h-screen flex flex-col bg-[#0c2c8a] z-50 transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-64'}`}>
+      {/* Logo / Title */}
+      <div className="p-6 text-white text-xl font-semibold flex items-center justify-between">
+        {!isCollapsed && (
+          <div className="flex items-center space-x-2">
+            <span className="w-8 h-8 flex items-center justify-center bg-white text-blue-900 rounded-full font-bold">N</span>
+            <span>NextBill</span>
           </div>
-          <div>
-            <h1 className="text-lg font-semibold text-foreground">NextBill</h1>
-          </div>
-        </div>
+        )}
+        {isCollapsed && (
+          <span className="w-8 h-8 flex items-center justify-center bg-white text-blue-900 rounded-full font-bold">N</span>
+        )}
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="p-1 hover:bg-white hover:bg-opacity-10 rounded-md transition-all"
+        >
+          {isCollapsed ? <ChevronRight className="w-5 h-5 text-white" /> : <ChevronLeft className="w-5 h-5 text-white" />}
+        </button>
       </div>
 
-      <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
-        {navigationItems.map((item) => {
-          // Debug logging for Refunds and POS
-          if (item.name === 'Refunds' || item.name === 'POS') {
-            console.log(`🔍 ${item.name.toUpperCase()} Sidebar Debug:`, {
-              itemName: item.name,
-              roles: item.roles,
-              resource: item.resource,
-              action: item.action,
-              userRole: user.role
-            });
-          }
-          return <NavItem key={item.name} item={item} />;
-        })}
+      {/* Navigation */}
+      <nav className={`flex-1 ${isCollapsed ? 'px-2' : 'px-4'} space-y-2 overflow-y-auto`}>
+        {navigationItems.map((item) => (
+          <NavItem key={`${item.name}-${isCollapsed}`} item={item} isCollapsed={isCollapsed} />
+        ))}
       </nav>
 
-      <div className="p-4 border-t border-border">
-        <div className="flex items-center space-x-3 mb-3">
-          <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
-            <span className="text-sm font-medium text-muted-foreground">
-              {user.name.charAt(0).toUpperCase()}
-            </span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground truncate">{user.name}</p>
-            <p className="text-xs text-muted-foreground truncate">{user.role}</p>
-          </div>
-        </div>
-
-        {/* Logout Button */}
+      {/* Logout Button */}
+      <div className="p-4 border-t border-blue-700">
         <button
           onClick={logout}
-          className="w-full flex items-center px-3 py-2 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors"
+          className={`w-full flex items-center px-4 py-3 text-sm font-medium text-white hover:bg-white hover:bg-opacity-10 rounded-2xl transition-all ${isCollapsed ? 'justify-center' : ''}`}
+          title={isCollapsed ? 'Log Out' : undefined}
         >
-          <LogOut className="w-4 h-4 mr-3" />
-          Logout
+          <LogOut className={`w-5 h-5 ${isCollapsed ? '' : 'mr-3'}`} />
+          {!isCollapsed && 'Log Out'}
         </button>
       </div>
     </div>

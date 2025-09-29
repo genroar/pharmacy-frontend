@@ -392,7 +392,7 @@ const SubscriptionManagement = () => {
               <Download className="w-4 h-4 mr-2" />
               Download Invoice
             </Button>
-            <Button className="shadow-soft border-0">
+            <Button className="shadow-soft bg-[#0c2c8a] hover:bg-transparent hover:text-[#0c2c8a] border-[1px] border-[#0c2c8a] hover:opacity-90">
               <Edit className="w-4 h-4 mr-2" />
               Update Plan
             </Button>
@@ -402,9 +402,9 @@ const SubscriptionManagement = () => {
 
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="grid w-full grid-cols-3 mb-6 shadow-soft border-0">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Overview</TabsTrigger>
-          <TabsTrigger value="payment-methods" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Payment Methods</TabsTrigger>
-          <TabsTrigger value="billing-history" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Billing History</TabsTrigger>
+          <TabsTrigger value="overview" className="data-[state=active]:bg-[#0C2C8A] data-[state=active]:text-primary-foreground">Overview</TabsTrigger>
+          <TabsTrigger value="payment-methods" className="data-[state=active]:bg-[#0C2C8A] data-[state=active]:text-primary-foreground">Payment Methods</TabsTrigger>
+          <TabsTrigger value="billing-history" className="data-[state=active]:bg-[#0C2C8A] data-[state=active]:text-primary-foreground">Billing History</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -413,8 +413,8 @@ const SubscriptionManagement = () => {
           <Card className="shadow-soft border-0">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center space-x-3 text-xl">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <CreditCard className="w-6 h-6 text-primary" />
+                <div className="p-2 bg-[#0C2C8A]/10 rounded-lg">
+                  <CreditCard className="w-6 h-6 text-[#0C2C8A]" />
                 </div>
                 <span>Current Subscription</span>
               </CardTitle>
@@ -628,7 +628,7 @@ const SubscriptionManagement = () => {
             <h3 className="text-xl font-semibold text-gray-900">Payment Methods</h3>
             <Dialog open={isAddCardOpen} onOpenChange={setIsAddCardOpen}>
               <DialogTrigger asChild>
-                <Button className="shadow-soft border-0">
+                <Button className="shadow-soft bg-[#0c2c8a] hover:bg-transparent hover:text-[#0c2c8a] border-[1px] border-[#0c2c8a] hover:opacity-90">
                   <Plus className="w-4 h-4 mr-2" />
                   Add Payment Method
                 </Button>
@@ -824,13 +824,13 @@ const SubscriptionManagement = () => {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-3">
-                      <div className="p-2 bg-primary/10 rounded-lg">
-                        <CreditCard className="w-5 h-5 text-primary" />
+                      <div className="p-2 bg-[#0C2C8A]/10 rounded-lg">
+                        <CreditCard className="w-5 h-5 text-[#0C2C8A]" />
                       </div>
                       <div>
                         <span className="font-semibold text-gray-900">{method.brand} ****{method.last4}</span>
                         {method.isDefault && (
-                          <Badge className="ml-2 bg-green-100 text-green-800 border-0">Default</Badge>
+                          <Badge className="ml-2 bg-[#0C2C8A]/10 text-[#0C2C8A] border-0">Default</Badge>
                         )}
                       </div>
                     </div>
@@ -895,7 +895,7 @@ const SubscriptionManagement = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => handleSetDefault(method.id)}
-                        className="w-full shadow-soft border-0 hover:bg-primary hover:text-primary-foreground"
+                        className="w-full shadow-soft border-0 bg-[#1a3ea3] hover:bg-[#1a3ea3] text-white  border-[1px] border-[#0C2C8A] "
                       >
                         Set as Default
                       </Button>
@@ -917,8 +917,8 @@ const SubscriptionManagement = () => {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                        <Receipt className="w-6 h-6 text-primary" />
+                      <div className="w-12 h-12 bg-[#0C2C8A]/10 rounded-lg flex items-center justify-center">
+                        <Receipt className="w-6 h-6 text-[#0C2C8A]" />
                       </div>
                       <div>
                         <p className="font-semibold text-gray-900">{payment.description}</p>

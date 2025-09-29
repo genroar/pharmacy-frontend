@@ -540,7 +540,7 @@ const Invoices = () => {
       <body>
         <div class="invoice-container">
           <div class="header">
-            <h1>MediBill Pulse Pharmacy</h1>
+            <h1>${invoice.branch.name}</h1>
             <p>Your Health, Our Priority</p>
           </div>
 
@@ -559,12 +559,8 @@ const Invoices = () => {
               <h3>Customer Information</h3>
               ${invoice.customer ? `
                 <div class="info-row"><strong>Name:</strong> ${invoice.customer.name}</div>
-                <div class="info-row"><strong>Phone:</strong> ${invoice.customer.phone}</div>
-                <div class="info-row"><strong>Email:</strong> ${invoice.customer.email || 'N/A'}</div>
-                <div class="info-row"><strong>Address:</strong> ${invoice.customer.address || 'N/A'}</div>
               ` : `
                 <div class="info-row"><strong>Customer Type:</strong> Walk-in Customer</div>
-                <div class="info-row"><strong>No customer details available</strong></div>
               `}
             </div>
           </div>
@@ -612,7 +608,7 @@ const Invoices = () => {
           </div>
 
           <div class="footer">
-            <p>Thank you for choosing MediBill Pulse Pharmacy!</p>
+            <p>Thank you for choosing ${invoice.branch.name}!</p>
             <p>For any queries, please contact us at your nearest branch.</p>
           </div>
         </div>
@@ -787,7 +783,7 @@ const Invoices = () => {
               </div>
 
               {/* Status Filter */}
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select  value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger>
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
@@ -825,7 +821,7 @@ const Invoices = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
-              <Receipt className="w-5 h-5 text-primary" />
+              <Receipt className="w-5 h-5 text-[#0c2c8a]" />
               <span>Invoice List</span>
             </CardTitle>
           </CardHeader>
@@ -851,7 +847,7 @@ const Invoices = () => {
                         {getStatusBadge(invoice.status)}
                       </div>
                       <div className="text-right">
-                        <p className="text-lg font-bold text-primary">
+                        <p className="text-lg font-bold text-[#0c2c8a]">
                           PKR {invoice.totalAmount.toFixed(2)}
                         </p>
                         <p className="text-sm text-muted-foreground">
@@ -1016,7 +1012,7 @@ const Invoices = () => {
                 {/* Invoice Header */}
                 <div className="flex justify-between items-start border-b pb-4">
                   <div>
-                    <h2 className="text-2xl font-bold text-primary">MediBill Pulse Pharmacy</h2>
+                    <h2 className="text-2xl font-bold text-primary">{selectedInvoice.branch.name}</h2>
                     <p className="text-muted-foreground">Your Health, Our Priority</p>
                     <div className="mt-4 space-y-1 text-sm">
                       <p><strong>Invoice Number:</strong> {selectedInvoice.invoiceNumber}</p>

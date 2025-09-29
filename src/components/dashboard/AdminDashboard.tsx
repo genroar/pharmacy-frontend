@@ -81,22 +81,22 @@ const AdminDashboard = () => {
   const [isBranchSummaryCollapsed, setIsBranchSummaryCollapsed] = useState(false);
   const [activeStatTab, setActiveStatTab] = useState(0); // Only first card is active, no changes allowed
 
-  // Temporarily disabled timer to test re-rendering issue
-  // useEffect(() => {
-  //   const updateDateTime = () => {
-  //     setCurrentDateTime(new Date());
-  //   };
+  // Real-time clock timer
+  useEffect(() => {
+    const updateDateTime = () => {
+      setCurrentDateTime(new Date());
+    };
 
-  //   updateDateTime();
-  //   timerRef.current = setInterval(updateDateTime, 1000);
+    updateDateTime();
+    timerRef.current = setInterval(updateDateTime, 1000);
 
-  //   return () => {
-  //     if (timerRef.current) {
-  //       clearInterval(timerRef.current);
-  //       timerRef.current = null;
-  //     }
-  //   };
-  // }, []);
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, []);
 
   const loadDashboardData = useCallback(async () => {
     try {
@@ -444,8 +444,9 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="p-6 space-y-6 bg-background min-h-screen">
+    <div className="p-6 space-y-6 bg-background rounded-[20px] min-h-screen">
       {/* Header */}
+
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">
@@ -460,8 +461,80 @@ const AdminDashboard = () => {
             }
           </p>
         </div>
+
+        {/* Analog Clock Display */}
+        <div className="flex items-center space-x-4">
+          {/* Analog Clock */}
+            <div className="relative w-20 h-20 bg-white rounded-full border-4 border-[#0C2C8A] shadow-lg overflow-hidden">
+            {/* Clock Center */}
+            <div className="absolute top-1/2 left-1/2 w-2 h-2 bg-[#0C2C8A] rounded-full transform -translate-x-1/2 -translate-y-1/2 z-10"></div>
+
+            {/* Hour Hand */}
+            <div
+              className="absolute top-1/2 left-1/2 w-1 bg-[#0C2C8A] z-5"
+              style={{
+                height: '16px',
+                transform: `rotate(${(currentDateTime.getHours() % 12) * 30 + currentDateTime.getMinutes() * 0.5}deg)`,
+                transformOrigin: '50% 100%',
+                left: '50%',
+                top: '50%',
+                marginLeft: '-2px',
+                marginTop: '-15px'
+              }}
+            ></div>
+
+            {/* Minute Hand */}
+            <div
+              className="absolute top-1/2 left-1/2 w-0.5 bg-[#0C2C8A] z-5"
+              style={{
+                height: '16px',
+                transform: `rotate(${currentDateTime.getMinutes() * 6}deg)`,
+                transformOrigin: '50% 100%',
+                left: '50%',
+                top: '50%',
+                marginLeft: '-1px',
+                marginTop: '-16px'
+              }}
+            ></div>
+
+            {/* Second Hand */}
+            <div
+              className="absolute top-1/2 left-1/2 w-0.5 bg-red-500 z-5"
+              style={{
+                height: '18px',
+                transform: `rotate(${currentDateTime.getSeconds() * 6}deg)`,
+                transformOrigin: '50% 100%',
+                left: '50%',
+                top: '50%',
+                marginLeft: '-1px',
+                marginTop: '-18px'
+              }}
+            ></div>
+
+            {/* Clock Numbers */}
+            <div className="absolute top-1 text-xs font-bold text-[#0C2C8A] left-1/2 transform -translate-x-1/2">12</div>
+            <div className="absolute right-1 top-1/2 text-xs font-bold text-[#0C2C8A] transform translate-y-[-50%]">3</div>
+            <div className="absolute bottom-1 text-xs font-bold text-[#0C2C8A] left-1/2 transform -translate-x-1/2">6</div>
+            <div className="absolute left-1 top-1/2 text-xs font-bold text-[#0C2C8A] transform translate-y-[-50%]">9</div>
+          </div>
+
+
+        </div>
+
         {/* Branch Filter Dropdown */}
         <div className="w-full sm:w-80">
+          {/* Digital Time */}
+          <div className="text-right mb-[10px]">
+            <p className="text-sm font-medium text-foreground">
+              {currentDateTime.toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+              })}
+            </p>
+
+          </div>
           <Popover open={isBranchDropdownOpen} onOpenChange={setIsBranchDropdownOpen}>
             <PopoverTrigger asChild>
               <Button
@@ -482,7 +555,7 @@ const AdminDashboard = () => {
                 <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-80 p-0">
+            <PopoverContent className="w-80 p-0 bg-white border border-gray-200 shadow-lg">
               <Command>
                 <CommandInput placeholder="Search branches..." />
                 <CommandList>
@@ -529,38 +602,26 @@ const AdminDashboard = () => {
           return (
             <Card
               key={index}
-              className={`
-                shadow-soft border-0 transition-all duration-300 cursor-pointer group
-                ${isActive
-                  ? 'bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)] text-white shadow-lg scale-105'
-                  : 'bg-white hover:bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)] hover:shadow-lg hover:scale-105'
-                }
-              `}
+              className="bg-white border border-[#0C2C8A] shadow-md"
               onClick={() => {}} // No click action - only first card stays active
             >
               <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <p className={`text-sm font-medium mb-2 ${isActive ? 'text-white/90' : 'text-gray-600 group-hover:text-white/90'}`}>
-                      {stat.title}
-                    </p>
-                    <p className={`text-2xl font-bold mb-2 ${isActive ? 'text-white' : 'text-gray-900 group-hover:text-white'}`}>
-                      {stat.value}
-                    </p>
-                    <div className="flex items-center space-x-2">
-                      <div className="flex items-center">
-                        <TrendingUp className={`w-4 h-4 mr-1 ${isActive ? 'text-white' : 'text-green-600 group-hover:text-white'}`} />
-                        <span className={`text-sm font-medium ${isActive ? 'text-white' : 'text-green-600 group-hover:text-white'}`}>
-                          {stat.trendValue}
-                        </span>
-                      </div>
-                      <span className={`text-xs ${isActive ? 'text-white/80' : 'text-gray-500 group-hover:text-white/80'}`}>
-                        {stat.description}
-                      </span>
-                    </div>
-                  </div>
-                  <div className={`p-4 rounded-xl ml-4 ${isActive ? 'bg-white/20' : 'bg-gray-100 group-hover:bg-white/20'}`}>
-                    <IconComponent className={`w-8 h-8 ${isActive ? 'text-white' : 'text-gray-600 group-hover:text-white'}`} />
+                <div>
+                  <h3 className="text-sm font-medium mb-2 text-gray-600">
+                    {stat.title}
+                  </h3>
+                  <p className="text-2xl font-bold mb-3 text-gray-900">
+                    {stat.value}
+                  </p>
+
+                  <div className="flex items-center space-x-2">
+                    <TrendingUp className="w-4 h-4 text-[#0C2C8A]" />
+                    <span className="text-sm font-medium text-[#0C2C8A]">
+                      {stat.trendValue}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {stat.description}
+                    </span>
                   </div>
                 </div>
               </CardContent>
@@ -575,7 +636,7 @@ const AdminDashboard = () => {
         <Card className="lg:col-span-2 shadow-soft border-0">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
-              <ShoppingCart className="w-5 h-5 text-primary" />
+              <ShoppingCart className="w-5 h-5 text-[#0C2C8A]" />
               <span>Recent Sales</span>
             </CardTitle>
           </CardHeader>
@@ -687,7 +748,7 @@ const AdminDashboard = () => {
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <Building2 className="w-5 h-5 text-primary" />
+                <Building2 className="w-5 h-5 text-[#0C2C8A]" />
                 <span>
                   {currentUser?.role === 'ADMIN' ? 'All My Branches' : 'All Branches'} ({allBranches.length})
                 </span>
@@ -713,8 +774,8 @@ const AdminDashboard = () => {
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
-                        <Building2 className="w-4 h-4 text-primary" />
+                      <div className="w-8 h-8 bg-[#0C2C8A]/10 rounded-lg flex items-center justify-center">
+                        <Building2 className="w-4 h-4 text-[#0C2C8A]" />
                       </div>
                       <div>
                         <p className="font-medium text-foreground text-sm">{branch.name}</p>
@@ -756,7 +817,7 @@ const AdminDashboard = () => {
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <Users className="w-5 h-5 text-primary" />
+                <Users className="w-5 h-5 text-[#0C2C8A]" />
                 <span>
                   {currentUser?.role === 'ADMIN' ? 'All My Users' : 'All Users'} ({allUsers.length})
                 </span>
@@ -778,8 +839,8 @@ const AdminDashboard = () => {
                 <div key={index} className="p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                        <span className="text-xs font-medium text-primary">
+                      <div className="w-8 h-8 bg-[#0C2C8A]/10 rounded-full flex items-center justify-center">
+                        <span className="text-xs font-medium text-[#0C2C8A]">
                           {user.name.split(' ').map((n: string) => n[0]).join('')}
                         </span>
                       </div>
@@ -793,9 +854,9 @@ const AdminDashboard = () => {
                         variant="outline"
                         className={
                           user.role === 'SUPERADMIN' ? "bg-red-100 text-red-800 border-red-200" :
-                            user.role === 'ADMIN' ? "bg-orange-100 text-orange-800 border-orange-200" :
-                              user.role === 'MANAGER' ? "bg-blue-100 text-blue-800 border-blue-200" :
-                                "bg-gray-100 text-gray-800 border-gray-200"
+                            user.role === 'ADMIN' ? "bg-[#0C2C8A]/10 text-[#0C2C8A] border-[#0C2C8A]/20" :
+                              user.role === 'MANAGER' ? "bg-[#0C2C8A]/10 text-[#0C2C8A] border-[#0C2C8A]/20" :
+                                "bg-[#0C2C8A]/10 text-[#0C2C8A] border-[#0C2C8A]/20"
                         }
                       >
                         {user.role}
@@ -838,7 +899,7 @@ const AdminDashboard = () => {
       <Card className="shadow-soft border-0">
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
-            <BarChart3 className="w-5 h-5 text-primary" />
+            <BarChart3 className="w-5 h-5 text-[#0C2C8A]" />
             <span>
               {selectedBranchId
                 ? `${globalSelectedBranch?.name} Products`
@@ -868,8 +929,8 @@ const AdminDashboard = () => {
                   filteredData.products.map((product: any, index: number) => (
                     <tr key={product.id} className="border-b border-border hover:bg-muted/50">
                       <td className="py-4 px-4">
-                        <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
-                          <span className="text-sm font-bold text-primary">#{index + 1}</span>
+                        <div className="w-8 h-8 bg-[#0C2C8A]/10 rounded-lg flex items-center justify-center">
+                          <span className="text-sm font-bold text-[#0C2C8A]">#{index + 1}</span>
                         </div>
                       </td>
                       <td className="py-4 px-4">
@@ -892,7 +953,7 @@ const AdminDashboard = () => {
                             {product.stock} {product.unitType}
                           </span>
                           {product.stock <= product.minStock && (
-                            <Badge variant="destructive" className="text-xs">Low Stock</Badge>
+                            <Badge variant="destructive" className="text-xs bg-[#FBE4C8] border-[1px] border-[#F59F0B] ">Low Stock</Badge>
                           )}
                         </div>
                       </td>
@@ -953,7 +1014,7 @@ const AdminDashboard = () => {
                         <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
                         <p className="text-xl font-bold text-foreground">{formatCurrency(branchDetails.totalStats?.revenue || 0)}</p>
                       </div>
-                      <DollarSign className="w-8 h-8 text-primary" />
+                      <DollarSign className="w-8 h-8 text-[#0C2C8A]" />
                     </div>
                   </CardContent>
                 </Card>
@@ -1000,7 +1061,7 @@ const AdminDashboard = () => {
                 <Card className="shadow-soft border-0">
                   <CardHeader>
                     <CardTitle className="flex items-center space-x-2">
-                      <ShoppingCart className="w-5 h-5 text-primary" />
+                      <ShoppingCart className="w-5 h-5 text-[#0C2C8A]" />
                       <span>Recent Sales</span>
                     </CardTitle>
                   </CardHeader>
@@ -1034,7 +1095,7 @@ const AdminDashboard = () => {
                 <Card className="shadow-soft border-0">
                   <CardHeader>
                     <CardTitle className="flex items-center space-x-2">
-                      <Users className="w-5 h-5 text-primary" />
+                      <Users className="w-5 h-5 text-[#0C2C8A]" />
                       <span>Recent Customers</span>
                     </CardTitle>
                   </CardHeader>

@@ -328,12 +328,12 @@ const Dashboard = () => {
   return (
     <div className="p-6 space-y-6 bg-background min-h-screen">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">
             {user?.role === 'ADMIN' || user?.role === 'MANAGER' ? 'Admin Dashboard' : 'Cashier Dashboard'}
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-sm mt-[5px]">
             {user?.role === 'ADMIN' || user?.role === 'MANAGER'
               ? 'Complete overview of all pharmacy operations'
               : 'Inventory and stock management overview'
@@ -341,12 +341,10 @@ const Dashboard = () => {
           </p>
         </div>
 
+        {/* Date and Time Display with Analog Clock */}
         <div className="flex items-center space-x-4">
-          <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200">
-            <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
-            Live Data
-          </Badge>
-          <div className="text-right">
+          {/* Date and Time Text */}
+          <div className="text-center">
             <p className="text-sm font-medium text-foreground">
               {currentDateTime.toLocaleDateString('en-US', {
                 weekday: 'long',
@@ -363,20 +361,61 @@ const Dashboard = () => {
                 hour12: true
               })}
             </p>
-            {lastUpdated && (
-              <p className="text-xs text-muted-foreground">
-                Last updated: {lastUpdated.toLocaleTimeString()}
-              </p>
-            )}
           </div>
-          <Button
-            onClick={logout}
-            variant="outline"
-            size="sm"
-            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-          >
-            Logout
-          </Button>
+
+          {/* Analog Clock */}
+          <div className="relative w-20 h-20 bg-white rounded-full border-4 border-[#0c2c8a] shadow-lg overflow-hidden">
+            {/* Clock Center */}
+            <div className="absolute top-1/2 left-1/2 w-2 h-2 bg-[#0c2c8a] rounded-full transform -translate-x-1/2 -translate-y-1/2 z-10"></div>
+
+            {/* Hour Hand */}
+            <div
+              className="absolute top-1/2 left-1/2 w-1 bg-[#0c2c8a] z-5"
+              style={{
+                height: '16px',
+                transform: `rotate(${(currentDateTime.getHours() % 12) * 30 + currentDateTime.getMinutes() * 0.5}deg)`,
+                transformOrigin: '50% 100%',
+                left: '50%',
+                top: '50%',
+                marginLeft: '-2px',
+                marginTop: '-16px'
+              }}
+            ></div>
+
+            {/* Minute Hand */}
+            <div
+              className="absolute top-1/2 left-1/2 w-1 bg-[#0c2c8a] z-5"
+              style={{
+                height: '16px',
+                transform: `rotate(${currentDateTime.getMinutes() * 6}deg)`,
+                transformOrigin: '50% 100%',
+                left: '50%',
+                top: '50%',
+                marginLeft: '-2px',
+                marginTop: '-16px'
+              }}
+            ></div>
+
+            {/* Second Hand */}
+            <div
+              className="absolute top-1/2 left-1/2 w-0.5 bg-red-500 z-5"
+              style={{
+                height: '20px',
+                transform: `rotate(${currentDateTime.getSeconds() * 6}deg)`,
+                transformOrigin: '50% 100%',
+                left: '50%',
+                top: '50%',
+                marginLeft: '-1px',
+                marginTop: '-20px'
+              }}
+            ></div>
+
+            {/* Clock Numbers */}
+            <div className="absolute top-1 text-xs font-bold text-[#0c2c8a] left-1/2 transform -translate-x-1/2">12</div>
+            <div className="absolute right-1 top-1/2 text-xs font-bold text-[#0c2c8a] transform translate-y-[-50%]">3</div>
+            <div className="absolute bottom-1 text-xs font-bold text-[#0c2c8a] left-1/2 transform -translate-x-1/2">6</div>
+            <div className="absolute left-1 top-1/2 text-xs font-bold text-[#0c2c8a] transform translate-y-[-50%]">9</div>
+          </div>
         </div>
       </div>
 
@@ -389,38 +428,26 @@ const Dashboard = () => {
           return (
             <Card
               key={index}
-              className={`
-                shadow-soft border-0 transition-all duration-300 cursor-pointer group
-                ${isActive
-                  ? 'bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)] text-white shadow-lg scale-105'
-                  : 'bg-white hover:bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)] hover:shadow-lg hover:scale-105'
-                }
-              `}
+              className="bg-white border border-[#0c2c8a] shadow-md"
               onClick={() => handleStatClick(stat.id)}
             >
               <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <p className={`text-sm font-medium mb-2 ${isActive ? 'text-white/90' : 'text-gray-600 group-hover:text-white/90'}`}>
-                      {stat.title}
-                    </p>
-                    <p className={`text-2xl font-bold mb-2 ${isActive ? 'text-white' : 'text-gray-900 group-hover:text-white'}`}>
-                      {stat.value}
-                    </p>
-                    <div className="flex items-center space-x-2">
-                      <div className="flex items-center">
-                        <TrendingUp className={`w-4 h-4 mr-1 ${isActive ? 'text-white' : 'text-green-600 group-hover:text-white'}`} />
-                        <span className={`text-sm font-medium ${isActive ? 'text-white' : 'text-green-600 group-hover:text-white'}`}>
-                          {stat.trend === 'up' ? '+12.5%' : stat.trend === 'warning' ? '+5.1%' : '+8.2%'}
-                        </span>
-                      </div>
-                      <span className={`text-xs ${isActive ? 'text-white/80' : 'text-gray-500 group-hover:text-white/80'}`}>
-                        vs last month
-                      </span>
-                    </div>
-                  </div>
-                  <div className={`p-4 rounded-xl ml-4 ${isActive ? 'bg-white/20' : 'bg-gray-100 group-hover:bg-white/20'}`}>
-                    <IconComponent className={`w-8 h-8 ${isActive ? 'text-white' : 'text-gray-600 group-hover:text-white'}`} />
+                <div>
+                  <h3 className="text-sm font-medium mb-2 text-gray-600">
+                    {stat.title}
+                  </h3>
+                  <p className="text-2xl font-bold mb-3 text-gray-900">
+                    {stat.value}
+                  </p>
+
+                  <div className="flex items-center space-x-2">
+                    <TrendingUp className="w-4 h-4 text-[#0c2c8a]" />
+                    <span className="text-sm font-medium text-[#0c2c8a]">
+                      {stat.trend === 'up' ? '+12.5%' : stat.trend === 'warning' ? '+5.1%' : '+8.2%'}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      vs last month
+                    </span>
                   </div>
                 </div>
               </CardContent>

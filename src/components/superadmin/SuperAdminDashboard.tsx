@@ -46,7 +46,9 @@ import {
   CreditCard,
   Clock,
   LogOut,
-  AlertCircle
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 
 interface Admin {
@@ -85,6 +87,8 @@ interface Branch {
   phone: string;
   email: string;
   isActive: boolean;
+  adminId?: string;
+  createdBy?: string;
   createdAt: string;
   _count: {
     users: number;
@@ -110,6 +114,17 @@ const SuperAdminDashboard = () => {
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    // Initialize from localStorage if available
+    const saved = localStorage.getItem('superadmin-sidebar-collapsed');
+    return saved ? JSON.parse(saved) : false;
+  });
+
+  // Save sidebar state to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('superadmin-sidebar-collapsed', JSON.stringify(isCollapsed));
+  }, [isCollapsed]);
+
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -476,7 +491,7 @@ const SuperAdminDashboard = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'bg-green-100 text-green-800';
+      case 'active': return 'bg-[#0C2C8A]/10 text-[#0C2C8A]';
       case 'inactive': return 'bg-yellow-100 text-yellow-800';
       case 'suspended': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
@@ -485,9 +500,9 @@ const SuperAdminDashboard = () => {
 
   const getPlanColor = (plan: string) => {
     switch (plan) {
-      case 'basic': return 'bg-blue-100 text-blue-800';
-      case 'premium': return 'bg-purple-100 text-purple-800';
-      case 'enterprise': return 'bg-gold-100 text-gold-800';
+      case 'basic': return 'bg-[#0C2C8A]/10 text-[#0C2C8A]';
+      case 'premium': return 'bg-[#0C2C8A]/10 text-[#0C2C8A]';
+      case 'enterprise': return 'bg-[#0C2C8A]/10 text-[#0C2C8A]';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -501,24 +516,31 @@ const SuperAdminDashboard = () => {
   ];
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-screen bg-[#0C2C8A]">
       {/* Sidebar */}
-      <div className="w-64 bg-white border-r border-border shadow-sm">
-        <div className="p-6">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-              <Crown className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-foreground">SuperAdmin</h1>
-              <p className="text-xs text-muted-foreground">MediBill Pulse</p>
-            </div>
+      <div className={`bg-[#0C2C8A] border-r border-[#153186] shadow-sm transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-64'}`}>
+      <div className="p-6 text-white text-xl font-semibold flex items-center justify-between">
+        {!isCollapsed && (
+          <div className="flex items-center space-x-2">
+            <span className="w-8 h-8 flex items-center justify-center bg-white text-blue-900 rounded-full font-bold">N</span>
+            <span>NextBill</span>
           </div>
-        </div>
+        )}
+        {isCollapsed && (
+          <span className="w-8 h-8 flex items-center justify-center bg-white text-blue-900 rounded-full font-bold">N</span>
+        )}
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="p-1 hover:bg-white hover:bg-opacity-10 rounded-md transition-all"
+        >
+          {isCollapsed ? <ChevronRight className="w-5 h-5 text-white" /> : <ChevronLeft className="w-5 h-5 text-white" />}
+        </button>
+      </div>
 
-        <nav className="px-4 space-y-2">
+        <nav className={`space-y-2 ${isCollapsed ? 'px-2' : 'px-4'}`}>
           {sidebarItems.map((item) => {
             const IconComponent = item.icon;
+            const isActive = activeTab === item.id && viewMode !== 'user-management';
             return (
               <button
                 key={item.id}
@@ -526,33 +548,41 @@ const SuperAdminDashboard = () => {
                   setActiveTab(item.id);
                   setViewMode(item.id as any);
                 }}
-                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${(activeTab === item.id && viewMode !== 'user-management')
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                  }`}
+                className={`w-full flex items-center px-4 py-3 text-sm font-medium relative transition-all duration-300 ${
+                  isActive
+                    ? 'text-blue-900'
+                    : 'text-white hover:bg-white hover:bg-opacity-10'
+                }`}
+                style={{
+                  backgroundColor: isActive ? '#f8f9fa' : 'transparent',
+                  borderRadius: isActive ? '25px' : '0',
+                  marginRight: isActive ? '0' : '0'
+                }}
+                title={isCollapsed ? item.label : undefined}
               >
-                <IconComponent className="w-5 h-5" />
-                <span className="font-medium">{item.label}</span>
+                <IconComponent className={`w-5 h-5 ${isCollapsed ? 'mr-0' : 'mr-3'} ${isActive ? 'text-blue-900' : 'text-white'}`} />
+                {!isCollapsed && <span className="font-medium">{item.label}</span>}
               </button>
             );
           })}
         </nav>
 
         {/* Logout Button */}
-        <div className="p-4 border-t border-border">
+        <div className="p-4 border-t border-[#153186]">
           <Button
             onClick={logout}
             variant="ghost"
-            className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+            className={`w-full text-white hover:bg-white hover:bg-opacity-10 rounded-2xl transition-all ${isCollapsed ? 'justify-center' : 'justify-start'}`}
+            title={isCollapsed ? 'Log Out' : undefined}
           >
-            <LogOut className="w-4 h-4 mr-3" />
-            Logout
+            <LogOut className={`w-5 h-5 ${isCollapsed ? '' : 'mr-3'}`} />
+            {!isCollapsed && 'Log Out'}
           </Button>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className={`flex-1 overflow-y-auto bg-[#f8f9fa] rounded-lg m-4 transition-all duration-300 ${isCollapsed ? 'ml-2' : 'ml-4'}`}>
         <div className="p-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
@@ -575,30 +605,87 @@ const SuperAdminDashboard = () => {
               </p>
             </div>
 
-            {/* Date and Time Display */}
-            <div className="text-right">
-              <p className="text-sm font-medium text-foreground">
-                {currentDateTime.toLocaleDateString('en-US', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                })}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {currentDateTime.toLocaleTimeString('en-US', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  second: '2-digit',
-                  hour12: true
-                })}
-              </p>
+            {/* Date and Time Display with Analog Clock */}
+            <div className="flex items-center space-x-4">
+              {/* Date and Time Text */}
+              <div className="text-right">
+                <p className="text-sm font-medium text-foreground">
+                  {currentDateTime.toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {currentDateTime.toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: true
+                  })}
+                </p>
+              </div>
+
+              {/* Analog Clock */}
+              <div className="relative w-20 h-20 bg-white rounded-full border-4 border-[#0C2C8A] shadow-lg overflow-hidden">
+                {/* Clock Center */}
+                <div className="absolute top-1/2 left-1/2 w-2 h-2 bg-[#0C2C8A] rounded-full transform -translate-x-1/2 -translate-y-1/2 z-10"></div>
+
+                {/* Hour Hand */}
+                <div
+                  className="absolute top-1/2 left-1/2 w-1 bg-[#0C2C8A] z-5"
+                  style={{
+                    height: '16px',
+                    transform: `rotate(${(currentDateTime.getHours() % 12) * 30 + currentDateTime.getMinutes() * 0.5}deg)`,
+                    transformOrigin: '50% 100%',
+                    left: '50%',
+                    top: '50%',
+                    marginLeft: '-2px',
+                    marginTop: '-16px'
+                  }}
+                ></div>
+
+                {/* Minute Hand */}
+                <div
+                  className="absolute top-1/2 left-1/2 w-1 bg-[#0C2C8A] z-5"
+                  style={{
+                    height: '16px',
+                    transform: `rotate(${currentDateTime.getMinutes() * 6}deg)`,
+                    transformOrigin: '50% 100%',
+                    left: '50%',
+                    top: '50%',
+                    marginLeft: '-2px',
+                    marginTop: '-16px'
+                  }}
+                ></div>
+
+                {/* Second Hand */}
+                <div
+                  className="absolute top-1/2 left-1/2 w-0.5 bg-red-500 z-5"
+                  style={{
+                    height: '20px',
+                    transform: `rotate(${currentDateTime.getSeconds() * 6}deg)`,
+                    transformOrigin: '50% 100%',
+                    left: '50%',
+                    top: '50%',
+                    marginLeft: '-1px',
+                    marginTop: '-20px'
+                  }}
+                ></div>
+
+                {/* Clock Numbers */}
+                <div className="absolute top-1 text-xs font-bold text-[#0C2C8A] left-1/2 transform -translate-x-1/2">12</div>
+                <div className="absolute right-1 top-1/2 text-xs font-bold text-[#0C2C8A] transform translate-y-[-50%]">3</div>
+                <div className="absolute bottom-1 text-xs font-bold text-[#0C2C8A] left-1/2 transform -translate-x-1/2">6</div>
+                <div className="absolute left-1 top-1/2 text-xs font-bold text-[#0C2C8A] transform translate-y-[-50%]">9</div>
+              </div>
             </div>
 
             {viewMode === 'admins' && (
               <Dialog open={isCreateAdminOpen} onOpenChange={setIsCreateAdminOpen}>
                 <DialogTrigger asChild>
-                  <Button className="bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)] text-white hover:opacity-90">
+                  <Button className="bg-[#0C2C8A] hover:bg-transparent hover:text-[#0C2C8A] border-[1px] border-[#0C2C8A] hover:opacity-90">
                     <Plus className="w-4 h-4 mr-2" />
                     Create Admin
                   </Button>
@@ -606,7 +693,7 @@ const SuperAdminDashboard = () => {
                 <DialogContent className="max-w-2xl">
                   <DialogHeader>
                     <DialogTitle className="flex items-center space-x-2">
-                      <UserPlus className="w-5 h-5 text-primary" />
+                      <UserPlus className="w-5 h-5 text-[#0C2C8A]" />
                       <span>Create New Admin</span>
                     </DialogTitle>
                   </DialogHeader>
@@ -753,7 +840,7 @@ const SuperAdminDashboard = () => {
                     <Button
                       onClick={createAdmin}
                       disabled={isLoading}
-                      className="bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)] text-white hover:opacity-90"
+                      className="bg-[#0C2C8A] hover:bg-transparent hover:text-[#0C2C8A] border-[1px] border-[#0C2C8A] hover:opacity-90"
                     >
                       {isLoading ? 'Creating...' : 'Create Admin'}
                     </Button>
@@ -794,38 +881,26 @@ const SuperAdminDashboard = () => {
                   return (
                     <Card
                       key={index}
-                      className={`
-                        shadow-soft border-0 transition-all duration-300 cursor-pointer group
-                        ${isActive
-                          ? 'bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)] text-white shadow-lg scale-105'
-                          : 'bg-white hover:bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)] hover:shadow-lg hover:scale-105'
-                        }
-                      `}
+                      className="bg-white border border-[#0C2C8A] shadow-md"
                       onClick={() => { }} // No click action - only first card stays active
                     >
                       <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <p className={`text-sm font-medium mb-2 ${isActive ? 'text-white/90' : 'text-gray-600 group-hover:text-white/90'}`}>
-                              {stat.title}
-                            </p>
-                            <p className={`text-2xl font-bold mb-2 ${isActive ? 'text-white' : 'text-gray-900 group-hover:text-white'}`}>
-                              {stat.value}
-                            </p>
-                            <div className="flex items-center space-x-2">
-                              <div className="flex items-center">
-                                <TrendingUp className={`w-4 h-4 mr-1 ${isActive ? 'text-white' : 'text-green-600 group-hover:text-white'}`} />
-                                <span className={`text-sm font-medium ${isActive ? 'text-white' : 'text-green-600 group-hover:text-white'}`}>
-                                  {stat.trendValue}
-                                </span>
-                              </div>
-                              <span className={`text-xs ${isActive ? 'text-white/80' : 'text-gray-500 group-hover:text-white/80'}`}>
-                                vs last month
-                              </span>
-                            </div>
-                          </div>
-                          <div className={`p-4 rounded-xl ml-4 ${isActive ? 'bg-white/20' : 'bg-gray-100 group-hover:bg-white/20'}`}>
-                            <IconComponent className={`w-8 h-8 ${isActive ? 'text-white' : 'text-gray-600 group-hover:text-white'}`} />
+                        <div>
+                          <h3 className="text-sm font-medium mb-2 text-gray-600">
+                            {stat.title}
+                          </h3>
+                          <p className="text-2xl font-bold mb-3 text-gray-900">
+                            {stat.value}
+                          </p>
+
+                          <div className="flex items-center space-x-2">
+                            <TrendingUp className="w-4 h-4 text-[#0C2C8A]" />
+                            <span className="text-sm font-medium text-[#0C2C8A]">
+                              {stat.trendValue}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              vs last month
+                            </span>
                           </div>
                         </div>
                       </CardContent>
@@ -838,7 +913,7 @@ const SuperAdminDashboard = () => {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
-                    <Building2 className="w-5 h-5 text-primary" />
+                    <Building2 className="w-5 h-5 text-[#0C2C8A]" />
                     <span>Recent Admins</span>
                   </CardTitle>
                 </CardHeader>
@@ -847,8 +922,8 @@ const SuperAdminDashboard = () => {
                     {admins.slice(0, 3).map((admin) => (
                       <div key={admin.id} className="flex items-center justify-between p-4 border rounded-lg">
                         <div className="flex items-center space-x-4">
-                          <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                            <Shield className="w-5 h-5 text-primary" />
+                          <div className="w-10 h-10 bg-[#0C2C8A]/10 rounded-full flex items-center justify-center">
+                            <Shield className="w-5 h-5 text-[#0C2C8A]" />
                           </div>
                           <div>
                             <p className="font-medium">{admin.name}</p>
@@ -924,8 +999,8 @@ const SuperAdminDashboard = () => {
                           <tr key={admin.id} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center">
-                                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                                  <Shield className="w-5 h-5 text-blue-600" />
+                                <div className="w-10 h-10 bg-[#0C2C8A]/10 rounded-full flex items-center justify-center">
+                                  <Shield className="w-5 h-5 text-[#0C2C8A]" />
                                 </div>
                                 <div className="ml-4">
                                   <div className="text-sm font-medium text-gray-900">{admin.name}</div>
@@ -978,9 +1053,9 @@ const SuperAdminDashboard = () => {
                                   className="flex items-center gap-1"
                                 >
                                   {admin.status === "active" ? (
-                                    <ToggleRight className="w-4 h-4 text-green-600" />
+                                    <ToggleRight className="w-4 h-4 text-[#0C2C8A]" />
                                   ) : (
-                                    <ToggleLeft className="w-4 h-4 text-gray-400" />
+                                    <ToggleLeft className="w-4 h-4 text-[#0C2C8A]" />
                                   )}
                                   <span className="text-xs">
                                     {admin.status === "active" ? "Deactivate" : "Activate"}
@@ -1024,7 +1099,7 @@ const SuperAdminDashboard = () => {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
-                    <PieChart className="w-5 h-5 text-primary" />
+                    <PieChart className="w-5 h-5 text-[#0C2C8A]" />
                     <span>User Distribution by Admin</span>
                   </CardTitle>
                 </CardHeader>
@@ -1044,7 +1119,7 @@ const SuperAdminDashboard = () => {
                           </div>
                           <div className="w-full bg-gray-200 rounded-full h-2">
                             <div
-                              className="bg-primary h-2 rounded-full transition-all duration-300"
+                              className="bg-[#0C2C8A] h-2 rounded-full transition-all duration-300"
                               style={{ width: `${percentage}%` }}
                             ></div>
                           </div>
@@ -1063,7 +1138,7 @@ const SuperAdminDashboard = () => {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
-                    <CreditCard className="w-5 h-5 text-primary" />
+                    <CreditCard className="w-5 h-5 text-[#0C2C8A]" />
                     <span>Admin Payment Management</span>
                   </CardTitle>
                 </CardHeader>
@@ -1082,7 +1157,7 @@ const SuperAdminDashboard = () => {
                               }, 0).toLocaleString()}
                             </p>
                           </div>
-                          <DollarSign className="w-8 h-8 text-blue-600" />
+                          <DollarSign className="w-8 h-8 text-[#0C2C8A]" />
                         </div>
                       </div>
                       <div className="p-4 bg-green-50 rounded-lg">
@@ -1093,7 +1168,7 @@ const SuperAdminDashboard = () => {
                               {admins.filter(() => Math.random() > 0.3).length}
                             </p>
                           </div>
-                          <UserCheck className="w-8 h-8 text-green-600" />
+                          <UserCheck className="w-8 h-8 text-[#0C2C8A]" />
                         </div>
                       </div>
                       <div className="p-4 bg-red-50 rounded-lg">
@@ -1104,7 +1179,7 @@ const SuperAdminDashboard = () => {
                               {admins.filter(() => Math.random() <= 0.3).length}
                             </p>
                           </div>
-                          <UserX className="w-8 h-8 text-red-600" />
+                          <UserX className="w-8 h-8 text-[#0C2C8A]" />
                         </div>
                       </div>
                       <div className="p-4 bg-purple-50 rounded-lg">
@@ -1113,7 +1188,7 @@ const SuperAdminDashboard = () => {
                             <p className="text-sm font-medium text-purple-600">Total Admins</p>
                             <p className="text-2xl font-bold text-purple-800">{admins.length}</p>
                           </div>
-                          <Users className="w-8 h-8 text-purple-600" />
+                          <Users className="w-8 h-8 text-[#0C2C8A]" />
                         </div>
                       </div>
                     </div>
@@ -1124,7 +1199,7 @@ const SuperAdminDashboard = () => {
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <Card className="border-2 border-blue-200">
                           <CardHeader>
-                            <CardTitle className="text-blue-600">Basic Plan</CardTitle>
+                            <CardTitle className="text-[#0C2C8A]">Basic Plan</CardTitle>
                             <div className="text-3xl font-bold">PKR 5,000<span className="text-sm font-normal">/month</span></div>
                           </CardHeader>
                           <CardContent>
@@ -1139,7 +1214,7 @@ const SuperAdminDashboard = () => {
 
                         <Card className="border-2 border-purple-200">
                           <CardHeader>
-                            <CardTitle className="text-purple-600">Premium Plan</CardTitle>
+                            <CardTitle className="text-[#0C2C8A]">Premium Plan</CardTitle>
                             <div className="text-3xl font-bold">PKR 10,000<span className="text-sm font-normal">/month</span></div>
                           </CardHeader>
                           <CardContent>
@@ -1154,7 +1229,7 @@ const SuperAdminDashboard = () => {
 
                         <Card className="border-2 border-orange-200">
                           <CardHeader>
-                            <CardTitle className="text-orange-600">Enterprise Plan</CardTitle>
+                            <CardTitle className="text-[#0C2C8A]">Enterprise Plan</CardTitle>
                             <div className="text-3xl font-bold">PKR 20,000<span className="text-sm font-normal">/month</span></div>
                           </CardHeader>
                           <CardContent>
@@ -1269,7 +1344,7 @@ const SuperAdminDashboard = () => {
                                           <Button
                                             variant="outline"
                                             size="sm"
-                                            className="text-blue-600 hover:text-blue-800"
+                                            className="text-[#0C2C8A] hover:text-[#0C2C8A]/80"
                                           >
                                             <CreditCard className="w-4 h-4 mr-1" />
                                             View Details
@@ -1278,7 +1353,7 @@ const SuperAdminDashboard = () => {
                                             <Button
                                               variant="outline"
                                               size="sm"
-                                              className="text-green-600 hover:text-green-800"
+                                              className="text-[#0C2C8A] hover:text-[#0C2C8A]/80"
                                             >
                                               <DollarSign className="w-4 h-4 mr-1" />
                                               Mark Paid
@@ -1338,7 +1413,7 @@ const SuperAdminDashboard = () => {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center space-x-2">
-              <Users className="w-5 h-5 text-primary" />
+              <Users className="w-5 h-5 text-[#0C2C8A]" />
               <span>Users for {selectedAdmin?.name}</span>
             </DialogTitle>
           </DialogHeader>
@@ -1441,19 +1516,19 @@ const SuperAdminDashboard = () => {
                     <CardContent className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="text-center p-4 bg-blue-50 rounded-lg">
-                          <p className="text-2xl font-bold text-blue-600">{selectedAdmin.userCount}</p>
+                          <p className="text-2xl font-bold text-[#0C2C8A]">{selectedAdmin.userCount}</p>
                           <p className="text-sm text-muted-foreground">Total Users</p>
                         </div>
                         <div className="text-center p-4 bg-green-50 rounded-lg">
-                          <p className="text-2xl font-bold text-green-600">{selectedAdmin.managerCount}</p>
+                          <p className="text-2xl font-bold text-[#0C2C8A]">{selectedAdmin.managerCount}</p>
                           <p className="text-sm text-muted-foreground">Managers</p>
                         </div>
                         <div className="text-center p-4 bg-purple-50 rounded-lg">
-                          <p className="text-2xl font-bold text-purple-600">{branches.length}</p>
+                          <p className="text-2xl font-bold text-[#0C2C8A]">{branches.filter(branch => branch.adminId === selectedAdmin.id || branch.createdBy === selectedAdmin.id).length}</p>
                           <p className="text-sm text-muted-foreground">Total Branches</p>
                         </div>
                         <div className="text-center p-4 bg-orange-50 rounded-lg">
-                          <p className="text-2xl font-bold text-orange-600">{selectedAdmin.createdAt}</p>
+                          <p className="text-2xl font-bold text-[#0C2C8A]">{selectedAdmin.createdAt}</p>
                           <p className="text-sm text-muted-foreground">Created</p>
                         </div>
                       </div>
@@ -1512,7 +1587,7 @@ const SuperAdminDashboard = () => {
                               </td>
                               <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">{user.email}</td>
                               <td className="px-4 py-4 whitespace-nowrap">
-                                <Badge className="bg-blue-100 text-blue-800">{user.role}</Badge>
+                                <Badge className="bg-[#0C2C8A]/10 text-[#0C2C8A]">{user.role}</Badge>
                               </td>
                               <td className="px-4 py-4 whitespace-nowrap">
                                 <Badge className={`${getStatusColor(user.status)}`}>
@@ -1534,9 +1609,9 @@ const SuperAdminDashboard = () => {
                                   className="flex items-center space-x-1"
                                 >
                                   {user.status === 'active' ? (
-                                    <ToggleRight className="w-4 h-4 text-green-600" />
+                                    <ToggleRight className="w-4 h-4 text-[#0C2C8A]" />
                                   ) : (
-                                    <ToggleLeft className="w-4 h-4 text-gray-400" />
+                                    <ToggleLeft className="w-4 h-4 text-[#0C2C8A]" />
                                   )}
                                   <span className="text-xs">
                                     {user.status === 'active' ? 'Deactivate' : 'Activate'}
@@ -1556,7 +1631,7 @@ const SuperAdminDashboard = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-lg font-semibold">Branch Information</h3>
-                    <p className="text-sm text-muted-foreground">Total Branches: {branches.length}</p>
+                    <p className="text-sm text-muted-foreground">Total Branches: {branches.filter(branch => branch.adminId === selectedAdmin.id || branch.createdBy === selectedAdmin.id).length}</p>
                   </div>
                   <Button size="sm" onClick={loadAllBranches}>
                     <RefreshCw className="w-4 h-4 mr-2" />
@@ -1573,11 +1648,11 @@ const SuperAdminDashboard = () => {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {branches.map((branch) => (
+                    {branches.filter(branch => branch.adminId === selectedAdmin.id || branch.createdBy === selectedAdmin.id).map((branch) => (
                       <Card key={branch.id}>
                         <CardHeader>
                           <CardTitle className="flex items-center space-x-2">
-                            <Store className="w-5 h-5 text-blue-600" />
+                            <Store className="w-5 h-5 text-[#0C2C8A]" />
                             <span>{branch.name}</span>
                             {branch.isActive ? (
                               <Badge className="bg-green-100 text-green-800">Active</Badge>
@@ -1601,15 +1676,15 @@ const SuperAdminDashboard = () => {
                           </div>
                           <div className="grid grid-cols-3 gap-2 pt-2 border-t">
                             <div className="text-center">
-                              <p className="text-lg font-bold text-blue-600">{branch._count.users}</p>
+                              <p className="text-lg font-bold text-[#0C2C8A]">{branch._count.users}</p>
                               <p className="text-xs text-muted-foreground">Users</p>
                             </div>
                             <div className="text-center">
-                              <p className="text-lg font-bold text-green-600">{branch._count.products}</p>
+                              <p className="text-lg font-bold text-[#0C2C8A]">{branch._count.products}</p>
                               <p className="text-xs text-muted-foreground">Products</p>
                             </div>
                             <div className="text-center">
-                              <p className="text-lg font-bold text-purple-600">{branch._count.customers}</p>
+                              <p className="text-lg font-bold text-[#0C2C8A]">{branch._count.customers}</p>
                               <p className="text-xs text-muted-foreground">Customers</p>
                             </div>
                           </div>

@@ -517,9 +517,9 @@ const Reports = () => {
 
     // Test data for category chart
     const testCategoryData = [
-      { name: 'Vitamins', value: 900, color: '#1C623C' },
-      { name: 'Antibiotics', value: 720, color: '#247449' },
-      { name: 'umair', value: 69, color: '#6EB469' }
+      { name: 'Vitamins', value: 900, color: '#0c2c8a' },
+      { name: 'Antibiotics', value: 720, color: '#3d6bb3' },
+      { name: 'umair', value: 69, color: '#6d9eec' }
     ];
     setCategoryData(testCategoryData);
   }, [loadReportData]);
@@ -652,7 +652,7 @@ const Reports = () => {
   const processCategoryData = useCallback((categoryPerformanceData: any[]) => {
     if (!categoryPerformanceData || categoryPerformanceData.length === 0) return [];
 
-    const colors = ['#1C623C', '#247449', '#6EB469', '#4ADE80', '#22C55E', '#16A34A', '#15803D', '#166534'];
+    const colors = ['#0c2c8a', '#3d6bb3', '#6d9eec', '#2c5aa0', '#4d7cc6', '#5d8dd9', '#7dafff', '#8bbfff'];
 
     const processedData = categoryPerformanceData.map((item, index) => ({
       name: item.category || 'Uncategorized',
@@ -843,11 +843,11 @@ const Reports = () => {
 
       {/* All Branches Overview - Moved to Top */}
       {(user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') && (
-        <Card className="shadow-soft border-0">
+        <Card className="shadow-soft border-[1px] border-[#0C2C8A]">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <Building2 className="w-5 h-5 text-primary" />
+                <Building2 className="w-5 h-5 text-[#0c2c8a]" />
                 <span>All Branches Overview</span>
               </div>
               <div className="flex items-center space-x-2">
@@ -978,7 +978,7 @@ const Reports = () => {
       <Card className="shadow-soft border-0">
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
-            <Calendar className="w-5 h-5 text-primary" />
+            <Calendar className="w-5 h-5 text-[#0c2c8a]" />
             <span>Select Time Period</span>
           </CardTitle>
         </CardHeader>
@@ -991,7 +991,7 @@ const Reports = () => {
                 size="sm"
                 onClick={() => setSelectedPeriod(period.id)}
                 className={selectedPeriod === period.id
-                  ? "text-white bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)] hover:opacity-90 border-0"
+                  ? "text-white bg-[#0c2c8a] hover:bg-transparent hover:text-[#0c2c8a] border-[1px] border-[#0c2c8a] hover:opacity-90 border-0"
                   : ""
                 }
               >
@@ -1020,11 +1020,11 @@ const Reports = () => {
                   config={{
                     sales: {
                       label: "Sales Count",
-                      color: "#1C623C",
+                      color: "#0c2c8a",
                     },
                     revenue: {
                       label: "Revenue (PKR)",
-                      color: "#6EB469",
+                      color: "#153186",
                     },
                   }}
                   className="h-[300px]"
@@ -1040,8 +1040,8 @@ const Reports = () => {
                       type="monotone"
                       dataKey="sales"
                       stackId="1"
-                      stroke="#1C623C"
-                      fill="#1C623C"
+                      stroke="#0c2c8a"
+                      fill="#0c2c8a"
                       fillOpacity={0.6}
                       name="Sales Count"
                     />
@@ -1049,8 +1049,8 @@ const Reports = () => {
                       type="monotone"
                       dataKey="revenue"
                       stackId="2"
-                      stroke="#6EB469"
-                      fill="#6EB469"
+                      stroke="#153186"
+                      fill="#153186"
                       fillOpacity={0.6}
                       name="Revenue (PKR)"
                     />
@@ -1078,7 +1078,7 @@ const Reports = () => {
                   config={{
                     profit: {
                       label: "Profit (PKR)",
-                      color: "#1C623C",
+                      color: "#0c2c8a",
                     },
                     expenses: {
                       label: "Expenses (PKR)",
@@ -1092,7 +1092,7 @@ const Reports = () => {
                     <XAxis dataKey="month" />
                     <YAxis />
                     <ChartTooltip content={<ChartTooltipContent />} />
-                    <Bar dataKey="profit" fill="#1C623C" name="Profit (PKR)" />
+                    <Bar dataKey="profit" fill="#0c2c8a" name="Profit (PKR)" />
                     <Bar dataKey="expenses" fill="#EF4444" name="Expenses (PKR)" />
                   </BarChart>
                 </ChartContainer>
@@ -1121,7 +1121,7 @@ const Reports = () => {
                   config={{
                     sales: {
                       label: "Quantity Sold",
-                      color: "#1C623C",
+                      color: "#0c2c8a",
                     },
                   }}
                   className="h-[300px]"
@@ -1131,7 +1131,7 @@ const Reports = () => {
                     <XAxis type="number" />
                     <YAxis dataKey="name" type="category" width={120} />
                     <ChartTooltip content={<ChartTooltipContent />} />
-                    <Bar dataKey="sales" fill="#1C623C" name="Quantity Sold" />
+                    <Bar dataKey="sales" fill="#0c2c8a" name="Quantity Sold" />
                   </BarChart>
                 </ChartContainer>
               ) : (
@@ -1156,7 +1156,7 @@ const Reports = () => {
                   config={{
                     customers: {
                       label: "Customers",
-                      color: "#1C623C",
+                      color: "#0c2c8a",
                     },
                   }}
                   className="h-[300px]"
@@ -1169,9 +1169,9 @@ const Reports = () => {
                     <Line
                       type="monotone"
                       dataKey="customers"
-                      stroke="#1C623C"
+                      stroke="#0c2c8a"
                       strokeWidth={3}
-                      dot={{ fill: "#1C623C", strokeWidth: 2, r: 4 }}
+                      dot={{ fill: "#0c2c8a", strokeWidth: 2, r: 4 }}
                       name="Customers"
                     />
                   </LineChart>
@@ -1252,7 +1252,7 @@ const Reports = () => {
                       cx="50"
                       cy="50"
                       r="40"
-                      stroke="#1C623C"
+                      stroke="#0c2c8a"
                       strokeWidth="8"
                       fill="none"
                       strokeDasharray={`${2 * Math.PI * 40}`}
@@ -1264,7 +1264,7 @@ const Reports = () => {
 
                   {/* Center Text */}
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <div className="text-3xl font-bold text-primary">{profitMargin}%</div>
+                    <div className="text-3xl font-bold text-[#3D6CB3]">{profitMargin}%</div>
                     <div className="text-sm text-muted-foreground">Profit Margin</div>
                   </div>
                 </div>
@@ -1272,7 +1272,7 @@ const Reports = () => {
                 {/* Status Text */}
                 <div className="mt-4 text-center">
                   <div className={`text-lg font-semibold ${
-                    profitMargin >= 20 ? 'text-green-600' :
+                    profitMargin >= 20 ? 'text-[#3D6CB3]' :
                     profitMargin >= 10 ? 'text-yellow-600' : 'text-red-600'
                   }`}>
                     {profitMargin >= 20 ? 'Excellent' :

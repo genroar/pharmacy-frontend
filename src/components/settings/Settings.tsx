@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import SuperAdminSettings from "./SuperAdminSettings";
 import { useAuth } from "@/contexts/AuthContext";
+import { apiService } from "@/services/api";
 
 const Settings = () => {
   const { user } = useAuth();
@@ -34,9 +35,17 @@ const Settings = () => {
   const [isEditingPharmacy, setIsEditingPharmacy] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [isEditingPOS, setIsEditingPOS] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
+  const [userProfile, setUserProfile] = useState({
+    name: '',
+    email: '',
+    username: '',
+    role: '',
+    branchName: ''
+  });
   const [originalPharmacySettings, setOriginalPharmacySettings] = useState({
     name: "Al-Shifa Pharmacy",
     address: "Block A, Gulberg III, Lahore",
@@ -64,9 +73,9 @@ const Settings = () => {
       expiryAlert: 30
     },
     user: {
-      name: "Ahmad Khan",
-      email: "ahmad@pharmacy.com",
-      role: "Cashier",
+      name: userProfile.name || user?.name || "Loading...",
+      email: userProfile.email || "Loading...",
+      role: userProfile.role || user?.role || "Loading...",
       deviceId: "TABLET-001",
       lastLogin: "2024-01-15 10:30 AM"
     },
@@ -96,7 +105,69 @@ const Settings = () => {
 
   useEffect(() => {
     loadSettings();
+    loadUserProfile();
   }, []);
+
+  const loadUserProfile = async () => {
+    try {
+      const response = await apiService.getProfile();
+      if (response.success && response.data) {
+        setUserProfile({
+          name: response.data.name,
+          email: response.data.email,
+          username: response.data.username,
+          role: response.data.role,
+          branchName: response.data.branch?.name || 'Unknown Branch'
+        });
+      }
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+      // Fallback to auth context data
+      if (user) {
+        setUserProfile({
+          name: user.name,
+          email: 'N/A',
+          username: 'N/A',
+          role: user.role,
+          branchName: 'Unknown Branch'
+        });
+      }
+    }
+  };
+
+  const handlePOSEdit = () => {
+    setIsEditingPOS(true);
+  };
+
+  const handlePOSSave = async () => {
+    try {
+      // Save to localStorage for immediate availability
+      localStorage.setItem('pos_settings', JSON.stringify(settings.pos));
+
+      // Also save to a global variable for easy access in POS
+      (window as any).globalPOSSettings = settings.pos;
+
+      // Dispatch a custom event to notify other components about settings change
+      window.dispatchEvent(new CustomEvent('posSettingsUpdated', {
+        detail: settings.pos
+      }));
+
+      setIsEditingPOS(false);
+      console.log('POS settings saved:', settings.pos);
+
+      // Show success message
+      alert(`POS settings saved successfully! Tax rate set to ${settings.pos.defaultTax}%`);
+    } catch (error) {
+      console.error('Error saving POS settings:', error);
+      alert('Error saving settings. Please try again.');
+    }
+  };
+
+  const handlePOSCancel = () => {
+    setIsEditingPOS(false);
+    // Reload settings from localStorage or reset to default
+    loadSettings();
+  };
 
   const handleSettingChange = (section: string, key: string, value: any) => {
     setSettings(prev => ({
@@ -110,15 +181,22 @@ const Settings = () => {
 
   const loadSettings = async () => {
     try {
-      // Load settings
-      const settingsResponse = await fetch('http://localhost:5000/api/settings', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      // First try to load from localStorage
+      const savedPOSSettings = localStorage.getItem('pos_settings');
+      if (savedPOSSettings) {
+        const posData = JSON.parse(savedPOSSettings);
+        setSettings(prev => ({
+          ...prev,
+          pos: {
+            ...prev.pos,
+            ...posData
+          }
+        }));
+        return;
+      }
 
-      // Load user profile
-      const userResponse = await fetch('http://localhost:5000/api/auth/profile', {
+      // If no localStorage data, try backend
+      const settingsResponse = await fetch('http://localhost:5001/api/settings', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -132,8 +210,6 @@ const Settings = () => {
             pos: {
               ...prev.pos,
               defaultTax: parseFloat(settingsData.data.defaultTax) || 17,
-              lowStockAlert: parseInt(settingsData.data.lowStockAlert) || 20,
-              expiryAlert: parseInt(settingsData.data.expiryAlert) || 30,
               autoSync: settingsData.data.autoSync === 'true',
               offlineMode: settingsData.data.offlineMode === 'true',
               receiptPrinter: settingsData.data.receiptPrinter || 'EPSON TM-T20II'
@@ -173,7 +249,7 @@ const Settings = () => {
 
   const handleSaveSettings = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/settings', {
+      const response = await fetch('http://localhost:5001/api/settings', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -305,9 +381,9 @@ const Settings = () => {
             expiryAlert: 30
           },
           user: {
-            name: "Ahmad Khan",
-            email: "ahmad@pharmacy.com",
-            role: "Cashier",
+            name: userProfile.name || user?.name || "Loading...",
+            email: userProfile.email || "Loading...",
+            role: userProfile.role || user?.role || "Loading...",
             deviceId: "TABLET-001",
             lastLogin: "2024-01-15 10:30 AM"
           },
@@ -349,7 +425,7 @@ const Settings = () => {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/change-password', {
+      const response = await fetch('http://localhost:5001/api/auth/change-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -379,7 +455,7 @@ const Settings = () => {
 
   const handleUpdateProfile = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/auth/update-profile', {
+      const response = await fetch('http://localhost:5001/api/auth/update-profile', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -462,13 +538,12 @@ const Settings = () => {
         </div>
         <div className="flex items-center space-x-3">
           <Button variant="outline">
-            <RefreshCw className="w-4 h-4 mr-2" />
+            <RefreshCw className="w-4 h-4 mr-2" /> l
             Sync Now
           </Button>
           <Button
             onClick={handleSaveSettings}
-            className="text-white
-             hover:opacity-90"
+            className="bg-[#0c2c8a] hover:bg-transparent hover:text-[#0c2c8a] border-[1px] border-[#0c2c8a] hover:opacity-90"
           >
             <Save className="w-4 h-4 mr-2" />
             Save Changes
@@ -477,10 +552,10 @@ const Settings = () => {
       </div>
 
       {/* Device Status */}
-      <Card className="shadow-soft border-0">
+      <Card className="shadow-soft border-[1px] border-[#0C2C8A]">
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
-            <Monitor className="w-5 h-5 text-primary" />
+            <Monitor className="w-5 h-5 text-[#0C2C8A]" />
             <span>Device Status</span>
           </CardTitle>
         </CardHeader>
@@ -489,9 +564,9 @@ const Settings = () => {
             <div className="text-center">
               <div className="flex items-center justify-center mb-2">
                 {isOnline ? (
-                  <Wifi className="w-8 h-8 text-success" />
+                  <Wifi className="w-8 h-8 text-green-600" />
                 ) : (
-                  <WifiOff className="w-8 h-8 text-warning" />
+                  <WifiOff className="w-8 h-8 text-yellow-600" />
                 )}
               </div>
               <p className="text-sm font-medium text-foreground">{deviceStatus.connectivity}</p>
@@ -500,7 +575,7 @@ const Settings = () => {
 
             <div className="text-center">
               <div className="flex items-center justify-center mb-2">
-                <Database className="w-8 h-8 text-accent" />
+                <Database className="w-8 h-8 text-[#0C2C8A]" />
               </div>
               <p className="text-sm font-medium text-foreground">{deviceStatus.lastSync}</p>
               <p className="text-xs text-muted-foreground">Last Sync</p>
@@ -508,7 +583,7 @@ const Settings = () => {
 
             <div className="text-center">
               <div className="flex items-center justify-center mb-2">
-                <Smartphone className="w-8 h-8 text-primary" />
+                <Smartphone className="w-8 h-8 text-[#0C2C8A]" />
               </div>
               <p className="text-sm font-medium text-foreground">{deviceStatus.storage}</p>
               <p className="text-xs text-muted-foreground">Storage</p>
@@ -516,7 +591,7 @@ const Settings = () => {
 
             <div className="text-center">
               <div className="flex items-center justify-center mb-2">
-                <Shield className="w-8 h-8 text-success" />
+                <Shield className="w-8 h-8 text-green-600" />
               </div>
               <p className="text-sm font-medium text-foreground">{deviceStatus.battery}</p>
               <p className="text-xs text-muted-foreground">Battery</p>
@@ -524,7 +599,7 @@ const Settings = () => {
 
             <div className="text-center">
               <div className="flex items-center justify-center mb-2">
-                <Printer className="w-8 h-8 text-warning" />
+                <Printer className="w-8 h-8 text-yellow-600" />
               </div>
               <p className="text-sm font-medium text-foreground">{deviceStatus.printer}</p>
               <p className="text-xs text-muted-foreground">Printer</p>
@@ -540,7 +615,7 @@ const Settings = () => {
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <User className="w-5 h-5 text-primary" />
+                <User className="w-5 h-5 text-[#0C2C8A]" />
                 <span>User Profile</span>
               </div>
               <Button
@@ -555,14 +630,14 @@ const Settings = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center space-x-4">
-              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-                <span className="text-xl font-semibold text-primary">
+              <div className="w-16 h-16 bg-[#0C2C8A]/10 rounded-full flex items-center justify-center">
+                <span className="text-xl font-semibold text-[#0C2C8A]">
                   {settings.user.name.charAt(0).toUpperCase()}
                 </span>
               </div>
               <div>
                 <h3 className="font-semibold text-foreground">{settings.user.name}</h3>
-                <Badge variant="outline" className="bg-accent/10 text-accent border-accent/20">
+                <Badge variant="outline" className="bg-[#0C2C8A]/10 text-[#0C2C8A] border-[#0C2C8A]/20">
                   {settings.user.role}
                 </Badge>
                 <p className="text-sm text-muted-foreground mt-1">Device: {settings.user.deviceId}</p>
@@ -589,7 +664,7 @@ const Settings = () => {
                   />
                 </div>
                 <div className="flex space-x-2">
-                  <Button onClick={handleUpdateProfile} className="flex-1">
+                  <Button onClick={handleUpdateProfile} className="flex-1 bg-[#0c2c8a] hover:bg-transparent hover:text-[#0c2c8a] border-[1px] border-[#0c2c8a] hover:opacity-90">
                     <Save className="w-4 h-4 mr-2" />
                     Save Changes
                   </Button>
@@ -654,7 +729,7 @@ const Settings = () => {
                       placeholder="Confirm new password"
                     />
                   </div>
-                  <Button onClick={handleChangePassword} className="w-full">
+                  <Button onClick={handleChangePassword} className="w-full bg-[#0c2c8a] hover:bg-transparent hover:text-[#0c2c8a] border-[1px] border-[#0c2c8a] hover:opacity-90">
                     <Save className="w-4 h-4 mr-2" />
                     Update Password
                   </Button>
@@ -748,10 +823,31 @@ const Settings = () => {
         {/* POS Configuration */}
         <Card className="shadow-soft border-0">
           <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <SettingsIcon className="w-5 h-5 text-primary" />
-              <span>POS Configuration</span>
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center space-x-2">
+                <SettingsIcon className="w-5 h-5 text-[#0C2C8A]" />
+                <span>POS Configuration</span>
+              </CardTitle>
+              <div className="flex space-x-2">
+                {!isEditingPOS ? (
+                  <Button onClick={handlePOSEdit} variant="outline" size="sm">
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit
+                  </Button>
+                ) : (
+                  <div className="flex space-x-2">
+                    <Button onClick={handlePOSSave} size="sm" className="bg-[#0c2c8a] hover:bg-transparent hover:text-[#0c2c8a] border-[1px] border-[#0c2c8a] hover:opacity-90">
+                      <Save className="w-4 h-4 mr-2" />
+                      Save
+                    </Button>
+                    <Button onClick={handlePOSCancel} variant="outline" size="sm">
+                      <X className="w-4 h-4 mr-2" />
+                      Cancel
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
@@ -763,6 +859,7 @@ const Settings = () => {
                 id="auto-sync"
                 checked={settings.pos.autoSync}
                 onCheckedChange={(checked) => handleSettingChange('pos', 'autoSync', checked)}
+                disabled={!isEditingPOS}
               />
             </div>
 
@@ -775,6 +872,7 @@ const Settings = () => {
                 id="offline-mode"
                 checked={settings.pos.offlineMode}
                 onCheckedChange={(checked) => handleSettingChange('pos', 'offlineMode', checked)}
+                disabled={!isEditingPOS}
               />
             </div>
 
@@ -784,37 +882,23 @@ const Settings = () => {
                 id="receipt-printer"
                 value={settings.pos.receiptPrinter}
                 onChange={(e) => handleSettingChange('pos', 'receiptPrinter', e.target.value)}
+                disabled={!isEditingPOS}
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="default-tax">Default Tax (%)</Label>
-                <Input
-                  id="default-tax"
-                  type="number"
-                  value={settings.pos.defaultTax || ''}
-                  onChange={(e) => handleSettingChange('pos', 'defaultTax', parseFloat(e.target.value) || 0)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="low-stock">Low Stock Alert</Label>
-                <Input
-                  id="low-stock"
-                  type="number"
-                  value={settings.pos.lowStockAlert || ''}
-                  onChange={(e) => handleSettingChange('pos', 'lowStockAlert', parseInt(e.target.value) || 0)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="expiry-alert">Expiry Alert (days)</Label>
-                <Input
-                  id="expiry-alert"
-                  type="number"
-                  value={settings.pos.expiryAlert || ''}
-                  onChange={(e) => handleSettingChange('pos', 'expiryAlert', parseInt(e.target.value) || 0)}
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="default-tax">Default Tax (%)</Label>
+              <Input
+                id="default-tax"
+                type="number"
+                value={settings.pos.defaultTax || ''}
+                onChange={(e) => handleSettingChange('pos', 'defaultTax', parseFloat(e.target.value) || 0)}
+                disabled={!isEditingPOS}
+                placeholder="Enter tax percentage (e.g., 17 for 17%)"
+              />
+              <p className="text-xs text-muted-foreground">
+                This tax rate will be automatically applied to all sales. Set to 0 for no tax.
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -823,7 +907,7 @@ const Settings = () => {
         <Card className="shadow-soft border-0">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
-              <Shield className="w-5 h-5 text-primary" />
+              <Shield className="w-5 h-5 text-[#0C2C8A]" />
               <span>Security & Notifications</span>
             </CardTitle>
           </CardHeader>

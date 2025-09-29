@@ -130,7 +130,7 @@ const UserManagement = () => {
         const token = localStorage.getItem('token');
         console.log('Making direct API call with token:', token ? 'Present' : 'Missing');
 
-        const response = await fetch(`http://localhost:5000/api/users?page=1&limit=100`, {
+        const response = await fetch(`http://localhost:5001/api/users?page=1&limit=100`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -423,16 +423,9 @@ const UserManagement = () => {
         </div>
 
         <div className="flex space-x-3">
-          <Button
-            variant="outline"
-            onClick={() => window.location.href = '/admin'}
-          >
-            ← Back to Admin Dashboard
-          </Button>
-
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="text-white bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)] hover:opacity-90">
+              <Button className="text-white bg-[#0c2c8a] hover:bg-transparent hover:text-[#0c2c8a] border-[1px] border-[#0c2c8a] hover:opacity-90">
                 <UserPlus className="w-4 h-4 mr-2" />
                 Create New User
               </Button>
@@ -616,7 +609,7 @@ const UserManagement = () => {
       <Card className="shadow-soft border-0">
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
-            <Users className="w-5 h-5 text-primary" />
+            <Users className="w-5 h-5 text-[#0C2C8A]" />
             <span>Users ({filteredUsers.length})</span>
           </CardTitle>
         </CardHeader>
@@ -646,8 +639,8 @@ const UserManagement = () => {
                     <tr key={user.id} className="border-b border-border hover:bg-muted/50">
                       <td className="py-4 px-4">
                         <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                            <span className="text-sm font-medium text-primary">
+                          <div className="w-10 h-10 bg-[#E9ECF4] rounded-full flex items-center justify-center">
+                            <span className="text-sm font-medium text-[#0C2C8A]">
                               {user.name.split(' ').map(n => n[0]).join('')}
                             </span>
                           </div>
@@ -735,8 +728,8 @@ const UserManagement = () => {
               return (
                 <div key={role.id} className="p-4 border border-border rounded-lg">
                   <div className="flex items-center space-x-3 mb-3">
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                      <IconComponent className="w-5 h-5 text-primary" />
+                    <div className="p-2 bg-[#E9ECF4] rounded-lg">
+                      <IconComponent className="w-5 h-5 text-[#0C2C8A]" />
                     </div>
                     <div>
                       <h3 className="font-semibold text-foreground">{role.label}</h3>

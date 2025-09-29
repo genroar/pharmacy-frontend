@@ -259,25 +259,90 @@ const ManagerDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-[#f8f9fa] p-6">
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Manager Dashboard</h1>
-            <p className="text-gray-600 mt-1">
-              Welcome back, {user?.name || 'Manager'} • {selectedBranch?.name || 'Branch Management'}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Manager Dashboard</h1>
+          <p className="text-muted-foreground text-sm mt-[5px]">
+            Welcome back, {user?.name || 'Manager'} • {selectedBranch?.name || 'Branch Management'}
+          </p>
+        </div>
+
+        {/* Date and Time Display with Analog Clock */}
+        <div className="flex items-center space-x-4">
+          {/* Date and Time Text */}
+          <div className="text-center">
+            <p className="text-sm font-medium text-foreground">
+              {currentDateTime.toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+              })}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {currentDateTime.toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+              })}
             </p>
           </div>
-          <div className="flex items-center space-x-4">
-            <div className="text-right">
-             
-              <div className="flex items-center space-x-2">
-                <Wifi className="w-4 h-4 text-green-500" />
-                <span className="text-sm text-green-600">Live Data</span>
-              </div>
-            </div>
 
+          {/* Analog Clock */}
+          <div className="relative w-20 h-20 bg-white rounded-full border-4 border-[#0c2c8a] shadow-lg overflow-hidden">
+            {/* Clock Center */}
+            <div className="absolute top-1/2 left-1/2 w-2 h-2 bg-[#0c2c8a] rounded-full transform -translate-x-1/2 -translate-y-1/2 z-10"></div>
+
+            {/* Hour Hand */}
+            <div
+              className="absolute top-1/2 left-1/2 w-1 bg-[#0c2c8a] z-5"
+              style={{
+                height: '16px',
+                transform: `rotate(${(currentDateTime.getHours() % 12) * 30 + currentDateTime.getMinutes() * 0.5}deg)`,
+                transformOrigin: '50% 100%',
+                left: '50%',
+                top: '50%',
+                marginLeft: '-2px',
+                marginTop: '-16px'
+              }}
+            ></div>
+
+            {/* Minute Hand */}
+            <div
+              className="absolute top-1/2 left-1/2 w-1 bg-[#0c2c8a] z-5"
+              style={{
+                height: '16px',
+                transform: `rotate(${currentDateTime.getMinutes() * 6}deg)`,
+                transformOrigin: '50% 100%',
+                left: '50%',
+                top: '50%',
+                marginLeft: '-2px',
+                marginTop: '-16px'
+              }}
+            ></div>
+
+            {/* Second Hand */}
+            <div
+              className="absolute top-1/2 left-1/2 w-0.5 bg-red-500 z-5"
+              style={{
+                height: '20px',
+                transform: `rotate(${currentDateTime.getSeconds() * 6}deg)`,
+                transformOrigin: '50% 100%',
+                left: '50%',
+                top: '50%',
+                marginLeft: '-1px',
+                marginTop: '-20px'
+              }}
+            ></div>
+
+            {/* Clock Numbers */}
+            <div className="absolute top-1 text-xs font-bold text-[#0c2c8a] left-1/2 transform -translate-x-1/2">12</div>
+            <div className="absolute right-1 top-1/2 text-xs font-bold text-[#0c2c8a] transform translate-y-[-50%]">3</div>
+            <div className="absolute bottom-1 text-xs font-bold text-[#0c2c8a] left-1/2 transform -translate-x-1/2">6</div>
+            <div className="absolute left-1 top-1/2 text-xs font-bold text-[#0c2c8a] transform translate-y-[-50%]">9</div>
           </div>
         </div>
       </div>
@@ -287,7 +352,7 @@ const ManagerDashboard = () => {
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <Building2 className="w-5 h-5 text-primary" />
+              <Building2 className="w-5 h-5 text-[#0c2c8a]" />
               <span>Branch Overview</span>
             </div>
             <Badge variant="outline" className="text-xs">
@@ -308,42 +373,32 @@ const ManagerDashboard = () => {
               const isActive = activeStatTab === index;
 
               return (
-                <div
+                <Card
                   key={index}
-                  className={`
-                    p-4 rounded-lg cursor-pointer transition-all duration-300 group
-                    ${isActive
-                      ? 'bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)] text-white shadow-lg scale-105'
-                      : 'bg-white hover:bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)] hover:text-white hover:shadow-lg hover:scale-105'
-                    }
-                  `}
+                  className="bg-white border border-[#0c2c8a] shadow-md"
                   onClick={() => {}} // No click action - only first card stays active
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <p className={`text-sm font-medium mb-2 ${isActive ? 'text-white/90' : 'text-gray-600 group-hover:text-white/90'}`}>
+                  <CardContent className="p-6">
+                    <div>
+                      <h3 className="text-sm font-medium mb-2 text-gray-600">
                         {stat.title}
-                      </p>
-                      <p className={`text-2xl font-bold mb-2 ${isActive ? 'text-white' : 'text-gray-900 group-hover:text-white'}`}>
+                      </h3>
+                      <p className="text-2xl font-bold mb-3 text-gray-900">
                         {stat.value}
                       </p>
+
                       <div className="flex items-center space-x-2">
-                        <div className="flex items-center">
-                          <TrendingUp className={`w-4 h-4 mr-1 ${isActive ? 'text-white' : 'text-green-600 group-hover:text-white'}`} />
-                          <span className={`text-sm font-medium ${isActive ? 'text-white' : 'text-green-600 group-hover:text-white'}`}>
-                            {stat.trendValue}
-                          </span>
-                        </div>
-                        <span className={`text-xs ${isActive ? 'text-white/80' : 'text-gray-500 group-hover:text-white/80'}`}>
+                        <TrendingUp className="w-4 h-4 text-[#0c2c8a]" />
+                        <span className="text-sm font-medium text-[#0c2c8a]">
+                          {stat.trendValue}
+                        </span>
+                        <span className="text-xs text-gray-500">
                           vs last month
                         </span>
                       </div>
                     </div>
-                    <div className={`p-3 rounded-xl ml-4 ${isActive ? 'bg-white/20' : 'bg-gray-100 group-hover:bg-white/20'}`}>
-                      <IconComponent className={`w-8 h-8 ${isActive ? 'text-white' : 'text-gray-600 group-hover:text-white'}`} />
-                    </div>
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               );
             })}
           </div>
@@ -394,7 +449,7 @@ const ManagerDashboard = () => {
         <Card className="shadow-soft border-0">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
-              <UserCog className="w-5 h-5 text-primary" />
+              <UserCog className="w-5 h-5 text-[#0c2c8a]" />
               <span>Cashier Management</span>
             </CardTitle>
           </CardHeader>
