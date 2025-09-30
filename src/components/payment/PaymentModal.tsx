@@ -67,7 +67,7 @@ const PaymentModal = ({ isOpen, onClose, amount, plan, onPaymentSuccess }: Payme
       };
 
       // Call backend payment API
-      const response = await fetch('http://localhost:5001/api/subscription/process-payment', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/subscription/process-payment`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

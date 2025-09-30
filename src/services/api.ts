@@ -1,7 +1,12 @@
 
 
 
-const API_BASE_URL = 'http://localhost:5001/api';
+import { config } from '../lib/config';
+
+const API_BASE_URL = config.api.baseUrl;
+const API_TIMEOUT = config.api.timeout;
+const DEBUG_MODE = config.debug.enabled;
+const LOG_LEVEL = config.debug.logLevel;
 
 interface ApiResponse<T> {
   success: boolean;
@@ -72,7 +77,9 @@ class ApiService {
       return this.requestQueue.get(endpoint)!;
     }
 
-    console.log('API Request:', { url, options, token: this.token ? 'Present' : 'Missing' });
+    if (DEBUG_MODE) {
+      console.log('API Request:', { url, options, token: this.token ? 'Present' : 'Missing' });
+    }
 
     const config: RequestInit = {
       headers: {
@@ -83,13 +90,17 @@ class ApiService {
       ...options,
     };
 
-    console.log('API Request:', {url, options, token: this.token ? 'Present' : 'Missing'});
+    if (DEBUG_MODE) {
+      console.log('API Request:', {url, options, token: this.token ? 'Present' : 'Missing'});
+    }
 
     // Create a promise for this request
     const requestPromise = (async () => {
       try {
         const response = await fetch(url, config);
-        console.log('API Response status:', response.status);
+        if (DEBUG_MODE) {
+          console.log('API Response status:', response.status);
+        }
 
         // Handle rate limiting (429) and other non-JSON responses
         if (response.status === 429) {
@@ -104,11 +115,15 @@ class ApiService {
           data = await response.json();
         } else {
           const text = await response.text();
-          console.log('API Response text:', text);
+          if (DEBUG_MODE) {
+            console.log('API Response text:', text);
+          }
           throw new Error(text || 'An error occurred');
         }
 
-        console.log('API Response data:', data);
+        if (DEBUG_MODE) {
+          console.log('API Response data:', data);
+        }
 
         if (!response.ok) {
           console.error('API Error response:', data);

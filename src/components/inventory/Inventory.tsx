@@ -1373,7 +1373,7 @@ const Inventory = () => {
       console.log('=== CALLING BULK IMPORT API ===');
       console.log('Products to import:', productsToImport);
       console.log('Number of products:', productsToImport.length);
-      console.log('API Base URL:', 'http://localhost:5001/api');
+      console.log('API Base URL:', import.meta.env.VITE_API_BASE_URL);
       console.log('Token present:', !!localStorage.getItem('token'));
       console.log('User from context:', user);
 

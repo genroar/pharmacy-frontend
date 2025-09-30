@@ -196,7 +196,7 @@ const Settings = () => {
       }
 
       // If no localStorage data, try backend
-      const settingsResponse = await fetch('http://localhost:5001/api/settings', {
+      const settingsResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/settings`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -249,7 +249,7 @@ const Settings = () => {
 
   const handleSaveSettings = async () => {
     try {
-      const response = await fetch('http://localhost:5001/api/settings', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/settings`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -425,7 +425,7 @@ const Settings = () => {
     }
 
     try {
-      const response = await fetch('http://localhost:5001/api/auth/change-password', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/change-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -455,7 +455,7 @@ const Settings = () => {
 
   const handleUpdateProfile = async () => {
     try {
-      const response = await fetch('http://localhost:5001/api/auth/update-profile', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/update-profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

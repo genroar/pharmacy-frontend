@@ -130,7 +130,7 @@ const UserManagement = () => {
         const token = localStorage.getItem('token');
         console.log('Making direct API call with token:', token ? 'Present' : 'Missing');
 
-        const response = await fetch(`http://localhost:5001/api/users?page=1&limit=100`, {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/users?page=1&limit=100`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,

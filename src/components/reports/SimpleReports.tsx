@@ -20,7 +20,7 @@ const SimpleReports = () => {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch('http://localhost:5001/api/reports/dashboard', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/reports/dashboard`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,

@@ -45,7 +45,7 @@ export const useRealtimeNotifications = () => {
     const token = localStorage.getItem('token');
     if (!token) return;
 
-    const eventSource = new EventSource(`http://localhost:5001/api/sse/events?token=${encodeURIComponent(token)}`);
+    const eventSource = new EventSource(`${import.meta.env.VITE_API_BASE_URL}/sse/events?token=${encodeURIComponent(token)}`);
 
     eventSourceRef.current = eventSource;
 
