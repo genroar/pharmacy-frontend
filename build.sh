@@ -1,13 +1,11 @@
 #!/bin/bash
 
-# Railway build script for frontend
-set -e
+# Simple build script for Railway
+echo "🚀 Building MediBill Pulse Frontend..."
 
-echo "🚀 Building MediBill Pulse Frontend for Railway..."
-
-# Install all dependencies (including dev dependencies)
+# Install dependencies
 echo "📦 Installing dependencies..."
-npm ci
+npm install
 
 # Build the application
 echo "🔨 Building application..."
