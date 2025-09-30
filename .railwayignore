@@ -1,0 +1,37 @@
+# Railway ignore file
+# This ensures Railway uses standard Node.js build instead of Docker
+
+# Ignore Docker files
+Dockerfile
+docker-compose.yml
+docker-compose.prod.yml
+
+# Ignore nginx config
+nginx.conf
+
+# Ignore build scripts that might confuse Railway
+railway-build.sh
+
+# Ignore development files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Ignore logs
+*.log
+logs/
+
+# Ignore temporary files
+tmp/
+temp/
