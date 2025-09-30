@@ -24,3 +24,8 @@ logs/
 # Ignore temporary files
 tmp/
 temp/
+
+# Ignore build artifacts
+dist/
+release/
+build/

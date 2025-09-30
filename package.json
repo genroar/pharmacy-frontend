@@ -16,7 +16,7 @@
     "env:prod": "node scripts/setup-env.js production",
     "build:prod": "NODE_ENV=production vite build --mode production",
     "preview:prod": "vite preview --mode production",
-    "start": "npm run build:prod && vite preview --host 0.0.0.0 --port $PORT",
+    "start": "vite preview --host 0.0.0.0 --port $PORT",
     "deploy:prod": "npm run build:prod && npm run electron:build",
     "electron": "electron .",
     "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
