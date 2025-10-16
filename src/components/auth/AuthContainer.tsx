@@ -33,14 +33,12 @@ const AuthContainer = () => {
   };
 
   return (
-    <div className="relative overflow-hidden min-h-screen">
+    <div className="relative min-h-screen overflow-y-auto">
       {/* Login Form */}
       <div
         className={`absolute inset-0 transition-transform duration-700 ease-[cubic-bezier(0.4,0,0.2,1)] ${
-          currentView === 'login'
-            ? 'translate-x-0'
-            : '-translate-x-full'
-        }`}
+          currentView === 'login' ? 'translate-x-0' : '-translate-x-full'
+        } overflow-y-auto`}
       >
         <LoginForm onLogin={handleLogin} onNavigateToSignup={handleNavigateToSignup} />
       </div>
@@ -48,10 +46,8 @@ const AuthContainer = () => {
       {/* Signup Form */}
       <div
         className={`absolute inset-0 transition-transform duration-700 ease-[cubic-bezier(0.4,0,0.2,1)] ${
-          currentView === 'signup'
-            ? 'translate-x-0'
-            : 'translate-x-full'
-        }`}
+          currentView === 'signup' ? 'translate-x-0' : 'translate-x-full'
+        } overflow-y-auto`}
       >
         <AdminSignupForm onNavigateToLogin={handleNavigateToLogin} />
       </div>

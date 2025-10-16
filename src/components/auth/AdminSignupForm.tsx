@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,13 +8,13 @@ import {
   Lock,
   Eye,
   EyeOff,
-  Shield,
   Mail,
-  Building,
-  ArrowLeft
+  Building
 } from "lucide-react";
 import { apiService } from "@/services/api";
 import { useNavigate, Link } from "react-router-dom";
+import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface AdminSignupFormProps {
   onNavigateToLogin?: () => void;
@@ -22,6 +22,7 @@ interface AdminSignupFormProps {
 
 const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     username: "",
     email: "",
@@ -37,25 +38,57 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [step, setStep] = useState<1 | 2>(1);
+  const [usernameError, setUsernameError] = useState("");
+  const [emailError, setEmailError] = useState("");
+
+  // Test toast on component mount
+  useEffect(() => {
+    console.log("AdminSignupForm mounted - toast system should be working");
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
     setError("");
     setSuccess("");
 
-    // Validation
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match");
-      setIsLoading(false);
+    // Step-wise validation / progression
+    if (step === 1) {
+      if (!formData.name || !formData.username || !formData.email) {
+        setError("Please fill all required fields");
+        toast({
+          title: "Missing fields",
+          description: "Name, Username and Email are required.",
+          duration: 2000,
+        });
+        return;
+      }
+      setStep(2);
       return;
     }
 
-    if (formData.password.length < 6) {
-      setError("Password must be at least 6 characters long");
-      setIsLoading(false);
-      return;
+    if (step === 2) {
+      if (formData.password.length < 6) {
+        setError("Password must be at least 6 characters long");
+        toast({
+          title: "Weak password",
+          description: "Password must be at least 6 characters.",
+          duration: 2000,
+        });
+        return;
+      }
+      if (formData.password !== formData.confirmPassword) {
+        setError("Passwords do not match");
+        toast({
+          title: "Passwords do not match",
+          description: "Make sure both password fields are identical.",
+          duration: 2000,
+        });
+        return;
+      }
+      // Final submit on step 2 (no more steps needed)
     }
+    setIsLoading(true);
 
     try {
       const response = await apiService.register({
@@ -63,26 +96,90 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
         email: formData.email,
         password: formData.password,
         name: formData.name,
-        role: 'ADMIN',
-        branchId: 'temp', // Will be created during registration
-        branchData: {
-          name: formData.branchName,
-          address: formData.branchAddress,
-          phone: formData.branchPhone
-        }
+        role: 'ADMIN'
+        // No branchId or branchData needed - admin will create companies from dashboard
       });
 
-      if (response.success) {
-        setSuccess("Admin account created successfully! You can now login.");
+      if (response.success && response.data) {
+        const { user, token } = response.data;
+
+        // Automatically log in the user
+        login({
+          id: user.id,
+          name: user.name,
+          role: user.role as 'SUPERADMIN' | 'ADMIN' | 'MANAGER' | 'CASHIER',
+          branchId: user.branchId
+        });
+
+        setSuccess("Admin account created successfully! Welcome to your dashboard.");
+
+        // Redirect to dashboard after successful registration and login
         setTimeout(() => {
-          navigate('/login');
-        }, 2000);
+          navigate('/');
+        }, 1500);
       } else {
         setError(response.message || "Registration failed");
+
+        // Show specific toast based on the error field
+        if (response.field === 'username') {
+          setUsernameError("Username already exists");
+          toast({
+            title: "Username already exists",
+            description: "Please choose a different username.",
+            variant: "destructive",
+            duration: 3000,
+          });
+        } else if (response.field === 'email') {
+          setEmailError("Email already exists");
+          toast({
+            title: "Email already exists",
+            description: "This email is already registered. Please use a different email or try logging in.",
+            variant: "destructive",
+            duration: 3000,
+          });
+        } else {
+          toast({
+            title: "Registration failed",
+            description: response.message || "Please review your details and try again.",
+            variant: "destructive",
+            duration: 3000,
+          });
+        }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Registration error:', error);
+      console.error('Error field:', error.field);
+      console.error('Error message:', error.message);
+      console.error('Full error object:', JSON.stringify(error, null, 2));
+
       setError(error instanceof Error ? error.message : "Registration failed. Please try again.");
+
+      // Always show a toast for debugging
+      toast({
+        title: "Registration Error",
+        description: `Error: ${error.message || 'Unknown error'}, Field: ${error.field || 'none'}`,
+        variant: "destructive",
+        duration: 5000,
+      });
+
+      // Check if the error has field information
+      if (error.field === 'username') {
+        setUsernameError("Username already exists");
+        toast({
+          title: "Username already exists",
+          description: "Please choose a different username.",
+          variant: "destructive",
+          duration: 3000,
+        });
+      } else if (error.field === 'email') {
+        setEmailError("Email already exists");
+        toast({
+          title: "Email already exists",
+          description: "This email is already registered. Please use a different email or try logging in.",
+          variant: "destructive",
+          duration: 3000,
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -93,7 +190,40 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
       ...prev,
       [field]: value
     }));
-    if (error) setError("")
+    if (error) setError("");
+
+    // Clear field-specific errors when user starts typing
+    if (field === 'username') {
+      setUsernameError("");
+    } else if (field === 'email') {
+      setEmailError("");
+    }
+  };
+
+  // Function to check if username exists
+  const checkUsernameExists = async (username: string) => {
+    if (username.length < 3) return;
+
+    try {
+      // We'll create a simple check endpoint or use the existing validation
+      // For now, we'll clear the error and let the form submission handle it
+      setUsernameError("");
+    } catch (error) {
+      console.error('Error checking username:', error);
+    }
+  };
+
+  // Function to check if email exists
+  const checkEmailExists = async (email: string) => {
+    if (!email.includes('@')) return;
+
+    try {
+      // We'll create a simple check endpoint or use the existing validation
+      // For now, we'll clear the error and let the form submission handle it
+      setEmailError("");
+    } catch (error) {
+      console.error('Error checking email:', error);
+    }
   };
 
   return (
@@ -109,19 +239,9 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
              </div>
             <h2 className="text-4xl font-bold">Create Account!</h2>
             <p className="text-lg text-purple-100 max-w-xs">
-              Join the world's best pharmacy POS system and transform your business
+            Your pharmacy, organized. Set up your account to manage inventory, billing, and reports
             </p>
-            <div className="flex items-center space-x-4">
-              <div className="w-8 h-px bg-white/30"></div>
-              <span className="text-white/70 font-medium">OR</span>
-              <div className="w-8 h-px bg-white/30"></div>
-            </div>
-            <button
-              onClick={onNavigateToLogin}
-              className="px-8 py-3 border-2 border-white text-white rounded-lg font-medium hover:bg-white hover:text-[#0c2c8a] transition-colors"
-            >
-              SIGN IN
-            </button>
+
           </div>
         </div>
       </div>
@@ -132,22 +252,14 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
           {/* Signup Form */}
           <Card className="shadow-xl border-0">
             <CardHeader className="text-center pb-4">
-              <div className="flex items-center justify-between">
-                <button
-                  onClick={onNavigateToLogin}
-                  className="flex items-center text-gray-600 hover:text-gray-800 transition-colors"
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Login
-                </button>
-                <CardTitle className="text-2xl font-bold text-gray-900">Create Admin Account</CardTitle>
-                <div className="w-20"></div> {/* Spacer for centering */}
+              <div className="flex items-center justify-center">
+                <CardTitle className="text-lg font-bold text-gray-900 text-center">Secure, reliable, pharmacy-first POS  system for your business</CardTitle>
               </div>
               <p className="text-gray-600">Set up your pharmacy management system</p>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Personal Information */}
+                {step === 1 && (
                 <div className="space-y-3">
                   <h3 className="text-base font-semibold text-gray-800 border-b border-gray-200 pb-1">
                     Personal Information
@@ -167,7 +279,7 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
                           value={formData.name}
                           onChange={(e) => handleInputChange("name", e.target.value)}
                           className="pl-10 h-10 border-gray-300 focus:border-green-500 focus:ring-green-500"
-                          required
+
                         />
                       </div>
                     </div>
@@ -184,9 +296,15 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
                           placeholder="Choose a username"
                           value={formData.username}
                           onChange={(e) => handleInputChange("username", e.target.value)}
-                          className="pl-10 h-10 border-gray-300 focus:border-green-500 focus:ring-green-500"
-                          required
+                          className={`pl-10 h-10 ${
+                            usernameError
+                              ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+                              : 'border-gray-300 focus:border-green-500 focus:ring-green-500'
+                          }`}
                         />
+                        {usernameError && (
+                          <p className="text-sm text-red-600 mt-1">{usernameError}</p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -203,14 +321,21 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
                         placeholder="Enter your email address"
                         value={formData.email}
                         onChange={(e) => handleInputChange("email", e.target.value)}
-                        className="pl-10 h-10 border-gray-300 focus:border-green-500 focus:ring-green-500"
-                        required
+                        className={`pl-10 h-10 ${
+                          emailError
+                            ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+                            : 'border-gray-300 focus:border-green-500 focus:ring-green-500'
+                        }`}
                       />
+                      {emailError && (
+                        <p className="text-sm text-red-600 mt-1">{emailError}</p>
+                      )}
                     </div>
                   </div>
                 </div>
+                )}
 
-                {/* Password Section */}
+                {step === 2 && (
                 <div className="space-y-3">
                   <h3 className="text-base font-semibold text-gray-800 border-b border-gray-200 pb-1">
                     Security
@@ -230,7 +355,7 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
                           value={formData.password}
                           onChange={(e) => handleInputChange("password", e.target.value)}
                           className="pl-10 pr-10 h-10 border-gray-300 focus:border-green-500 focus:ring-green-500"
-                          required
+
                         />
                         <button
                           type="button"
@@ -255,7 +380,7 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
                           value={formData.confirmPassword}
                           onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
                           className="pl-10 pr-10 h-10 border-gray-300 focus:border-green-500 focus:ring-green-500"
-                          required
+
                         />
                         <button
                           type="button"
@@ -268,8 +393,9 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
                     </div>
                   </div>
                 </div>
+                )}
 
-                {/* Branch Information */}
+                {step === 3 && (
                 <div className="space-y-3">
                   <h3 className="text-base font-semibold text-gray-800 border-b border-gray-200 pb-1">
                     Pharmacy Information
@@ -289,7 +415,7 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
                           value={formData.branchName}
                           onChange={(e) => handleInputChange("branchName", e.target.value)}
                           className="pl-10 h-10 border-gray-300 focus:border-green-500 focus:ring-green-500"
-                          required
+
                         />
                       </div>
                     </div>
@@ -305,7 +431,7 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
                         value={formData.branchAddress}
                         onChange={(e) => handleInputChange("branchAddress", e.target.value)}
                         className="h-10 border-gray-300 focus:border-green-500 focus:ring-green-500"
-                        required
+
                       />
                     </div>
 
@@ -320,11 +446,12 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
                         value={formData.branchPhone}
                         onChange={(e) => handleInputChange("branchPhone", e.target.value)}
                         className="h-10 border-gray-300 focus:border-green-500 focus:ring-green-500"
-                        required
+
                       />
                     </div>
                   </div>
                 </div>
+                )}
 
                 {/* Error/Success Messages */}
                 {error && (
@@ -339,24 +466,50 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
                   </div>
                 )}
 
-                {/* Submit Button */}
-                <Button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full h-10 text-white bg-[#0c2c8a]  hover:bg-[#153186] transition-opacity"
-                >
-                  {isLoading ? (
-                    <div className="flex items-center space-x-2">
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      <span>Creating Account...</span>
-                    </div>
-                  ) : (
-                    "Create Admin Account"
-                  )}
-                </Button>
+                <div className="flex items-center justify-between">
+                  {step > 1 ? (
+                    <Button type="button" variant="outline" onClick={() => setStep((s) => (s > 1 ? ((s - 1) as 1 | 2 | 3) : s))}>
+                      Previous
+                    </Button>
+                  ) : <div />}
+                  <Button
+                    type="submit"
+                    disabled={isLoading}
+                    className="h-10 text-white bg-[#0c2c8a]  hover:bg-[#153186] transition-opacity"
+                  >
+                    {isLoading ? (
+                      <div className="flex items-center space-x-2">
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Creating Account...</span>
+                      </div>
+                    ) : (
+                      step < 3 ? 'Next' : 'Create Admin Account'
+                    )}
+                  </Button>
+                </div>
               </form>
             </CardContent>
           </Card>
+          {/* OR Login CTA below the signup form */}
+          <div className="mt-6">
+            <div className="flex items-center space-x-4 mb-4">
+              <div className="flex-1 h-px bg-gray-200" />
+              <span className="text-xs text-gray-500">OR</span>
+              <div className="flex-1 h-px bg-gray-200" />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => (onNavigateToLogin ? onNavigateToLogin() : navigate('/login'))}
+              className="w-full border-2 border-[#0c2c8a] text-[#0c2c8a] hover:bg-[#0c2c8a] hover:text-white"
+            >
+              Login
+            </Button>
+          </div>
+          {/* Compliance note */}
+          <p className="mt-4 text-xs text-gray-500 text-center">
+            We keep your data secure and compliant with healthcare standards.
+          </p>
         </div>
       </div>
     </div>

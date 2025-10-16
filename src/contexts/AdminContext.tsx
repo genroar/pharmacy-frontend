@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { apiService } from '@/services/api';
+import { useAuth } from './AuthContext';
 
 interface Branch {
   id: string;
@@ -35,9 +36,10 @@ interface AdminProviderProps {
 }
 
 export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
+  const { isAuthenticated } = useAuth();
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
   const [allBranches, setAllBranches] = useState<Branch[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const selectedBranch = selectedBranchId
@@ -45,6 +47,11 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
     : null;
 
   const refreshBranches = async () => {
+    if (!isAuthenticated) {
+      console.log('Not authenticated, skipping branch loading');
+      return;
+    }
+
     try {
       setIsLoading(true);
       setError(null);
@@ -66,8 +73,10 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
   };
 
   useEffect(() => {
-    refreshBranches();
-  }, []);
+    if (isAuthenticated) {
+      refreshBranches();
+    }
+  }, [isAuthenticated]);
 
   const value: AdminContextType = {
     selectedBranchId,

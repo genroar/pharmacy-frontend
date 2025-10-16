@@ -2202,7 +2202,7 @@ Sale amount has been deducted from reports.`);
   };
 
   return (
-    <div className="p-6 bg-background min-h-screen">
+    <div className="p-6">
       <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
 
         {/* Product Search & Selection */}

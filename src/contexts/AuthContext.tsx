@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo, useCall
 interface User {
   id: string;
   name: string;
-  role: 'PRODUCT_OWNER' | 'SUPERADMIN' | 'ADMIN' | 'MANAGER' | 'PHARMACIST' | 'CASHIER';
+  role: 'SUPERADMIN' | 'ADMIN' | 'MANAGER' | 'CASHIER';
   branchId?: string;
   adminId?: string;
   permissions?: string[];
@@ -165,18 +165,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         settings: ['read'],
         invoices: ['read', 'create', 'update']
       },
-      PHARMACIST: {
-        products: ['read', 'update'],
-        prescriptions: ['manage'],
-        customers: ['read', 'update'],
-        medication_history: ['read'],
-        sales: ['read', 'update'],
-        stock_movements: ['read', 'update'],
-        dashboard: ['read'],
-        reports: ['read'],
-        categories: ['read'],
-        invoices: ['read']
-      },
       CASHIER: {
         sales: ['create', 'read'],
         receipts: ['create', 'read'],
@@ -209,7 +197,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       SUPERADMIN: ['users', 'employees', 'branches', 'products', 'categories', 'suppliers', 'sales', 'reports', 'dashboard', 'settings', 'integrations', 'backup', 'commissions', 'customers', 'refunds', 'invoices', 'admin_payments', 'admin_management'],
       ADMIN: ['users', 'employees', 'branches', 'products', 'categories', 'suppliers', 'sales', 'reports', 'dashboard', 'refunds', 'customers', 'commissions', 'settings', 'invoices', 'subscription'],
       MANAGER: ['users', 'employees', 'products', 'categories', 'suppliers', 'sales', 'reports', 'dashboard', 'refunds', 'customers', 'commissions', 'settings', 'invoices'],
-      PHARMACIST: ['products', 'prescriptions', 'customers', 'medication_history', 'sales', 'stock_movements', 'dashboard', 'reports', 'categories', 'invoices'],
       CASHIER: ['sales', 'receipts', 'refunds', 'products', 'customers', 'categories', 'dashboard', 'reports', 'invoices']
     };
 

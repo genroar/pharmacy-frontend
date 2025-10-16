@@ -90,7 +90,7 @@ interface Branch {
   adminId?: string;
   createdBy?: string;
   createdAt: string;
-  _count: {
+  _count?: {
     users: number;
     products: number;
     customers: number;
@@ -128,11 +128,24 @@ const SuperAdminDashboard = () => {
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [activities, setActivities] = useState<Array<{
+    id: string;
+    type: 'admin_created' | 'subscription_updated' | 'payment_received' | 'user_registered' | 'system_alert' | 'branch_added';
+    message: string;
+    details: string;
+    timestamp: string;
+    adminId?: string;
+    adminName?: string;
+  }>>([]);
   const [stats, setStats] = useState({
     totalAdmins: 0,
     totalUsers: 0,
     totalSales: 0,
-    activeAdmins: 0
+    activeAdmins: 0,
+    activePharmacies: 0,
+    revenueThisMonth: 0,
+    totalSubscriptions: 0,
+    newPharmaciesThisMonth: 0
   });
   const [allBranches, setAllBranches] = useState<Array<{ id: string, name: string }>>([]);
   const [newAdmin, setNewAdmin] = useState({
@@ -156,6 +169,7 @@ const SuperAdminDashboard = () => {
   useEffect(() => {
     loadData();
     loadBranches();
+    loadActivities();
   }, []);
 
   // Update date and time every second - optimized to prevent unnecessary re-renders
@@ -209,7 +223,16 @@ const SuperAdminDashboard = () => {
       }
 
       if (statsResponse.success && statsResponse.data) {
-        setStats(statsResponse.data);
+        setStats({
+          totalAdmins: statsResponse.data.totalAdmins || 0,
+          totalUsers: statsResponse.data.totalUsers || 0,
+          totalSales: statsResponse.data.totalSales || 0,
+          activeAdmins: statsResponse.data.activeAdmins || 0,
+          activePharmacies: (statsResponse.data as any).activePharmacies || 0,
+          revenueThisMonth: (statsResponse.data as any).revenueThisMonth || 0,
+          totalSubscriptions: (statsResponse.data as any).totalSubscriptions || 0,
+          newPharmaciesThisMonth: (statsResponse.data as any).newPharmaciesThisMonth || 0
+        });
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -239,6 +262,99 @@ const SuperAdminDashboard = () => {
       }
     } catch (error) {
       console.error('Error loading branches:', error);
+    }
+  }, []);
+
+  const loadActivities = useCallback(async () => {
+    try {
+      const response = await apiService.getRecentActivities();
+      if (response.success && response.data) {
+        setActivities(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading activities:', error);
+      // Fallback to mock data if API fails
+      setActivities([
+        {
+          id: '1',
+          type: 'admin_created',
+          message: 'New pharmacy registered',
+          details: 'PharmacyFinder pharmacy joined the platform',
+          timestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+          adminName: 'PharmacyFinder'
+        },
+        {
+          id: '2',
+          type: 'subscription_updated',
+          message: 'Subscription plan upgraded',
+          details: 'PharmacyFinder subscribed to Enterprise plan',
+          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+          adminName: 'PharmacyFinder'
+        },
+        {
+          id: '3',
+          type: 'branch_added',
+          message: 'New branch added',
+          details: 'Johar Town branch added by PharmacyFinder pharmacy',
+          timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+          adminName: 'PharmacyFinder'
+        },
+        {
+          id: '4',
+          type: 'payment_received',
+          message: 'Payment received',
+          details: 'PKR 20,000 from MediCare Pharmacy',
+          timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
+          adminName: 'MediCare Pharmacy'
+        },
+        {
+          id: '5',
+          type: 'user_registered',
+          message: 'New user registered',
+          details: 'Pharmacist added to City Pharmacy',
+          timestamp: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
+          adminName: 'City Pharmacy'
+        },
+        {
+          id: '6',
+          type: 'admin_created',
+          message: 'New pharmacy registered',
+          details: 'HealthPlus Pharmacy joined the platform',
+          timestamp: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
+          adminName: 'HealthPlus Pharmacy'
+        },
+        {
+          id: '7',
+          type: 'subscription_updated',
+          message: 'Subscription plan downgraded',
+          details: 'MediCare Pharmacy downgraded to Basic plan',
+          timestamp: new Date(Date.now() - 18 * 60 * 60 * 1000).toISOString(),
+          adminName: 'MediCare Pharmacy'
+        },
+        {
+          id: '8',
+          type: 'branch_added',
+          message: 'New branch added',
+          details: 'Gulberg branch added by City Pharmacy',
+          timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+          adminName: 'City Pharmacy'
+        },
+        {
+          id: '9',
+          type: 'payment_received',
+          message: 'Payment received',
+          details: 'PKR 5,000 from HealthPlus Pharmacy',
+          timestamp: new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString(),
+          adminName: 'HealthPlus Pharmacy'
+        },
+        {
+          id: '10',
+          type: 'system_alert',
+          message: 'System maintenance',
+          details: 'Database optimization completed',
+          timestamp: new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString()
+        }
+      ]);
     }
   }, []);
 
@@ -429,10 +545,17 @@ const SuperAdminDashboard = () => {
     admin.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const totalAdmins = stats.totalAdmins;
-  const totalUsers = stats.totalUsers;
-  const totalBranches = branches.length;
-  const activeAdmins = stats.activeAdmins;
+  const activePharmacies = stats.activePharmacies || admins.filter(admin => admin.status === 'active').length;
+  const revenueThisMonth = stats.revenueThisMonth || admins.reduce((total, admin) => {
+    const amount = admin.plan === 'basic' ? 5000 : admin.plan === 'premium' ? 10000 : 20000;
+    return total + amount;
+  }, 0);
+  const totalSubscriptions = stats.totalSubscriptions || admins.length;
+  const newPharmaciesThisMonth = stats.newPharmaciesThisMonth || admins.filter(admin => {
+    const createdDate = new Date(admin.createdAt);
+    const currentDate = new Date();
+    return createdDate.getMonth() === currentDate.getMonth() && createdDate.getFullYear() === currentDate.getFullYear();
+  }).length;
 
   const createAdmin = async () => {
     console.log('Creating admin with data:', newAdmin);
@@ -455,7 +578,7 @@ const SuperAdminDashboard = () => {
         email: newAdmin.email,
         phone: newAdmin.phone,
         company: newAdmin.company,
-        plan: 'basic', // Default plan
+        plan: 'basic' as 'basic' | 'premium' | 'enterprise', // Default plan
         branchId: null, // Will be created by backend
         password: newAdmin.password
       };
@@ -507,11 +630,47 @@ const SuperAdminDashboard = () => {
     }
   };
 
+  const formatTimeAgo = (timestamp: string) => {
+    const now = new Date();
+    const activityTime = new Date(timestamp);
+    const diffInSeconds = Math.floor((now.getTime() - activityTime.getTime()) / 1000);
+
+    if (diffInSeconds < 60) return 'Just now';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
+    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} days ago`;
+    return activityTime.toLocaleDateString();
+  };
+
+  const getActivityIcon = (type: string) => {
+    switch (type) {
+      case 'admin_created': return UserPlus;
+      case 'subscription_updated': return CreditCard;
+      case 'payment_received': return DollarSign;
+      case 'user_registered': return Users;
+      case 'branch_added': return Building2;
+      case 'system_alert': return Settings;
+      default: return Activity;
+    }
+  };
+
+  const getActivityColor = (type: string) => {
+    switch (type) {
+      case 'admin_created': return 'text-green-600';
+      case 'subscription_updated': return 'text-blue-600';
+      case 'payment_received': return 'text-green-600';
+      case 'user_registered': return 'text-purple-600';
+      case 'branch_added': return 'text-indigo-600';
+      case 'system_alert': return 'text-orange-600';
+      default: return 'text-gray-600';
+    }
+  };
+
   const sidebarItems = [
-    { id: 'overview', label: 'Overview', icon: BarChart3 },
-    { id: 'admins', label: 'Admin Management', icon: Users },
+    { id: 'overview', label: 'Dashboard', icon: BarChart3 },
+    { id: 'admins', label: 'Companies Management', icon: Users },
     { id: 'users', label: 'User Analytics', icon: PieChart },
-    { id: 'payments', label: 'Admin Payments', icon: CreditCard },
+    { id: 'payments', label: 'subscription & billing', icon: CreditCard },
     { id: 'settings', label: 'Settings', icon: Settings }
   ];
 
@@ -683,13 +842,14 @@ const SuperAdminDashboard = () => {
             </div>
 
             {viewMode === 'admins' && (
-              <Dialog open={isCreateAdminOpen} onOpenChange={setIsCreateAdminOpen}>
-                <DialogTrigger asChild>
-                  <Button className="bg-[#0C2C8A] hover:bg-transparent hover:text-[#0C2C8A] border-[1px] border-[#0C2C8A] hover:opacity-90">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create Admin
-                  </Button>
-                </DialogTrigger>
+              <Button className="bg-[#0C2C8A] hover:bg-transparent hover:text-[#0C2C8A] border-[1px] border-[#0C2C8A] hover:opacity-90" onClick={() => setIsCreateAdminOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Create Admin
+              </Button>
+            )}
+
+            {/* Create Admin Dialog - Always Available */}
+            <Dialog open={isCreateAdminOpen} onOpenChange={setIsCreateAdminOpen}>
                 <DialogContent className="max-w-2xl">
                   <DialogHeader>
                     <DialogTitle className="flex items-center space-x-2">
@@ -847,7 +1007,6 @@ const SuperAdminDashboard = () => {
                   </div>
                 </DialogContent>
               </Dialog>
-            )}
           </div>
 
           {/* Overview Tab */}
@@ -870,10 +1029,10 @@ const SuperAdminDashboard = () => {
               {/* Stats Cards - Tab-like Behavior */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
-                  { title: "Total Admins", value: totalAdmins.toString(), icon: Users, trendValue: "+12.5%" },
-                  { title: "Total Users", value: totalUsers.toString(), icon: UserPlus, trendValue: "+8.2%" },
-                  { title: "Total Branches", value: branches.length.toString(), icon: Building2, trendValue: "+5.1%" },
-                  { title: "Active Admins", value: activeAdmins.toString(), icon: Activity, trendValue: "+15.3%" }
+                  { title: "Active Pharmacies", value: activePharmacies.toString(), icon: Building2, trendValue: "+12.5%" },
+                  { title: "Revenue This Month", value: `PKR ${revenueThisMonth.toLocaleString()}`, icon: DollarSign, trendValue: "+8.2%" },
+                  { title: "Subscriptions", value: totalSubscriptions.toString(), icon: CreditCard, trendValue: "+5.1%" },
+                  { title: "New Pharmacies (This Month)", value: newPharmaciesThisMonth.toString(), icon: UserPlus, trendValue: "+15.3%" }
                 ].map((stat, index) => {
                   const IconComponent = stat.icon;
                   const isActive = activeStatTab === index;
@@ -907,6 +1066,137 @@ const SuperAdminDashboard = () => {
                     </Card>
                   );
                 })}
+              </div>
+
+              {/* Recent Activities and Quick Actions Row */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Recent Activities Widget */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Activity className="w-5 h-5 text-[#0C2C8A]" />
+                      <span>Recent Activities</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {activities.length === 0 ? (
+                        <div className="text-center py-8">
+                          <Activity className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                          <p className="text-gray-500">No recent activities</p>
+                          <p className="text-sm text-gray-400">Activities will appear here as they happen</p>
+                        </div>
+                      ) : (
+                        activities.slice(0, 5).map((activity) => {
+                          const IconComponent = getActivityIcon(activity.type);
+                          const color = getActivityColor(activity.type);
+                          return (
+                            <div key={activity.id} className="flex items-start space-x-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
+                              <div className={`w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center ${color}`}>
+                                <IconComponent className="w-4 h-4" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900">{activity.message}</p>
+                                <p className="text-sm text-gray-500">{activity.details}</p>
+                                <p className="text-xs text-gray-400 mt-1">{formatTimeAgo(activity.timestamp)}</p>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Quick Actions Widget */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Settings className="w-5 h-5 text-[#0C2C8A]" />
+                      <span>Quick Actions</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-4">
+                      <Button
+                        variant="outline"
+                        className="h-20 flex flex-col items-center justify-center space-y-2 hover:bg-[#0C2C8A]/5 hover:border-[#0C2C8A] transition-colors"
+                        onClick={() => {
+                          setActiveTab('admins');
+                          setViewMode('admins');
+                          setIsCreateAdminOpen(true);
+                        }}
+                      >
+                        <UserPlus className="w-6 h-6 text-[#0C2C8A]" />
+                        <span className="text-sm font-medium">Create Admin</span>
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        className="h-20 flex flex-col items-center justify-center space-y-2 hover:bg-[#0C2C8A]/5 hover:border-[#0C2C8A] transition-colors"
+                        onClick={() => {
+                          setActiveTab('admins');
+                          setViewMode('admins');
+                        }}
+                      >
+                        <Building2 className="w-6 h-6 text-[#0C2C8A]" />
+                        <span className="text-sm font-medium">Manage Pharmacies</span>
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        className="h-20 flex flex-col items-center justify-center space-y-2 hover:bg-[#0C2C8A]/5 hover:border-[#0C2C8A] transition-colors"
+                        onClick={() => {
+                          setActiveTab('payments');
+                          setViewMode('payments');
+                        }}
+                      >
+                        <CreditCard className="w-6 h-6 text-[#0C2C8A]" />
+                        <span className="text-sm font-medium">View Payments</span>
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        className="h-20 flex flex-col items-center justify-center space-y-2 hover:bg-[#0C2C8A]/5 hover:border-[#0C2C8A] transition-colors"
+                        onClick={() => {
+                          setActiveTab('users');
+                          setViewMode('users');
+                        }}
+                      >
+                        <BarChart3 className="w-6 h-6 text-[#0C2C8A]" />
+                        <span className="text-sm font-medium">Analytics</span>
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        className="h-20 flex flex-col items-center justify-center space-y-2 hover:bg-[#0C2C8A]/5 hover:border-[#0C2C8A] transition-colors"
+                        onClick={() => {
+                          setActiveTab('settings');
+                          setViewMode('settings');
+                        }}
+                      >
+                        <Settings className="w-6 h-6 text-[#0C2C8A]" />
+                        <span className="text-sm font-medium">Settings</span>
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        className="h-20 flex flex-col items-center justify-center space-y-2 hover:bg-[#0C2C8A]/5 hover:border-[#0C2C8A] transition-colors"
+                        onClick={async () => {
+                          await loadData();
+                          await loadActivities();
+                          toast({
+                            title: "Success",
+                            description: "Data refreshed successfully",
+                          });
+                        }}
+                      >
+                        <RefreshCw className="w-6 h-6 text-[#0C2C8A]" />
+                        <span className="text-sm font-medium">Refresh Data</span>
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
 
               {/* Recent Admins */}
@@ -1107,7 +1397,7 @@ const SuperAdminDashboard = () => {
                   <div className="space-y-4">
                     {admins.map((admin) => {
                       const adminUsers = users.filter(user => user.adminId === admin.id);
-                      const percentage = totalUsers > 0 ? (adminUsers.length / totalUsers) * 100 : 0;
+                      const percentage = users.length > 0 ? (adminUsers.length / users.length) * 100 : 0;
 
                       return (
                         <div key={admin.id} className="space-y-2">
@@ -1676,15 +1966,15 @@ const SuperAdminDashboard = () => {
                           </div>
                           <div className="grid grid-cols-3 gap-2 pt-2 border-t">
                             <div className="text-center">
-                              <p className="text-lg font-bold text-[#0C2C8A]">{branch._count.users}</p>
+                              <p className="text-lg font-bold text-[#0C2C8A]">{branch._count?.users || 0}</p>
                               <p className="text-xs text-muted-foreground">Users</p>
                             </div>
                             <div className="text-center">
-                              <p className="text-lg font-bold text-[#0C2C8A]">{branch._count.products}</p>
+                              <p className="text-lg font-bold text-[#0C2C8A]">{branch._count?.products || 0}</p>
                               <p className="text-xs text-muted-foreground">Products</p>
                             </div>
                             <div className="text-center">
-                              <p className="text-lg font-bold text-[#0C2C8A]">{branch._count.customers}</p>
+                              <p className="text-lg font-bold text-[#0C2C8A]">{branch._count?.customers || 0}</p>
                               <p className="text-xs text-muted-foreground">Customers</p>
                             </div>
                           </div>

@@ -12,6 +12,7 @@ import {
   Shield
 } from "lucide-react";
 import { apiService } from "@/services/api";
+import { toast } from "@/hooks/use-toast";
 
 interface LoginFormProps {
   onLogin: (user: { id: string; name: string; role: string; branchId: string }) => void;
@@ -32,6 +33,14 @@ const LoginForm = ({ onLogin, onNavigateToSignup }: LoginFormProps) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.username.trim() || !formData.password.trim()) {
+      toast({
+        title: "Missing fields",
+        description: "Please enter both username and password.",
+        duration: 2000,
+      });
+      return;
+    }
     setIsLoading(true);
     setError("");
 
@@ -63,10 +72,20 @@ const LoginForm = ({ onLogin, onNavigateToSignup }: LoginFormProps) => {
       } else {
         console.log('❌ Login failed:', response.message);
         setError(response.message || "Login failed");
+        toast({
+          title: "Login failed",
+          description: response.message || "Please check your credentials and try again.",
+          duration: 2000,
+        });
       }
     } catch (error) {
       console.error('❌ Login error:', error);
       setError(error instanceof Error ? error.message : "Login failed. Please try again.");
+      toast({
+        title: "Login error",
+        description: "An unexpected error occurred. Please try again.",
+        duration: 2000,
+      });
     } finally {
       setIsLoading(false);
     }
@@ -90,23 +109,23 @@ const LoginForm = ({ onLogin, onNavigateToSignup }: LoginFormProps) => {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
-                    <div>
-                      <label htmlFor="login-username" className="block text-sm font-medium text-gray-700 mb-2">
-                        Username
-                      </label>
-                      <div className="relative">
-                        <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <div>
+              <label htmlFor="login-username" className="block text-sm font-medium text-gray-700 mb-2">
+                Username
+              </label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                         <input
-                          id="login-username"
-                          type="text"
-                          value={formData.username}
-                          onChange={(e) => handleInputChange("username", e.target.value)}
-                          className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                          placeholder="Enter your username"
-                          required
-                        />
-                      </div>
-                    </div>
+                  id="login-username"
+                  type="text"
+                  value={formData.username}
+                  onChange={(e) => handleInputChange("username", e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="Enter your username"
+
+                />
+              </div>
+            </div>
 
 
             <div>
@@ -122,7 +141,7 @@ const LoginForm = ({ onLogin, onNavigateToSignup }: LoginFormProps) => {
                   onChange={(e) => handleInputChange("password", e.target.value)}
                   className="w-full pl-12 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="Enter your password"
-                  required
+
                 />
                 <button
                   type="button"
@@ -164,17 +183,24 @@ const LoginForm = ({ onLogin, onNavigateToSignup }: LoginFormProps) => {
               )}
             </button>
           </form>
-
-          {/* Demo Credentials */}
-          <div className="mt-8 p-4 bg-gray-50 rounded-lg">
-            <h4 className="text-sm font-medium text-gray-700 mb-2">Demo Credentials:</h4>
-            <div className="space-y-1 text-xs text-gray-600">
-              <p><strong>SuperAdmin:</strong> superadmin / password123</p>
-              <p><strong>Admin:</strong> admin / password123</p>
-              <p><strong>Manager:</strong> manager / password123</p>
-              <p><strong>Cashier:</strong> cashier / password123</p>
+          <div className="items-center flex  flex-col  mt-[20px]">
+            <div className="w-full flex items-center space-x-4 mb-4">
+              <div className="flex-1 h-px bg-gray-200" />
+              <span className="text-xs text-gray-500">OR</span>
+              <div className="flex-1 h-px bg-gray-200" />
             </div>
+            <button
+              onClick={onNavigateToSignup}
+              className="px-8 py-3  border-2 border-[#0c2c8a] text-[#0c2c8a] rounded-lg font-medium hover:bg-[#0c2c8a] hover:text-white transition-colors"
+            >
+              Create Account
+            </button>
           </div>
+
+          {/* Compliance note */}
+          <p className="mt-4 text-xs text-gray-500 text-center">
+            We keep your data secure and compliant with healthcare standards.
+          </p>
         </div>
       </div>
 
@@ -182,30 +208,20 @@ const LoginForm = ({ onLogin, onNavigateToSignup }: LoginFormProps) => {
       <div className="hidden lg:flex lg:w-2/5  relative">
         {/* Curved edge */}
 
-         <div className="flex justify-center w-[100%] items-center text-white p-8 relative z-10">
-           <div className="text-center w-[100%] flex flex-col items-center justify-center space-y-6">
-             <div className="text-center flex flex-col items-center ">
+        <div className="flex justify-center w-[100%] items-center text-white p-8 relative z-10">
+          <div className="text-center w-[100%] flex flex-col items-center justify-center space-y-6">
+            <div className="text-center flex flex-col items-center ">
               <div className="w-[70px] h-[70px] text-[50px] flex items-center justify-center bg-white text-blue-900 rounded-full font-bold">N</div>
-               <h1 className="text-2xl font-bold text-white/90 mb-2">NextBill</h1>
-               <div className="w-16 h-0.5 bg-white/30 mx-auto"></div>
-             </div>
-             <h2 className="text-4xl font-bold">Welcome Back!</h2>
-             <p className="text-lg text-purple-100 max-w-xs">
-               Welcome to the world's best pharmacy POS system
-             </p>
-             <div className="flex items-center space-x-4">
-               <div className="w-8 h-px bg-white/30"></div>
-               <span className="text-white/70 font-medium">OR</span>
-               <div className="w-8 h-px bg-white/30"></div>
-             </div>
-            <button
-              onClick={onNavigateToSignup}
-              className="px-8 py-3 border-2 border-white text-white rounded-lg font-medium hover:bg-white hover:text-[#0c2c8a] transition-colors"
-            >
-              SIGN UP
-            </button>
-           </div>
-         </div>
+              <h1 className="text-2xl font-bold text-white/90 mb-2">NextBill</h1>
+              <div className="w-16 h-0.5 bg-white/30 mx-auto"></div>
+            </div>
+            <h2 className="text-4xl font-bold">Welcome Back!</h2>
+            <p className="text-lg text-purple-100 max-w-xs">
+              Welcome to the world's best pharmacy POS system
+            </p>
+
+          </div>
+        </div>
       </div>
     </div>
   );

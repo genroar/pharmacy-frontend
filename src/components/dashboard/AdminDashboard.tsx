@@ -81,6 +81,11 @@ const AdminDashboard = () => {
   const [isBranchSummaryCollapsed, setIsBranchSummaryCollapsed] = useState(false);
   const [activeStatTab, setActiveStatTab] = useState(0); // Only first card is active, no changes allowed
 
+  // Company management state
+  const [allCompanies, setAllCompanies] = useState<any[]>([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
+  const [globalSelectedCompany, setGlobalSelectedCompany] = useState<any>(null);
+
   // Real-time clock timer
   useEffect(() => {
     const updateDateTime = () => {
@@ -117,11 +122,12 @@ const AdminDashboard = () => {
       const currentUserId = currentUserData.id;
       const currentUserBranchId = currentUserData.branchId || currentUserData.branch?.id;
 
-      // Load real data from database - sales, products, and users in parallel
-      const [salesResponse, productsResponse, usersResponse] = await Promise.all([
+      // Load real data from database - sales, products, users, and companies in parallel
+      const [salesResponse, productsResponse, usersResponse, companiesResponse] = await Promise.all([
         apiService.getSales({ page: 1, limit: 100 }), // Load recent sales from all branches
         apiService.getProducts({ page: 1, limit: 100 }), // Load products from all branches
-        apiService.getUsers({ page: 1, limit: 100 }) // Load users from all branches
+        apiService.getUsers({ page: 1, limit: 100 }), // Load users from all branches
+        apiService.getCompanies() // Load companies
       ]);
 
       // Process real sales data
@@ -197,6 +203,12 @@ const AdminDashboard = () => {
           totalUsers: filteredUsers.length
         }));
       }
+
+      // Process companies data
+      if (companiesResponse.success && companiesResponse.data) {
+        const companies = companiesResponse.data || [];
+        setAllCompanies(companies);
+      }
     } catch (err) {
       console.error('Error loading dashboard data:', err);
       setError('Failed to load dashboard data');
@@ -236,6 +248,14 @@ const AdminDashboard = () => {
       totalSales: filteredTotalSales
     };
   }, [selectedBranchId, realSalesData, realProductsData, allUsers, realRevenue, realTotalSales]);
+
+  // Filter branches based on selected company
+  const filteredBranches = useMemo(() => {
+    if (!selectedCompanyId) {
+      return allBranches;
+    }
+    return allBranches.filter(branch => branch.companyId === selectedCompanyId);
+  }, [selectedCompanyId, allBranches]);
 
   // selectedBranch is now provided by AdminContext
 
@@ -411,6 +431,16 @@ const AdminDashboard = () => {
     setIsBranchDropdownOpen(false);
   }, [setSelectedBranchId]);
 
+  const handleCompanySelect = useCallback((companyId: string | null) => {
+    setSelectedCompanyId(companyId);
+    // Reset branch selection when company changes
+    setSelectedBranchId(null);
+
+    // Find the selected company
+    const selectedCompany = companyId ? allCompanies.find(c => c.id === companyId) : null;
+    setGlobalSelectedCompany(selectedCompany);
+  }, [allCompanies, setSelectedBranchId]);
+
   const handleToggleBranchSummary = useCallback(() => {
     setIsBranchSummaryCollapsed(!isBranchSummaryCollapsed);
   }, [isBranchSummaryCollapsed]);
@@ -460,6 +490,113 @@ const AdminDashboard = () => {
                 : 'Complete overview of all pharmacy operations'
             }
           </p>
+        </div>
+
+        {/* Company and Branch Selectors */}
+        <div className="flex items-center space-x-4">
+          {/* Company Selector */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={false}
+                className="w-48 justify-between bg-white border border-gray-300 hover:bg-gray-50"
+              >
+                <div className="flex items-center space-x-2">
+                  <Building2 className="w-4 h-4" />
+                  <span className="truncate">
+                    {selectedCompanyId
+                      ? globalSelectedCompany?.name
+                      : "All Companies"
+                    }
+                  </span>
+                </div>
+                <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-0 bg-white border border-gray-200 shadow-lg">
+              <Command>
+                <CommandInput placeholder="Search companies..." />
+                <CommandList>
+                  <CommandEmpty>No companies found.</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem
+                      value="all-companies"
+                      onSelect={() => handleCompanySelect(null)}
+                    >
+                      <Building2 className="mr-2 h-4 w-4" />
+                      <span>All Companies</span>
+                      {!selectedCompanyId && <CheckCircle className="ml-auto h-4 w-4" />}
+                    </CommandItem>
+                    {allCompanies.map((company) => (
+                      <CommandItem
+                        key={company.id}
+                        value={company.name}
+                        onSelect={() => handleCompanySelect(company.id)}
+                      >
+                        <Building2 className="mr-2 h-4 w-4" />
+                        <span className="truncate">{company.name}</span>
+                        {selectedCompanyId === company.id && <CheckCircle className="ml-auto h-4 w-4" />}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+
+          {/* Branch Selector */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={false}
+                className="w-48 justify-between bg-white border border-gray-300 hover:bg-gray-50"
+              >
+                <div className="flex items-center space-x-2">
+                  <Filter className="w-4 h-4" />
+                  <span className="truncate">
+                    {selectedBranchId
+                      ? globalSelectedBranch?.name
+                      : "All Branches"
+                    }
+                  </span>
+                </div>
+                <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-0 bg-white border border-gray-200 shadow-lg">
+              <Command>
+                <CommandInput placeholder="Search branches..." />
+                <CommandList>
+                  <CommandEmpty>No branches found.</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem
+                      value="all-branches"
+                      onSelect={() => handleBranchSelect(null)}
+                    >
+                      <Building2 className="mr-2 h-4 w-4" />
+                      <span>All Branches</span>
+                      {!selectedBranchId && <CheckCircle className="ml-auto h-4 w-4" />}
+                    </CommandItem>
+                    {filteredBranches.map((branch) => (
+                      <CommandItem
+                        key={branch.id}
+                        value={branch.name}
+                        onSelect={() => handleBranchSelect(branch.id)}
+                      >
+                        <Building2 className="mr-2 h-4 w-4" />
+                        <span className="truncate">{branch.name}</span>
+                        {selectedBranchId === branch.id && <CheckCircle className="ml-auto h-4 w-4" />}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </div>
 
         {/* Analog Clock Display */}

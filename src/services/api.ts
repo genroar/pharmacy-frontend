@@ -149,7 +149,11 @@ class ApiService {
             }
           }
 
-          throw new Error(data.message || 'An error occurred');
+          const error = new Error(data.message || 'An error occurred') as any;
+          if (data.field) {
+            error.field = data.field;
+          }
+          throw error;
         }
 
         return data;
@@ -296,8 +300,13 @@ class ApiService {
         phone: string;
         email: string;
         managerId?: string;
+        companyId: string;
         isActive: boolean;
         createdAt: string;
+        company?: {
+          id: string;
+          name: string;
+        };
         _count?: {
           users: number;
           products: number;
@@ -1253,6 +1262,176 @@ class ApiService {
     });
   }
 
+  // Company API methods
+  async getCompanies() {
+    return this.request<Array<{
+      id: string;
+      name: string;
+      description: string | null;
+      address: string | null;
+      phone: string | null;
+      email: string | null;
+      website: string | null;
+      createdBy: string | null;
+      isActive: boolean;
+      createdAt: string;
+      updatedAt: string;
+      branches: Array<{
+        id: string;
+        name: string;
+        address: string;
+        phone: string;
+        email: string;
+      }>;
+      _count: {
+        users: number;
+        employees: number;
+        products: number;
+      };
+    }>>('/companies');
+  }
+
+  async getCompany(companyId: string) {
+    return this.request<{
+      id: string;
+      name: string;
+      description: string | null;
+      address: string | null;
+      phone: string | null;
+      email: string | null;
+      website: string | null;
+      createdBy: string | null;
+      isActive: boolean;
+      createdAt: string;
+      updatedAt: string;
+      branches: Array<{
+        id: string;
+        name: string;
+        address: string;
+        phone: string;
+        email: string;
+        _count: {
+          users: number;
+          employees: number;
+          products: number;
+        };
+      }>;
+      _count: {
+        users: number;
+        employees: number;
+        products: number;
+      };
+    }>(`/companies/${companyId}`);
+  }
+
+  async createCompany(companyData: {
+    name: string;
+    description?: string;
+    address?: string;
+    phone?: string;
+    email?: string;
+  }) {
+    return this.request<{
+      id: string;
+      name: string;
+      description: string | null;
+      address: string | null;
+      phone: string | null;
+      email: string | null;
+      createdBy: string | null;
+      isActive: boolean;
+      createdAt: string;
+      updatedAt: string;
+      branches: Array<any>;
+      _count: {
+        users: number;
+        employees: number;
+        products: number;
+      };
+    }>('/companies', {
+      method: 'POST',
+      body: JSON.stringify(companyData),
+    });
+  }
+
+  async updateCompany(companyId: string, companyData: {
+    name?: string;
+    description?: string;
+    address?: string;
+    phone?: string;
+    email?: string;
+  }) {
+    return this.request<{
+      id: string;
+      name: string;
+      description: string | null;
+      address: string | null;
+      phone: string | null;
+      email: string | null;
+      createdBy: string | null;
+      isActive: boolean;
+      createdAt: string;
+      updatedAt: string;
+      branches: Array<any>;
+      _count: {
+        users: number;
+        employees: number;
+        products: number;
+      };
+    }>(`/companies/${companyId}`, {
+      method: 'PUT',
+      body: JSON.stringify(companyData),
+    });
+  }
+
+  async updateCompanyBusinessType(companyId: string, businessTypeData: {
+    businessType: 'PHARMACY' | 'STORE' | 'HOTEL' | 'CLINIC';
+  }) {
+    return this.request<{
+      id: string;
+      name: string;
+      description: string | null;
+      address: string | null;
+      phone: string | null;
+      email: string | null;
+      businessType: string | null;
+      createdBy: string | null;
+      isActive: boolean;
+      createdAt: string;
+      updatedAt: string;
+      branches: Array<any>;
+      _count: {
+        users: number;
+        employees: number;
+        products: number;
+      };
+    }>(`/companies/${companyId}/business-type`, {
+      method: 'PATCH',
+      body: JSON.stringify(businessTypeData),
+    });
+  }
+
+  async deleteCompany(companyId: string) {
+    return this.request<{ message: string }>(`/companies/${companyId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getCompanyStats(companyId: string) {
+    return this.request<{
+      id: string;
+      name: string;
+      _count: {
+        branches: number;
+        users: number;
+        employees: number;
+        products: number;
+        customers: number;
+        sales: number;
+      };
+    }>(`/companies/${companyId}/stats`);
+  }
+
   async updateAdmin(adminId: string, adminData: {
     name?: string;
     email?: string;
@@ -1317,7 +1496,128 @@ class ApiService {
     }>('/admin/stats');
   }
 
+  async getRecentActivities() {
+    return this.request<Array<{
+      id: string;
+      type: 'admin_created' | 'subscription_updated' | 'payment_received' | 'user_registered' | 'system_alert' | 'branch_added';
+      message: string;
+      details: string;
+      timestamp: string;
+      adminId?: string;
+      adminName?: string;
+    }>>('/admin/activities');
+  }
+
+  // Shift Management Methods
+  async getShifts() {
+    return this.request<Array<{
+      id: string;
+      name: string;
+      startTime: string;
+      endTime: string;
+      date: string;
+      branchId: string;
+      branchName: string;
+      assignedUsers: Array<{
+        id: string;
+        name: string;
+        role: string;
+      }>;
+      maxUsers: number;
+      status: 'scheduled' | 'active' | 'completed' | 'cancelled';
+      notes?: string;
+      createdAt: string;
+      updatedAt: string;
+    }>>('/scheduled-shifts');
+  }
+
+  async createShift(shiftData: {
+    name: string;
+    startTime: string;
+    endTime: string;
+    date: string;
+    branchId: string;
+    maxUsers: number;
+    notes?: string;
+    assignedUserIds: string[];
+  }) {
+    return this.request<{
+      id: string;
+      name: string;
+      startTime: string;
+      endTime: string;
+      date: string;
+      branchId: string;
+      branchName: string;
+      assignedUsers: Array<{
+        id: string;
+        name: string;
+        role: string;
+      }>;
+      maxUsers: number;
+      status: 'scheduled' | 'active' | 'completed' | 'cancelled';
+      notes?: string;
+      createdAt: string;
+      updatedAt: string;
+    }>('/scheduled-shifts', {
+      method: 'POST',
+      body: JSON.stringify(shiftData),
+    });
+  }
+
+  async updateShift(shiftId: string, shiftData: {
+    name: string;
+    startTime: string;
+    endTime: string;
+    date: string;
+    branchId: string;
+    maxUsers: number;
+    notes?: string;
+    assignedUserIds: string[];
+  }) {
+    return this.request<{
+      id: string;
+      name: string;
+      startTime: string;
+      endTime: string;
+      date: string;
+      branchId: string;
+      branchName: string;
+      assignedUsers: Array<{
+        id: string;
+        name: string;
+        role: string;
+      }>;
+      maxUsers: number;
+      status: 'scheduled' | 'active' | 'completed' | 'cancelled';
+      notes?: string;
+      createdAt: string;
+      updatedAt: string;
+    }>(`/scheduled-shifts/${shiftId}`, {
+      method: 'PUT',
+      body: JSON.stringify(shiftData),
+    });
+  }
+
+  async deleteShift(shiftId: string) {
+    return this.request<{ success: boolean; message: string }>(`/scheduled-shifts/${shiftId}`, {
+      method: 'DELETE',
+    });
+  }
+
   // User Management Methods
+  async getUser(userId: string) {
+    return this.request<{
+      id: string;
+      name: string;
+      email: string;
+      role: string;
+      isActive: boolean;
+      branchId?: string;
+      createdAt: string;
+    }>(`/users/${userId}`);
+  }
+
   async getUsers(params?: { page?: number; limit?: number; role?: string; branchId?: string }) {
     const queryParams = new URLSearchParams();
     if (params?.page) queryParams.append('page', params.page.toString());
@@ -2659,6 +2959,7 @@ class ApiService {
     address: string;
     phone: string;
     email: string;
+    companyId: string;
     managerId?: string;
   }) {
     return this.request<{
@@ -2667,6 +2968,7 @@ class ApiService {
       address: string;
       phone: string;
       email: string;
+      companyId: string;
       managerId?: string;
       isActive: boolean;
       createdAt: string;

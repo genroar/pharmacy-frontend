@@ -13,6 +13,7 @@ import {
   BarChart3,
   Building2,
   CreditCard,
+  Clock,
   LogOut,
   ChevronLeft,
   ChevronRight
@@ -37,6 +38,7 @@ const navigationItems: NavItem[] = [
   // Core POS Operations - Available to all roles
   { name: 'Inventory', href: '/inventory', icon: Package, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
   { name: 'POS', href: '/pos', icon: ShoppingCart, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
+  { name: 'Order Purchase', href: '/order-purchase', icon: ShoppingCart, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
   { name: 'Refunds', href: '/refunds', icon: Receipt, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
   { name: 'Invoices', href: '/invoices', icon: FileText, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
   { name: 'Customers', href: '/customers', icon: Users, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
@@ -50,8 +52,14 @@ const navigationItems: NavItem[] = [
   // User Management - Available to Admin, SuperAdmin
   { name: 'User Management', href: '/admin/users', icon: UserCog, roles: ['ADMIN', 'SUPERADMIN'] },
 
+  // Company Management - Available to Admin, SuperAdmin
+  { name: 'Company Management', href: '/admin/companies', icon: Building2, roles: ['ADMIN', 'SUPERADMIN'] },
+
   // Branch Management - Available to Admin, SuperAdmin
   { name: 'Branch Management', href: '/admin/branches', icon: Building2, roles: ['ADMIN', 'SUPERADMIN'] },
+
+  // Shift Management - Available to Manager, Admin, SuperAdmin, Cashier (read-only for Cashier)
+  { name: 'Shift Management', href: '/admin/shifts', icon: Clock, roles: ['MANAGER', 'ADMIN', 'SUPERADMIN', 'CASHIER'] },
 
   // Subscription - Available to Manager, Admin, SuperAdmin
   { name: 'Subscription', href: '/admin/subscription', icon: CreditCard, roles: ['MANAGER', 'ADMIN', 'SUPERADMIN'] },

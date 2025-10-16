@@ -43,6 +43,7 @@ interface User {
   email: string;
   role: string;
   branchId: string;
+  companyId?: string;
   branch: {
     id: string;
     name: string;
@@ -150,6 +151,7 @@ const UserManagement = () => {
               email: user.email,
               role: user.role,
               branchId: user.branchId,
+              companyId: user.companyId,
               branch: user.branch,
               createdBy: user.createdBy,
               isActive: user.isActive,
@@ -157,11 +159,28 @@ const UserManagement = () => {
               updatedAt: user.updatedAt
             }));
 
+            // Debug logging
+            console.log('Current user data:', {
+              currentUserId,
+              currentUserRole,
+              currentUserCreatedBy: currentUser?.createdBy
+            });
+            console.log('All users data:', usersData.map(u => ({
+              id: u.id,
+              username: u.username,
+              role: u.role,
+              createdBy: u.createdBy,
+              companyId: u.companyId
+            })));
+
             // Filter users based on current user's role
+            // Note: Backend already filters by createdBy, so we only need to filter by role
             const filteredUsers = usersData.filter((user: User) => {
-              // If current user is ADMIN, only show MANAGER and CASHIER created by this ADMIN
+              // If current user is ADMIN, only show MANAGER and CASHIER
               if (currentUserRole === 'ADMIN') {
-                return (user.role === 'MANAGER' || user.role === 'CASHIER') && user.createdBy === currentUserId;
+                const isCorrectRole = user.role === 'MANAGER' || user.role === 'CASHIER';
+                console.log(`User ${user.username}: role=${user.role}, isCorrectRole=${isCorrectRole}`);
+                return isCorrectRole;
               }
 
               // If current user is SUPERADMIN, show all roles

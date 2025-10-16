@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Building2,
   Plus,
@@ -31,13 +32,27 @@ interface Branch {
   phone: string;
   email: string;
   managerId?: string;
+  companyId: string;
   isActive: boolean;
   createdAt: string;
+  company?: {
+    id: string;
+    name: string;
+  };
   _count?: {
     users: number;
     products: number;
     customers: number;
   };
+}
+
+interface Company {
+  id: string;
+  name: string;
+  description: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
 }
 
 interface User {
@@ -50,10 +65,12 @@ interface User {
 const BranchManagement = () => {
   const { user } = useAuth();
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>("all");
 
   // Dialog states
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -67,7 +84,8 @@ const BranchManagement = () => {
     name: "",
     address: "",
     phone: "",
-    email: ""
+    email: "",
+    companyId: ""
   });
 
   const [editBranch, setEditBranch] = useState({
@@ -83,6 +101,7 @@ const BranchManagement = () => {
   useEffect(() => {
     loadBranches();
     loadUsers();
+    loadCompanies();
   }, []);
 
   const loadBranches = async () => {
@@ -92,7 +111,7 @@ const BranchManagement = () => {
 
       if (response.success && response.data) {
         const branchesData = Array.isArray(response.data) ? response.data : response.data.branches;
-        setBranches(branchesData);
+        setBranches(branchesData as Branch[]);
       }
     } catch (error) {
       console.error('Error loading branches:', error);
@@ -114,26 +133,45 @@ const BranchManagement = () => {
     }
   };
 
-  const filteredBranches = branches.filter(branch =>
-    branch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    branch.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    branch.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const loadCompanies = async () => {
+    try {
+      const response = await apiService.getCompanies();
+      if (response.success && response.data) {
+        setCompanies(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading companies:', error);
+    }
+  };
+
+  const filteredBranches = branches.filter(branch => {
+    const matchesSearch = branch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      branch.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      branch.email.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesCompany = selectedCompanyId === "all" || !selectedCompanyId || branch.companyId === selectedCompanyId;
+
+    return matchesSearch && matchesCompany;
+  });
 
   const handleCreateBranch = async () => {
-    if (!newBranch.name || !newBranch.address || !newBranch.phone || !newBranch.email) {
-      setError("Please fill in all required fields!");
+    if (!newBranch.name || !newBranch.address || !newBranch.phone || !newBranch.email || !newBranch.companyId) {
+      setError("Please fill in all required fields including company selection!");
       return;
     }
 
     try {
       setIsLoading(true);
       const response = await apiService.createBranch({
-        ...newBranch
+        name: newBranch.name,
+        address: newBranch.address,
+        phone: newBranch.phone,
+        email: newBranch.email,
+        companyId: newBranch.companyId
       });
 
       if (response.success) {
-        setNewBranch({ name: "", address: "", phone: "", email: "" });
+        setNewBranch({ name: "", address: "", phone: "", email: "", companyId: "" });
         setIsCreateDialogOpen(false);
         await loadBranches();
         setError("");
@@ -281,14 +319,29 @@ const BranchManagement = () => {
       {/* Search and Filters */}
       <Card className="mb-6 shadow-soft border-0">
         <CardContent className="p-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-            <Input
-              placeholder="Search branches by name, address, or email..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 h-11"
-            />
+          <div className="flex gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <Input
+                placeholder="Search branches by name, address, or email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 h-11"
+              />
+            </div>
+            <div className="w-64">
+              <Select value={selectedCompanyId} onValueChange={setSelectedCompanyId}>
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="Filter by company" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Companies</SelectItem>
+                  {companies.map(company => (
+                    <SelectItem key={company.id} value={company.id}>{company.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -333,7 +386,7 @@ const BranchManagement = () => {
                             {branch.name}
                           </div>
                           <div className="text-xs text-gray-500">
-                            Created {new Date(branch.createdAt).toLocaleDateString()}
+                            {branch.company?.name || 'Unknown Company'} • Created {new Date(branch.createdAt).toLocaleDateString()}
                           </div>
                         </div>
                       </div>
@@ -478,6 +531,19 @@ const BranchManagement = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="company">Company *</Label>
+              <Select value={newBranch.companyId} onValueChange={(value) => setNewBranch({ ...newBranch, companyId: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a company" />
+                </SelectTrigger>
+                <SelectContent>
+                  {companies.map(company => (
+                    <SelectItem key={company.id} value={company.id}>{company.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="name">Branch Name *</Label>
               <Input
