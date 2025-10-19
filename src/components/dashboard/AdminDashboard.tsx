@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,13 +46,19 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/AdminContext";
 
 const AdminDashboard = () => {
-  // Render counter for debugging
-  const renderCount = useRef(0);
-  renderCount.current++;
-  console.log(`AdminDashboard render #${renderCount.current}`);
 
+  const navigate = useNavigate();
   const { logout } = useAuth();
-  const { selectedBranchId, setSelectedBranchId, allBranches, selectedBranch: globalSelectedBranch } = useAdmin();
+  const {
+    selectedCompanyId,
+    setSelectedCompanyId,
+    selectedBranchId,
+    setSelectedBranchId,
+    allCompanies,
+    allBranches,
+    selectedCompany,
+    selectedBranch: globalSelectedBranch
+  } = useAdmin();
 
   // Memoize logout function to prevent re-renders
   const memoizedLogout = useCallback(() => {
@@ -81,9 +88,7 @@ const AdminDashboard = () => {
   const [isBranchSummaryCollapsed, setIsBranchSummaryCollapsed] = useState(false);
   const [activeStatTab, setActiveStatTab] = useState(0); // Only first card is active, no changes allowed
 
-  // Company management state
-  const [allCompanies, setAllCompanies] = useState<any[]>([]);
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
+  // Company management state (now handled by AdminContext)
   const [globalSelectedCompany, setGlobalSelectedCompany] = useState<any>(null);
 
   // Real-time clock timer
@@ -122,12 +127,12 @@ const AdminDashboard = () => {
       const currentUserId = currentUserData.id;
       const currentUserBranchId = currentUserData.branchId || currentUserData.branch?.id;
 
-      // Load real data from database - sales, products, users, and companies in parallel
-      const [salesResponse, productsResponse, usersResponse, companiesResponse] = await Promise.all([
+      // Load real data from database - sales, products, and users in parallel
+      // Companies are now loaded by AdminContext
+      const [salesResponse, productsResponse, usersResponse] = await Promise.all([
         apiService.getSales({ page: 1, limit: 100 }), // Load recent sales from all branches
         apiService.getProducts({ page: 1, limit: 100 }), // Load products from all branches
-        apiService.getUsers({ page: 1, limit: 100 }), // Load users from all branches
-        apiService.getCompanies() // Load companies
+        apiService.getUsers({ page: 1, limit: 100 }) // Load users from all branches
       ]);
 
       // Process real sales data
@@ -204,11 +209,7 @@ const AdminDashboard = () => {
         }));
       }
 
-      // Process companies data
-      if (companiesResponse.success && companiesResponse.data) {
-        const companies = companiesResponse.data || [];
-        setAllCompanies(companies);
-      }
+      // Companies are now handled by AdminContext
     } catch (err) {
       console.error('Error loading dashboard data:', err);
       setError('Failed to load dashboard data');
@@ -419,12 +420,12 @@ const AdminDashboard = () => {
   }, []);
 
   const handleGoToBranches = useCallback(() => {
-    window.location.href = '/admin/branches';
-  }, []);
+    navigate('/admin/branches');
+  }, [navigate]);
 
   const handleGoToUsers = useCallback(() => {
-    window.location.href = '/admin/users';
-  }, []);
+    navigate('/admin/users');
+  }, [navigate]);
 
   const handleBranchSelect = useCallback((branchId: string | null) => {
     setSelectedBranchId(branchId);
@@ -432,14 +433,14 @@ const AdminDashboard = () => {
   }, [setSelectedBranchId]);
 
   const handleCompanySelect = useCallback((companyId: string | null) => {
+    // Use AdminContext methods for persistence
     setSelectedCompanyId(companyId);
-    // Reset branch selection when company changes
-    setSelectedBranchId(null);
+    setSelectedBranchId(null); // Reset branch selection when company changes
 
     // Find the selected company
     const selectedCompany = companyId ? allCompanies.find(c => c.id === companyId) : null;
     setGlobalSelectedCompany(selectedCompany);
-  }, [allCompanies, setSelectedBranchId]);
+  }, [allCompanies, setSelectedCompanyId, setSelectedBranchId]);
 
   const handleToggleBranchSummary = useCallback(() => {
     setIsBranchSummaryCollapsed(!isBranchSummaryCollapsed);

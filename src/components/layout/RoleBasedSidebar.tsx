@@ -16,7 +16,9 @@ import {
   Clock,
   LogOut,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { RoleGuard } from '@/components/auth/RoleGuard';
@@ -24,23 +26,45 @@ import { useSidebarContext } from './MainLayout';
 
 interface NavItem {
   name: string;
-  href: string;
+  href?: string;
   icon: React.ComponentType<{ className?: string }>;
   roles: string[];
   resource?: string;
   action?: string;
+  children?: NavItem[];
 }
 
 const navigationItems: NavItem[] = [
   // Dashboard - Available to all roles
   { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
 
-  // Core POS Operations - Available to all roles
-  { name: 'Inventory', href: '/inventory', icon: Package, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
-  { name: 'POS', href: '/pos', icon: ShoppingCart, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
-  { name: 'Order Purchase', href: '/order-purchase', icon: ShoppingCart, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
-  { name: 'Refunds', href: '/refunds', icon: Receipt, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
-  { name: 'Invoices', href: '/invoices', icon: FileText, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
+  // Inventory Dropdown - Available to all roles
+  {
+    name: 'Inventory',
+    icon: Package,
+    roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'],
+    children: [
+      { name: 'All Products', href: '/inventory', icon: Package, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
+      { name: 'Categories', href: '/inventory/categories', icon: Package, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
+      { name: 'Batches', href: '/batches', icon: Package, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
+      { name: 'Purchases', href: '/purchases', icon: ShoppingCart, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
+      { name: 'Order Purchase', href: '/order-purchase', icon: ShoppingCart, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
+      { name: 'Medical Products', href: '/inventory/medical', icon: Package, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
+      { name: 'Non-Medical Products', href: '/inventory/non-medical', icon: Package, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] }
+    ]
+  },
+
+  // Sales Dropdown - Available to all roles
+  {
+    name: 'Sales',
+    icon: ShoppingCart,
+    roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'],
+    children: [
+      { name: 'Point of Sale', href: '/pos', icon: ShoppingCart, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
+      { name: 'Invoices', href: '/invoices', icon: FileText, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
+      { name: 'Refunds', href: '/refunds', icon: Receipt, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] }
+    ]
+  },
   { name: 'Customers', href: '/customers', icon: Users, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
 
   // Reports - Available to Manager, Admin, SuperAdmin
@@ -49,17 +73,18 @@ const navigationItems: NavItem[] = [
   // Prescriptions - Available to Admin, SuperAdmin
   { name: 'Prescriptions', href: '/prescriptions', icon: Pill, roles: ['ADMIN', 'SUPERADMIN'] },
 
-  // User Management - Available to Admin, SuperAdmin
-  { name: 'User Management', href: '/admin/users', icon: UserCog, roles: ['ADMIN', 'SUPERADMIN'] },
-
-  // Company Management - Available to Admin, SuperAdmin
-  { name: 'Company Management', href: '/admin/companies', icon: Building2, roles: ['ADMIN', 'SUPERADMIN'] },
-
-  // Branch Management - Available to Admin, SuperAdmin
-  { name: 'Branch Management', href: '/admin/branches', icon: Building2, roles: ['ADMIN', 'SUPERADMIN'] },
-
-  // Shift Management - Available to Manager, Admin, SuperAdmin, Cashier (read-only for Cashier)
-  { name: 'Shift Management', href: '/admin/shifts', icon: Clock, roles: ['MANAGER', 'ADMIN', 'SUPERADMIN', 'CASHIER'] },
+  // Management Dropdown - Available to Admin, SuperAdmin
+  {
+    name: 'Management',
+    icon: UserCog,
+    roles: ['ADMIN', 'SUPERADMIN'],
+    children: [
+      { name: 'User Management', href: '/admin/users', icon: UserCog, roles: ['ADMIN', 'SUPERADMIN'] },
+      { name: 'Company Management', href: '/admin/companies', icon: Building2, roles: ['ADMIN', 'SUPERADMIN'] },
+      { name: 'Branch Management', href: '/admin/branches', icon: Building2, roles: ['ADMIN', 'SUPERADMIN'] },
+      { name: 'Shift Management', href: '/admin/shifts', icon: Clock, roles: ['MANAGER', 'ADMIN', 'SUPERADMIN', 'CASHIER'] }
+    ]
+  },
 
   // Subscription - Available to Manager, Admin, SuperAdmin
   { name: 'Subscription', href: '/admin/subscription', icon: CreditCard, roles: ['MANAGER', 'ADMIN', 'SUPERADMIN'] },
@@ -68,14 +93,124 @@ const navigationItems: NavItem[] = [
   { name: 'Settings', href: '/settings', icon: Settings, roles: ['ADMIN', 'SUPERADMIN'] }
 ];
 
+const DropdownNavItem: React.FC<{ item: NavItem; isCollapsed: boolean }> = React.memo(({ item, isCollapsed }) => {
+  const location = useLocation();
+
+  // Check if any child is active
+  const isChildActive = item.children?.some(child => location.pathname === child.href) || false;
+  const isActive = location.pathname === item.href || isChildActive;
+
+  // Keep dropdown open if any child is active
+  const [isOpen, setIsOpen] = useState(isChildActive);
+
+  // Update isOpen state when location changes
+  React.useEffect(() => {
+    setIsOpen(isChildActive);
+  }, [isChildActive]);
+
+  const handleToggle = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isCollapsed) {
+      setIsOpen(!isOpen);
+    }
+  };
+
+  return (
+    <RoleGuard roles={item.roles} resource={item.resource} action={item.action}>
+      <div className="relative">
+        <button
+          onClick={handleToggle}
+          className={`w-full flex items-center justify-between px-4 py-3 text-sm font-medium relative transition-all duration-300 ${
+            isActive
+              ? 'text-blue-900'
+              : 'text-white hover:bg-white hover:bg-opacity-10'
+          }`}
+          style={{
+            backgroundColor: isActive ? '#f8f9fa' : 'transparent',
+            borderRadius: isActive ? '25px' : '0',
+            marginRight: isActive ? '0' : '0'
+          }}
+          title={isCollapsed ? item.name : undefined}
+        >
+          <div className="flex items-center">
+            <item.icon className={`w-5 h-5 ${isCollapsed ? 'mr-0' : 'mr-3'} ${isActive ? 'text-blue-900' : 'text-white'}`} />
+            {!isCollapsed && <span className="ml-3">{item.name}</span>}
+          </div>
+          {!isCollapsed && item.children && (
+            <div className="ml-2 transition-transform duration-300 ease-in-out">
+              <ChevronDown
+                className={`w-4 h-4 text-white transition-transform duration-300 ease-in-out ${
+                  isOpen ? 'rotate-180' : 'rotate-0'
+                }`}
+              />
+            </div>
+          )}
+        </button>
+
+        {/* Dropdown Menu */}
+        {!isCollapsed && item.children && (
+          <div
+            className={`ml-4 mt-1 space-y-1 overflow-hidden ${
+              isOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+            }`}
+            style={{
+              transitionProperty: 'max-height, opacity, margin-top',
+              transitionDuration: '0.5s',
+              transitionTimingFunction: 'ease-in-out'
+            }}
+          >
+            <div className="space-y-1">
+              {item.children.map((child, index) => (
+                <RoleGuard key={child.name} roles={child.roles} resource={child.resource} action={child.action}>
+                  <Link
+                    to={child.href!}
+                    className={`flex items-center px-4 py-2 text-sm font-medium relative transition-all duration-300 transform ${
+                      location.pathname === child.href
+                        ? 'text-blue-900 bg-white bg-opacity-30 font-semibold'
+                        : 'text-white hover:bg-white hover:bg-opacity-10'
+                    } ${
+                      isOpen ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'
+                    }`}
+                    style={{
+                      borderRadius: '15px',
+                      transitionProperty: 'all',
+                      transitionDuration: '0.3s',
+                      transitionTimingFunction: 'ease-in-out',
+                      transitionDelay: isOpen ? `${index * 0.1}s` : '0s'
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // Don't close the dropdown when clicking on child items
+                    }}
+                  >
+                    <child.icon className={`w-4 h-4 mr-3 transition-colors duration-300 ${location.pathname === child.href ? 'text-blue-900' : 'text-white'}`} />
+                    <span className="transition-colors duration-300">{child.name}</span>
+                  </Link>
+                </RoleGuard>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </RoleGuard>
+  );
+});
+
 const NavItem: React.FC<{ item: NavItem; isCollapsed: boolean }> = React.memo(({ item, isCollapsed }) => {
   const location = useLocation();
   const isActive = location.pathname === item.href;
 
+  // If item has children, render as dropdown
+  if (item.children) {
+    return <DropdownNavItem item={item} isCollapsed={isCollapsed} />;
+  }
+
+  // Regular navigation item
   return (
     <RoleGuard roles={item.roles} resource={item.resource} action={item.action}>
       <Link
-        to={item.href}
+        to={item.href!}
         className={`flex items-center px-4 py-3 text-sm font-medium relative transition-all duration-300 ${
           isActive
             ? 'text-blue-900'

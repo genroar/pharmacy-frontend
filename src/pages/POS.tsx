@@ -1,11 +1,11 @@
 import POSInterface from "@/components/pos/POSInterface";
-import ZapeeraLayout from "@/components/layout/ZapeeraLayout";
+import MainLayout from "@/components/layout/MainLayout";
 
 const POS = () => {
   return (
-    <ZapeeraLayout>
+    <MainLayout>
       <POSInterface />
-    </ZapeeraLayout>
+    </MainLayout>
   );
 };
 

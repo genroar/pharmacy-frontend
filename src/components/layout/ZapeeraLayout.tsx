@@ -25,7 +25,7 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
   // Update active tab based on current route
   useEffect(() => {
     const path = location.pathname;
-    if (path === '/') {
+    if (path === '/' || path === '/dashboard') {
       setActiveTab("dashboard");
     } else if (path.startsWith('/pos')) {
       setActiveTab("pos");
@@ -42,7 +42,12 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
     setActiveTab(tab);
     switch (tab) {
       case "dashboard":
-        navigate('/');
+        // For admins, always redirect to their admin dashboard
+        if (user?.role === 'ADMIN') {
+          navigate('/dashboard');
+        } else {
+          navigate('/');
+        }
         break;
       case "pos":
         navigate('/pos');

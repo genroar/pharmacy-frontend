@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { apiService } from '../services/api';
 
 interface User {
   id: string;
@@ -35,71 +36,101 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  // Render counter for debugging
-  const renderCount = useRef(0);
-  renderCount.current++;
-  console.log(`AuthProvider render #${renderCount.current}`);
 
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Check for existing session on mount
   useEffect(() => {
-    const savedUser = localStorage.getItem('medibill_user');
-    const savedToken = localStorage.getItem('token');
-    // Debug: Loading user from localStorage
+    const initializeAuth = () => {
+      const savedUser = localStorage.getItem('medibill_user');
+      const savedToken = localStorage.getItem('token');
 
-    if (savedUser && savedToken) {
-      try {
-        const userData = JSON.parse(savedUser);
-        // Debug: Parsed user data
-        setUser(userData);
-        setIsAuthenticated(true);
-      } catch (error) {
-        console.error('Error parsing saved user data:', error);
+      if (savedUser && savedToken) {
+        try {
+          const userData = JSON.parse(savedUser);
+
+          // Simple client-side validation - just check if token exists and user data is valid
+          if (userData && userData.id && userData.role) {
+            setUser(userData);
+            setIsAuthenticated(true);
+            // Set token in ApiService
+            apiService.setToken(savedToken);
+          } else {
+            localStorage.removeItem('medibill_user');
+            localStorage.removeItem('token');
+            setUser(null);
+            setIsAuthenticated(false);
+          }
+        } catch (error) {
+          console.error('Error parsing saved user data:', error);
+          localStorage.removeItem('medibill_user');
+          localStorage.removeItem('token');
+          setUser(null);
+          setIsAuthenticated(false);
+        }
+      } else {
+        // Clear any stale data if token is missing
         localStorage.removeItem('medibill_user');
         localStorage.removeItem('token');
+        setUser(null);
+        setIsAuthenticated(false);
       }
-    } else {
-      // Clear any stale data if token is missing
-      localStorage.removeItem('medibill_user');
-      localStorage.removeItem('token');
+
+      // Mark as initialized
+      setIsInitialized(true);
+      localStorage.setItem('auth_initialized', 'true');
+    };
+
+    initializeAuth();
+  }, []);
+
+
+  const login = useCallback((userData: User) => {
+    setUser(userData);
+    setIsAuthenticated(true);
+    localStorage.setItem('medibill_user', JSON.stringify(userData));
+    // Set token in ApiService
+    const token = localStorage.getItem('token');
+    if (token) {
+      apiService.setToken(token);
     }
   }, []);
+
+  const logout = useCallback(() => {
+    const currentUser = user;
+    setUser(null);
+    setIsAuthenticated(false);
+    localStorage.removeItem('medibill_user');
+    localStorage.removeItem('token');
+    localStorage.removeItem('auth_initialized');
+    // Clear token from ApiService
+    apiService.setToken(null);
+
+    // Clear admin welcome flag so they can see welcome screen again on next login
+    if (currentUser?.role === 'ADMIN') {
+      localStorage.removeItem(`admin_welcome_seen_${currentUser.id}`);
+    }
+
+    // Force redirect to login page
+    window.location.href = '/login';
+  }, [user]);
 
   // Listen for authentication required events
   useEffect(() => {
     const handleAuthRequired = (event: CustomEvent) => {
-      // Debug: Authentication required
-      logout();
+      // Only logout if we're actually authenticated
+      if (isAuthenticated) {
+        logout();
+      }
     };
 
     window.addEventListener('authRequired', handleAuthRequired as EventListener);
     return () => {
       window.removeEventListener('authRequired', handleAuthRequired as EventListener);
     };
-  }, []);
-
-  const login = useCallback((userData: User) => {
-    console.log('🔍 AuthContext: Login function called with userData:', userData);
-    // Debug: Login called
-    setUser(userData);
-    setIsAuthenticated(true);
-    localStorage.setItem('medibill_user', JSON.stringify(userData));
-    console.log('✅ AuthContext: User state updated and saved to localStorage');
-    // Debug: User saved to localStorage
-  }, []);
-
-  const logout = useCallback(() => {
-    // Debug: Logging out user
-    setUser(null);
-    setIsAuthenticated(false);
-    localStorage.removeItem('medibill_user');
-    localStorage.removeItem('token');
-
-    // Force redirect to login page
-    window.location.href = '/login';
-  }, []);
+  }, [isAuthenticated, logout]);
 
   // Role-based permission checking
   const hasPermission = (resource: string, action: string): boolean => {
@@ -204,20 +235,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return userAccessibleResources.includes(resource);
   };
 
-  const checkAuthStatus = (): boolean => {
-    const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('medibill_user');
-
-    if (!token || !userData) {
-      if (isAuthenticated) {
-        // User thinks they're authenticated but no token/user data
-        logout();
-      }
-      return false;
-    }
-
-    return isAuthenticated && !!user;
-  };
+  const checkAuthStatus = useCallback((): boolean => {
+    // Simply return the current authentication state
+    // Don't perform any localStorage checks or logout calls
+    const result = isAuthenticated && !!user;
+    console.log('🔍 checkAuthStatus: isAuthenticated:', isAuthenticated, 'user:', !!user, 'result:', result);
+    return result;
+  }, [isAuthenticated, user]);
 
   const value: AuthContextType = useMemo(() => ({
     user,

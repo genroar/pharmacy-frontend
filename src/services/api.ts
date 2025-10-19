@@ -20,6 +20,7 @@ class ApiService {
   private token: string | null = null;
   private requestQueue: Map<string, Promise<any>> = new Map();
   private lastRequestTime: Map<string, number> = new Map();
+  private getContext: (() => { companyId?: string; branchId?: string }) | null = null;
 
   constructor(baseURL: string) {
     this.baseURL = baseURL;
@@ -31,6 +32,16 @@ class ApiService {
         this.token = e.newValue;
       }
     });
+  }
+
+  // Method to set the context getter function
+  setContextGetter(getContext: () => { companyId?: string; branchId?: string }) {
+    this.getContext = getContext;
+  }
+
+  // Method to update the token
+  setToken(token: string | null) {
+    this.token = token;
   }
 
   private async request<T>(
@@ -45,16 +56,6 @@ class ApiService {
     // Check if we have a token for protected endpoints
     const isProtectedEndpoint = !endpoint.includes('/auth/login') && !endpoint.includes('/auth/register');
     if (isProtectedEndpoint && !this.token) {
-      console.error('No token available for protected endpoint:', endpoint);
-      // Clear any stale user data
-      localStorage.removeItem('medibill_user');
-      localStorage.removeItem('token');
-
-      // Dispatch event to notify components that user needs to login
-      window.dispatchEvent(new CustomEvent('authRequired', {
-        detail: { message: 'Please log in to continue' }
-      }));
-
       throw new Error('Authentication required. Please log in.');
     }
 
@@ -81,10 +82,15 @@ class ApiService {
       console.log('API Request:', { url, options, token: this.token ? 'Present' : 'Missing' });
     }
 
+    // Get current context (company/branch selection)
+    const context = this.getContext ? this.getContext() : {};
+
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
         ...(this.token && { Authorization: `Bearer ${this.token}` }),
+        ...(context.companyId && { 'X-Company-ID': context.companyId }),
+        ...(context.branchId && { 'X-Branch-ID': context.branchId }),
         ...options.headers,
       },
       ...options,
@@ -153,6 +159,10 @@ class ApiService {
           if (data.field) {
             error.field = data.field;
           }
+          if (data.errors) {
+            error.errors = data.errors;
+          }
+          error.response = data; // Preserve the full response
           throw error;
         }
 
@@ -1738,6 +1748,7 @@ class ApiService {
     limit?: number;
     search?: string;
     branchId?: string;
+    type?: string;
   }) {
     const queryParams = new URLSearchParams();
     if (params) {
@@ -1760,7 +1771,7 @@ class ApiService {
           products: number;
         };
       }>;
-      pagination: {
+      pagination?: {
         page: number;
         limit: number;
         total: number;
@@ -1773,23 +1784,28 @@ class ApiService {
     return this.request<{
       id: string;
       name: string;
-      description?: string;
+      description: string;
+      type: 'medical' | 'non-medical' | 'general';
+      parentId?: string;
+      isActive: boolean;
+      productCount: number;
+      color: string;
+      icon: string;
       createdAt: string;
       updatedAt: string;
-      _count: {
-        products: number;
-      };
     }>(`/categories/${categoryId}`);
   }
 
   async createCategory(categoryData: {
     name: string;
     description?: string;
+    type?: string;
   }) {
     return this.request<{
       id: string;
       name: string;
       description?: string;
+      type?: string;
       createdAt: string;
     }>('/categories', {
       method: 'POST',
@@ -1800,11 +1816,22 @@ class ApiService {
   async updateCategory(categoryId: string, categoryData: {
     name?: string;
     description?: string;
+    type?: 'MEDICAL' | 'NON_MEDICAL' | 'GENERAL';
+    parentId?: string;
+    color?: string;
+    icon?: string;
+    isActive?: boolean;
   }) {
     return this.request<{
       id: string;
       name: string;
-      description?: string;
+      description: string;
+      type: 'MEDICAL' | 'NON_MEDICAL' | 'GENERAL';
+      parentId?: string;
+      isActive: boolean;
+      productCount: number;
+      color: string;
+      icon: string;
       updatedAt: string;
     }>(`/categories/${categoryId}`, {
       method: 'PUT',
@@ -1813,7 +1840,7 @@ class ApiService {
   }
 
   async deleteCategory(categoryId: string) {
-    return this.request<{ message: string }>(`/categories/${categoryId}`, {
+    return this.request<{ success: boolean; message: string }>(`/categories/${categoryId}`, {
       method: 'DELETE',
     });
   }
@@ -3282,6 +3309,611 @@ class ApiService {
         username: string;
       };
     }>(`/refunds/${id}`);
+  }
+
+  // Batch Management Methods
+  async getBatches(params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    isActive?: boolean;
+    isReported?: boolean;
+    productId?: string;
+  } = {}) {
+    const queryParams = new URLSearchParams();
+    if (params.page) queryParams.append('page', params.page.toString());
+    if (params.limit) queryParams.append('limit', params.limit.toString());
+    if (params.search) queryParams.append('search', params.search);
+    if (params.isActive !== undefined) queryParams.append('isActive', params.isActive.toString());
+    if (params.isReported !== undefined) queryParams.append('isReported', params.isReported.toString());
+    if (params.productId) queryParams.append('productId', params.productId);
+
+    const queryString = queryParams.toString();
+    const endpoint = queryString ? `/batches?${queryString}` : '/batches';
+
+    return this.request<{
+      batches: Array<{
+        id: string;
+        batchNo: string;
+        productId: string;
+        supplierId?: string;
+        supplierName?: string;
+        totalBoxes: number;
+        unitsPerBox: number;
+        totalStock: number;
+        costPrice: number;
+        sellingPrice: number;
+        stockPurchasePrice: number;
+        paidAmount: number;
+        supplierOutstanding: number;
+        supplierInvoiceNo?: string;
+        purchasingMethod?: string;
+        expireDate?: string;
+        productionDate?: string;
+        shelfId?: string;
+        shelfName?: string;
+        isActive: boolean;
+        isReported: boolean;
+        createdAt: string;
+        updatedAt: string;
+        product: {
+          id: string;
+          name: string;
+          sku: string;
+          barcode?: string;
+        };
+        supplier?: {
+          id: string;
+          name: string;
+        };
+      }>;
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        pages: number;
+      };
+    }>(endpoint);
+  }
+
+  async getBatchById(id: string) {
+    return this.request<{
+      id: string;
+      batchNo: string;
+      productId: string;
+      supplierId?: string;
+      supplierName?: string;
+      totalBoxes: number;
+      unitsPerBox: number;
+      totalStock: number;
+      costPrice: number;
+      sellingPrice: number;
+      stockPurchasePrice: number;
+      paidAmount: number;
+      supplierOutstanding: number;
+      supplierInvoiceNo?: string;
+      purchasingMethod?: string;
+      expireDate?: string;
+      productionDate?: string;
+      shelfId?: string;
+      shelfName?: string;
+      isActive: boolean;
+      isReported: boolean;
+      createdAt: string;
+      updatedAt: string;
+      product: {
+        id: string;
+        name: string;
+        sku: string;
+        barcode?: string;
+      };
+      supplier?: {
+        id: string;
+        name: string;
+        email: string;
+        phone: string;
+      };
+    }>(`/batches/${id}`);
+  }
+
+  async createBatch(batchData: {
+    batchNo: string;
+    productId: string;
+    supplierId?: string;
+    supplierName?: string;
+    totalBoxes?: number;
+    unitsPerBox?: number;
+    totalStock?: number;
+    costPrice: number;
+    sellingPrice: number;
+    stockPurchasePrice?: number;
+    paidAmount?: number;
+    supplierOutstanding?: number;
+    supplierInvoiceNo?: string;
+    purchasingMethod?: string;
+    expireDate?: string;
+    productionDate?: string;
+    shelfId?: string;
+    shelfName?: string;
+  }) {
+    return this.request<{
+      id: string;
+      batchNo: string;
+      productId: string;
+      supplierId?: string;
+      supplierName?: string;
+      totalBoxes: number;
+      unitsPerBox: number;
+      totalStock: number;
+      costPrice: number;
+      sellingPrice: number;
+      stockPurchasePrice: number;
+      paidAmount: number;
+      supplierOutstanding: number;
+      supplierInvoiceNo?: string;
+      purchasingMethod?: string;
+      expireDate?: string;
+      productionDate?: string;
+      shelfId?: string;
+      shelfName?: string;
+      isActive: boolean;
+      isReported: boolean;
+      createdAt: string;
+      updatedAt: string;
+      product: {
+        id: string;
+        name: string;
+        sku: string;
+        barcode?: string;
+      };
+      supplier?: {
+        id: string;
+        name: string;
+      };
+    }>('/batches', {
+      method: 'POST',
+      body: JSON.stringify(batchData),
+    });
+  }
+
+  async updateBatch(id: string, batchData: {
+    batchNo?: string;
+    supplierId?: string;
+    supplierName?: string;
+    totalBoxes?: number;
+    unitsPerBox?: number;
+    totalStock?: number;
+    costPrice?: number;
+    sellingPrice?: number;
+    stockPurchasePrice?: number;
+    paidAmount?: number;
+    supplierOutstanding?: number;
+    supplierInvoiceNo?: string;
+    purchasingMethod?: string;
+    expireDate?: string;
+    productionDate?: string;
+    shelfId?: string;
+    shelfName?: string;
+    isActive?: boolean;
+    isReported?: boolean;
+  }) {
+    return this.request<{
+      id: string;
+      batchNo: string;
+      productId: string;
+      supplierId?: string;
+      supplierName?: string;
+      totalBoxes: number;
+      unitsPerBox: number;
+      totalStock: number;
+      costPrice: number;
+      sellingPrice: number;
+      stockPurchasePrice: number;
+      paidAmount: number;
+      supplierOutstanding: number;
+      supplierInvoiceNo?: string;
+      purchasingMethod?: string;
+      expireDate?: string;
+      productionDate?: string;
+      shelfId?: string;
+      shelfName?: string;
+      isActive: boolean;
+      isReported: boolean;
+      createdAt: string;
+      updatedAt: string;
+      product: {
+        id: string;
+        name: string;
+        sku: string;
+        barcode?: string;
+      };
+      supplier?: {
+        id: string;
+        name: string;
+      };
+    }>(`/batches/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(batchData),
+    });
+  }
+
+  async deleteBatch(id: string) {
+    return this.request<{
+      success: boolean;
+      message: string;
+    }>(`/batches/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getNearExpiryBatches(days: number = 30) {
+    return this.request<Array<{
+      id: string;
+      batchNo: string;
+      productId: string;
+      totalStock: number;
+      expireDate: string;
+      product: {
+        id: string;
+        name: string;
+        sku: string;
+      };
+    }>>(`/batches/near-expiry?days=${days}`);
+  }
+
+  // Purchase Management Methods
+  async getPurchases(params: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    supplierId?: string;
+  } = {}) {
+    const queryParams = new URLSearchParams();
+    if (params.page) queryParams.append('page', params.page.toString());
+    if (params.limit) queryParams.append('limit', params.limit.toString());
+    if (params.status) queryParams.append('status', params.status);
+    if (params.supplierId) queryParams.append('supplierId', params.supplierId);
+
+    return this.request<{
+      data: Array<{
+        id: string;
+        supplierId: string;
+        invoiceNo?: string;
+        purchaseDate: string;
+        totalAmount: number;
+        paidAmount: number;
+        outstanding: number;
+        status: 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'PARTIAL';
+        notes?: string;
+        createdAt: string;
+        updatedAt: string;
+        supplier: {
+          id: string;
+          name: string;
+          contactPerson: string;
+          phone: string;
+        };
+        purchaseItems: Array<{
+          id: string;
+          productId: string;
+          batchId?: string;
+          quantity: number;
+          unitPrice: number;
+          totalPrice: number;
+          product: {
+            id: string;
+            name: string;
+            sku: string;
+            barcode?: string;
+          };
+          batch?: {
+            id: string;
+            batchNo: string;
+            quantity: number;
+            expireDate?: string;
+          };
+        }>;
+      }>;
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        pages: number;
+      };
+    }>(`/purchases?${queryParams.toString()}`);
+  }
+
+  async getPurchaseById(id: string) {
+    return this.request<{
+      id: string;
+      supplierId: string;
+      invoiceNo?: string;
+      purchaseDate: string;
+      totalAmount: number;
+      paidAmount: number;
+      outstanding: number;
+      status: 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'PARTIAL';
+      notes?: string;
+      createdAt: string;
+      updatedAt: string;
+      supplier: {
+        id: string;
+        name: string;
+        contactPerson: string;
+        phone: string;
+        email: string;
+        address: string;
+      };
+      purchaseItems: Array<{
+        id: string;
+        productId: string;
+        batchId?: string;
+        quantity: number;
+        unitPrice: number;
+        totalPrice: number;
+        product: {
+          id: string;
+          name: string;
+          sku: string;
+          barcode?: string;
+          unitType: string;
+        };
+        batch?: {
+          id: string;
+          batchNo: string;
+          quantity: number;
+          expireDate?: string;
+          productionDate?: string;
+        };
+      }>;
+    }>(`/purchases/${id}`);
+  }
+
+  async createPurchase(purchaseData: {
+    supplierId: string;
+    invoiceNo?: string;
+    purchaseDate?: string;
+    totalAmount?: number;
+    paidAmount?: number;
+    notes?: string;
+    items: Array<{
+      productId: string;
+      quantity: number;
+      unitPrice: number;
+      batchNo?: string;
+      expireDate?: string;
+      productionDate?: string;
+    }>;
+  }) {
+    return this.request<{
+      id: string;
+      supplierId: string;
+      invoiceNo?: string;
+      purchaseDate: string;
+      totalAmount: number;
+      paidAmount: number;
+      outstanding: number;
+      status: 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'PARTIAL';
+      notes?: string;
+      createdAt: string;
+      updatedAt: string;
+      supplier: {
+        id: string;
+        name: string;
+        contactPerson: string;
+        phone: string;
+      };
+      purchaseItems: Array<{
+        id: string;
+        productId: string;
+        batchId?: string;
+        quantity: number;
+        unitPrice: number;
+        totalPrice: number;
+        product: {
+          id: string;
+          name: string;
+          sku: string;
+          barcode?: string;
+        };
+        batch?: {
+          id: string;
+          batchNo: string;
+          quantity: number;
+          expireDate?: string;
+        };
+      }>;
+    }>('/purchases', {
+      method: 'POST',
+      body: JSON.stringify(purchaseData),
+    });
+  }
+
+  async updatePurchase(id: string, purchaseData: {
+    supplierId?: string;
+    invoiceNo?: string;
+    purchaseDate?: string;
+    totalAmount?: number;
+    paidAmount?: number;
+    status?: 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'PARTIAL';
+    notes?: string;
+  }) {
+    return this.request<{
+      id: string;
+      supplierId: string;
+      invoiceNo?: string;
+      purchaseDate: string;
+      totalAmount: number;
+      paidAmount: number;
+      outstanding: number;
+      status: 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'PARTIAL';
+      notes?: string;
+      createdAt: string;
+      updatedAt: string;
+      supplier: {
+        id: string;
+        name: string;
+        contactPerson: string;
+        phone: string;
+      };
+      purchaseItems: Array<{
+        id: string;
+        productId: string;
+        batchId?: string;
+        quantity: number;
+        unitPrice: number;
+        totalPrice: number;
+        product: {
+          id: string;
+          name: string;
+          sku: string;
+          barcode?: string;
+        };
+        batch?: {
+          id: string;
+          batchNo: string;
+          quantity: number;
+          expireDate?: string;
+        };
+      }>;
+    }>(`/purchases/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(purchaseData),
+    });
+  }
+
+  async deletePurchase(id: string) {
+    return this.request<{
+      success: boolean;
+      message: string;
+    }>(`/purchases/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Inventory Management Methods
+  async getInventorySummary(params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    categoryId?: string;
+    lowStock?: boolean;
+  } = {}) {
+    const queryParams = new URLSearchParams();
+    if (params.page) queryParams.append('page', params.page.toString());
+    if (params.limit) queryParams.append('limit', params.limit.toString());
+    if (params.search) queryParams.append('search', params.search);
+    if (params.categoryId) queryParams.append('categoryId', params.categoryId);
+    if (params.lowStock) queryParams.append('lowStock', params.lowStock.toString());
+
+    return this.request<{
+      data: Array<{
+        id: string;
+        name: string;
+        sku: string;
+        barcode?: string;
+        stock: number;
+        minStock: number;
+        costPrice: number;
+        sellingPrice: number;
+        unitType: string;
+        category: {
+          id: string;
+          name: string;
+          type: 'MEDICAL' | 'NON_MEDICAL' | 'GENERAL';
+        };
+        supplier: {
+          id: string;
+          name: string;
+        };
+        batches: Array<{
+          id: string;
+          batchNo: string;
+          quantity: number;
+          expireDate?: string;
+          purchasePrice: number;
+          sellingPrice: number;
+        }>;
+        totalBatchQuantity: number;
+        nearExpiryBatches: number;
+        expiredBatches: number;
+        isLowStock: boolean;
+        stockStatus: 'LOW' | 'MEDIUM' | 'GOOD';
+      }>;
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        pages: number;
+      };
+    }>(`/inventory/summary?${queryParams.toString()}`);
+  }
+
+  async getInventoryByBatches(params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    productId?: string;
+    nearExpiry?: boolean;
+    expired?: boolean;
+  } = {}) {
+    const queryParams = new URLSearchParams();
+    if (params.page) queryParams.append('page', params.page.toString());
+    if (params.limit) queryParams.append('limit', params.limit.toString());
+    if (params.search) queryParams.append('search', params.search);
+    if (params.productId) queryParams.append('productId', params.productId);
+    if (params.nearExpiry) queryParams.append('nearExpiry', params.nearExpiry.toString());
+    if (params.expired) queryParams.append('expired', params.expired.toString());
+
+    return this.request<{
+      data: Array<{
+        id: string;
+        batchNo: string;
+        productId: string;
+        quantity: number;
+        purchasePrice: number;
+        sellingPrice: number;
+        expireDate?: string;
+        productionDate?: string;
+        product: {
+          id: string;
+          name: string;
+          sku: string;
+          barcode?: string;
+          unitType: string;
+          minStock: number;
+        };
+        supplier: {
+          id: string;
+          name: string;
+        };
+        expiryStatus: 'GOOD' | 'WARNING' | 'CRITICAL' | 'EXPIRED';
+        daysUntilExpiry?: number;
+      }>;
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        pages: number;
+      };
+    }>(`/inventory/batches?${queryParams.toString()}`);
+  }
+
+  async getInventoryReports() {
+    return this.request<{
+      totalProducts: number;
+      lowStockProducts: number;
+      nearExpiryBatches: number;
+      expiredBatches: number;
+      totalStockValue: number;
+      categoryStats: Array<{
+        categoryId: string;
+        categoryName: string;
+        categoryType: 'MEDICAL' | 'NON_MEDICAL' | 'GENERAL';
+        productCount: number;
+        totalStock: number;
+      }>;
+    }>('/inventory/reports');
   }
 
 }

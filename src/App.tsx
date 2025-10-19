@@ -13,6 +13,9 @@ import Index from "./pages/Index";
 import POS from "./pages/POS";
 import Login from "./pages/Login";
 import InventoryPage from "./pages/Inventory";
+import MedicalProductsPage from "./pages/MedicalProducts";
+import NonMedicalProductsPage from "./pages/NonMedicalProducts";
+import CategoriesPage from "./pages/Categories";
 import CustomersPage from "./pages/Customers";
 import ReportsPage from "./pages/Reports";
 import SettingsPage from "./pages/Settings";
@@ -44,6 +47,9 @@ import OrderPurchase from "./components/admin/OrderPurchase";
 import BusinessTypeGuard from "./components/auth/BusinessTypeGuard";
 import ZapeeraDashboard from "./components/dashboard/ZapeeraDashboard";
 import ZapeeraLayout from "./components/layout/ZapeeraLayout";
+import Batches from "./pages/Batches";
+import Purchases from "./pages/Purchases";
+import RoleBasedRoot from "./components/auth/RoleBasedRoot";
 import { useRealtimeNotifications } from "./hooks/useRealtimeNotifications";
 import AuthStatus from "./components/auth/AuthStatus";
 
@@ -101,7 +107,7 @@ const AppRoutes = () => {
   useRealtimeNotifications();
 
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
         {/* Public Routes */}
         <Route path="/login" element={<AuthContainer />} />
@@ -109,21 +115,21 @@ const AppRoutes = () => {
 
         {/* Protected Routes */}
         <Route path="/" element={
-          <AuthStatus>
+          <AuthStatus fallback={<Navigate to="/login" replace />}>
             <BusinessTypeGuard>
-              <ZapeeraDashboard />
+              <RoleBasedRoot />
             </BusinessTypeGuard>
           </AuthStatus>
         } />
         <Route path="/dashboard" element={
-          <AuthStatus>
+          <AuthStatus fallback={<Navigate to="/login" replace />}>
             <BusinessTypeGuard>
               <RoleBasedDashboard />
             </BusinessTypeGuard>
           </AuthStatus>
         } />
         <Route path="/pos" element={
-          <AuthStatus>
+          <AuthStatus fallback={<Navigate to="/login" replace />}>
             <BusinessTypeGuard>
               <POS />
             </BusinessTypeGuard>
@@ -212,11 +218,66 @@ const AppRoutes = () => {
           </AuthStatus>
         } />
         <Route path="/inventory" element={
-          <AuthStatus>
+          <AuthStatus fallback={<Navigate to="/login" replace />}>
             <BusinessTypeGuard>
               <RoleProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN', 'MANAGER', 'CASHIER', 'PHARMACIST']}>
                 <MainLayout>
                   <InventoryPage />
+                </MainLayout>
+              </RoleProtectedRoute>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        <Route path="/inventory/categories" element={
+          <AuthStatus fallback={<Navigate to="/login" replace />}>
+            <BusinessTypeGuard>
+              <RoleProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN', 'MANAGER', 'CASHIER', 'PHARMACIST']}>
+                <MainLayout>
+                  <CategoriesPage />
+                </MainLayout>
+              </RoleProtectedRoute>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        <Route path="/inventory/medical" element={
+          <AuthStatus fallback={<Navigate to="/login" replace />}>
+            <BusinessTypeGuard>
+              <RoleProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN', 'MANAGER', 'CASHIER', 'PHARMACIST']}>
+                <MainLayout>
+                  <MedicalProductsPage />
+                </MainLayout>
+              </RoleProtectedRoute>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        <Route path="/inventory/non-medical" element={
+          <AuthStatus fallback={<Navigate to="/login" replace />}>
+            <BusinessTypeGuard>
+              <RoleProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN', 'MANAGER', 'CASHIER', 'PHARMACIST']}>
+                <MainLayout>
+                  <NonMedicalProductsPage />
+                </MainLayout>
+              </RoleProtectedRoute>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        <Route path="/batches" element={
+          <AuthStatus fallback={<Navigate to="/login" replace />}>
+            <BusinessTypeGuard>
+              <RoleProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN', 'MANAGER', 'CASHIER', 'PHARMACIST']}>
+                <MainLayout>
+                  <Batches />
+                </MainLayout>
+              </RoleProtectedRoute>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        <Route path="/purchases" element={
+          <AuthStatus fallback={<Navigate to="/login" replace />}>
+            <BusinessTypeGuard>
+              <RoleProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN', 'MANAGER', 'CASHIER']}>
+                <MainLayout>
+                  <Purchases />
                 </MainLayout>
               </RoleProtectedRoute>
             </BusinessTypeGuard>
@@ -324,23 +385,23 @@ const AppRoutes = () => {
           </AuthStatus>
         } />
         <Route path="/admin/companies" element={
-          <AuthStatus>
+          <AuthStatus fallback={<Navigate to="/login" replace />}>
             <BusinessTypeGuard>
               <RoleProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN']}>
-                <ZapeeraLayout>
+                <MainLayout>
                   <CompanyManagement />
-                </ZapeeraLayout>
+                </MainLayout>
               </RoleProtectedRoute>
             </BusinessTypeGuard>
           </AuthStatus>
         } />
         <Route path="/admin/branches" element={
-          <AuthStatus>
+          <AuthStatus fallback={<Navigate to="/login" replace />}>
             <BusinessTypeGuard>
               <RoleProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN']}>
-                <ZapeeraLayout>
+                <MainLayout>
                   <BranchManagement />
-                </ZapeeraLayout>
+                </MainLayout>
               </RoleProtectedRoute>
             </BusinessTypeGuard>
           </AuthStatus>
