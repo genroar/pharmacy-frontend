@@ -614,7 +614,7 @@ const SuperAdminDashboard = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'bg-[#0C2C8A]/10 text-[#0C2C8A]';
+      case 'active': return 'bg-blue-100 text-blue-600';
       case 'inactive': return 'bg-yellow-100 text-yellow-800';
       case 'suspended': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
@@ -623,9 +623,9 @@ const SuperAdminDashboard = () => {
 
   const getPlanColor = (plan: string) => {
     switch (plan) {
-      case 'basic': return 'bg-[#0C2C8A]/10 text-[#0C2C8A]';
-      case 'premium': return 'bg-[#0C2C8A]/10 text-[#0C2C8A]';
-      case 'enterprise': return 'bg-[#0C2C8A]/10 text-[#0C2C8A]';
+      case 'basic': return 'bg-blue-100 text-blue-600';
+      case 'premium': return 'bg-blue-100 text-blue-600';
+      case 'enterprise': return 'bg-blue-100 text-blue-600';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -681,8 +681,8 @@ const SuperAdminDashboard = () => {
       <div className="p-6 text-white text-xl font-semibold flex items-center justify-between">
         {!isCollapsed && (
           <div className="flex items-center space-x-2">
-            <span className="w-8 h-8 flex items-center justify-center bg-white text-blue-900 rounded-full font-bold">N</span>
-            <span>NextBill</span>
+            <span className="w-8 h-8 flex items-center justify-center bg-white text-blue-900 rounded-full font-bold">Z</span>
+            <span>Zapeera</span>
           </div>
         )}
         {isCollapsed && (
@@ -842,7 +842,7 @@ const SuperAdminDashboard = () => {
             </div>
 
             {viewMode === 'admins' && (
-              <Button className="bg-[#0C2C8A] hover:bg-transparent hover:text-[#0C2C8A] border-[1px] border-[#0C2C8A] hover:opacity-90" onClick={() => setIsCreateAdminOpen(true)}>
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600 shadow-md hover:shadow-lg transition-all duration-200" onClick={() => setIsCreateAdminOpen(true)}>
                 <Plus className="w-4 h-4 mr-2" />
                 Create Admin
               </Button>
@@ -1000,7 +1000,7 @@ const SuperAdminDashboard = () => {
                     <Button
                       onClick={createAdmin}
                       disabled={isLoading}
-                      className="bg-[#0C2C8A] hover:bg-transparent hover:text-[#0C2C8A] border-[1px] border-[#0C2C8A] hover:opacity-90"
+                      className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600 shadow-md hover:shadow-lg transition-all duration-200"
                     >
                       {isLoading ? 'Creating...' : 'Create Admin'}
                     </Button>

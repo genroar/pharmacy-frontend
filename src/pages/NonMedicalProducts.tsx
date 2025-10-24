@@ -39,8 +39,8 @@ interface NonMedicalProduct {
   stock: number;
   minStock: number;
   maxStock: number;
-  category: string;
-  supplier: string;
+  category: { id: string; name: string; type: string };
+  supplier: { id: string; name: string };
   brand?: string;
   weight?: string;
   dimensions?: string;
@@ -68,7 +68,7 @@ const NonMedicalProducts = () => {
       const response = await apiService.getProducts({
         page: 1,
         limit: 100,
-        category: 'non-medical' // Filter for non-medical products only
+        categoryType: 'NON_MEDICAL' // Filter for non-medical products by category type
       });
 
       if (response.success) {
@@ -94,13 +94,13 @@ const NonMedicalProducts = () => {
                          product.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          product.description.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesCategory = selectedCategory === "all" || product.category === selectedCategory;
+    const matchesCategory = selectedCategory === "all" || product.category?.name === selectedCategory;
 
     return matchesSearch && matchesCategory;
   });
 
   // Get unique categories
-  const categories = Array.from(new Set(products.map(p => p.category)));
+  const categories = Array.from(new Set(products.map(p => p.category?.name).filter(Boolean)));
 
   // Get low stock products
   const lowStockProducts = products.filter(p => p.stock <= p.minStock);
@@ -274,9 +274,18 @@ const NonMedicalProducts = () => {
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem
+                    value="all"
+                    className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                  >
+                    All Categories
+                  </SelectItem>
                   {categories.map(category => (
-                    <SelectItem key={category} value={category}>
+                    <SelectItem
+                      key={category}
+                      value={category}
+                      className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                    >
                       <div className="flex items-center">
                         {getCategoryIcon(category)}
                         <span className="ml-2">{category}</span>
@@ -356,8 +365,8 @@ const NonMedicalProducts = () => {
                       </td>
                       <td className="py-4 px-4">
                         <Badge variant="outline" className="flex items-center w-fit">
-                          {getCategoryIcon(product.category)}
-                          <span className="ml-1">{product.category}</span>
+                          {getCategoryIcon(product.category?.name || '')}
+                          <span className="ml-1">{product.category?.name || 'Unknown'}</span>
                         </Badge>
                       </td>
                       <td className="py-4 px-4">

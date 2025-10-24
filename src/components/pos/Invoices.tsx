@@ -9,6 +9,7 @@ import DateRangeFilter from "@/components/ui/DateRangeFilter";
 import { apiService } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/AdminContext";
+import { useToast } from "@/hooks/use-toast";
 import {
   Receipt,
   Search,
@@ -28,7 +29,10 @@ import {
   RefreshCw,
   ChevronLeft,
   ChevronRight,
-  RotateCcw
+  RotateCcw,
+  Edit,
+  Save,
+  X
 } from "lucide-react";
 
 interface InvoiceItem {
@@ -54,12 +58,13 @@ interface Invoice {
   userId: string;
   branchId: string;
   subtotal: number;
-  taxAmount: number;
   discountAmount: number;
+  discountPercentage?: number;
   totalAmount: number;
   paymentMethod: string;
   paymentStatus: string;
   status: string;
+  saleDate?: string;
   createdAt: string;
   receiptNumber?: string;
   customer?: {
@@ -90,6 +95,7 @@ interface Invoice {
 const Invoices = () => {
   const { user } = useAuth();
   const { selectedBranchId, selectedBranch } = useAdmin();
+  const { toast } = useToast();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [filteredInvoices, setFilteredInvoices] = useState<Invoice[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -99,6 +105,13 @@ const Invoices = () => {
   const [endDate, setEndDate] = useState("");
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    discountPercentage: 0,
+    saleDate: '',
+    notes: ''
+  });
   const [isRefundDialogOpen, setIsRefundDialogOpen] = useState(false);
   const [refundItems, setRefundItems] = useState<Array<{
     productId: string;
@@ -110,6 +123,8 @@ const Invoices = () => {
   }>>([]);
   const [refundReason, setRefundReason] = useState("");
   const [loading, setLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isRefunding, setIsRefunding] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
 
@@ -185,12 +200,13 @@ const Invoices = () => {
           userId: sale.userId,
           branchId: sale.branchId,
           subtotal: sale.subtotal,
-          taxAmount: sale.taxAmount,
           discountAmount: sale.discountAmount,
+          discountPercentage: sale.discountPercentage,
           totalAmount: sale.totalAmount,
           paymentMethod: sale.paymentMethod,
           paymentStatus: sale.paymentStatus,
           status: sale.status,
+          saleDate: sale.saleDate,
           createdAt: sale.createdAt,
           updatedAt: sale.updatedAt,
           customer: sale.customer ? {
@@ -233,6 +249,11 @@ const Invoices = () => {
       console.error('Error loading invoices:', error);
       // Show empty list on error instead of mock data
       setInvoices([]);
+      toast({
+        title: "Error",
+        description: "Failed to load invoices. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -352,9 +373,82 @@ const Invoices = () => {
 
   const totalPages = Math.ceil(filteredInvoices.length / itemsPerPage);
 
+  // Calculate total revenue from filtered invoices
+  const totalRevenue = filteredInvoices.reduce((sum, invoice) => sum + invoice.totalAmount, 0);
+  const totalInvoices = filteredInvoices.length;
+  const averageInvoiceValue = totalInvoices > 0 ? totalRevenue / totalInvoices : 0;
+
   const viewInvoice = (invoice: Invoice) => {
     setSelectedInvoice(invoice);
     setIsInvoiceDialogOpen(true);
+  };
+
+  const editInvoice = (invoice: Invoice) => {
+    setEditingInvoice(invoice);
+    setEditFormData({
+      discountPercentage: invoice.discountPercentage || 0,
+      saleDate: invoice.saleDate ? new Date(invoice.saleDate).toISOString().split('T')[0] : '',
+      notes: ''
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleEditSave = async () => {
+    if (!editingInvoice) return;
+
+    try {
+      setIsEditing(true);
+
+      // Call backend API to update the sale
+      const response = await apiService.updateSale(editingInvoice.id, {
+        discountPercentage: editFormData.discountPercentage,
+        saleDate: editFormData.saleDate || undefined,
+        notes: editFormData.notes
+      });
+
+      if (response.success) {
+        // Update the invoice in the local state with the response data
+        const updatedInvoices = invoices.map(inv =>
+          inv.id === editingInvoice.id
+            ? {
+                ...inv,
+                discountPercentage: response.data.discountPercentage,
+                discountAmount: response.data.discountAmount,
+                totalAmount: response.data.totalAmount,
+                saleDate: response.data.saleDate,
+                updatedAt: response.data.updatedAt
+              }
+            : inv
+        );
+
+        setInvoices(updatedInvoices);
+        setFilteredInvoices(updatedInvoices);
+
+        // Close edit dialog
+        setIsEditDialogOpen(false);
+        setEditingInvoice(null);
+
+        toast({
+          title: "Success",
+          description: "Invoice updated successfully!",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: `Failed to update invoice: ${response.message}`,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error updating invoice:', error);
+      toast({
+        title: "Error",
+        description: "Error updating invoice. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsEditing(false);
+    }
   };
 
   const printInvoice = (invoice: Invoice) => {
@@ -405,7 +499,11 @@ const Invoices = () => {
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Error downloading invoice:', error);
-      alert('Error downloading invoice. Please try again.');
+      toast({
+        title: "Error",
+        description: "Error downloading invoice. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -548,7 +646,7 @@ const Invoices = () => {
             <div class="invoice-details">
               <h3>Invoice Details</h3>
               <div class="info-row"><strong>Invoice #:</strong> ${invoice.invoiceNumber}</div>
-              <div class="info-row"><strong>Date:</strong> ${formatDate(invoice.createdAt)}</div>
+              <div class="info-row"><strong>Date:</strong> ${invoice.saleDate ? formatDate(invoice.saleDate) : formatDate(invoice.createdAt)}</div>
               <div class="info-row"><strong>Status:</strong> <span class="status status-${invoice.status.toLowerCase()}">${invoice.status}</span></div>
               <div class="info-row"><strong>Payment Method:</strong> ${invoice.paymentMethod}</div>
               <div class="info-row"><strong>Cashier:</strong> ${invoice.user.name}</div>
@@ -591,14 +689,10 @@ const Invoices = () => {
               <span>Subtotal:</span>
               <span>PKR ${invoice.subtotal.toFixed(2)}</span>
             </div>
-            <div class="total-row">
-              <span>Tax (17%):</span>
-              <span>PKR ${invoice.taxAmount.toFixed(2)}</span>
-            </div>
-            ${invoice.discountAmount > 0 ? `
-              <div class="total-row">
-                <span>Discount:</span>
-                <span>-PKR ${invoice.discountAmount.toFixed(2)}</span>
+            ${(invoice.discountPercentage && invoice.discountPercentage > 0) || invoice.discountAmount > 0 ? `
+              <div class="total-row" style="color: #16a34a;">
+                <span>${invoice.discountPercentage && invoice.discountPercentage > 0 ? `Discount (${invoice.discountPercentage}%):` : 'Discount:'}</span>
+                <span>-PKR ${invoice.discountPercentage && invoice.discountPercentage > 0 ? (invoice.subtotal * invoice.discountPercentage / 100).toFixed(2) : invoice.discountAmount.toFixed(2)}</span>
               </div>
             ` : ''}
             <div class="total-row total-final">
@@ -675,6 +769,8 @@ const Invoices = () => {
     if (!selectedInvoice) return;
 
     try {
+      setIsRefunding(true);
+
       // Filter out items with quantity 0
       const itemsToRefund = refundItems.filter(item => item.quantity > 0);
 
@@ -710,7 +806,10 @@ const Invoices = () => {
       const response = await apiService.createRefund(refundData);
       if (response.success) {
         console.log('Refund created successfully:', response.data);
-        alert(`Refund created successfully for invoice: ${selectedInvoice.invoiceNumber}\nRefund Amount: PKR ${totalRefundAmount.toFixed(2)}`);
+        toast({
+          title: "Success",
+          description: `Refund created successfully for invoice: ${selectedInvoice.invoiceNumber}. Refund Amount: PKR ${totalRefundAmount.toFixed(2)}`,
+        });
         setIsRefundDialogOpen(false);
         // Reset refund form
         setRefundItems([]);
@@ -719,11 +818,21 @@ const Invoices = () => {
         loadInvoices();
       } else {
         console.error('Refund creation failed:', response);
-        alert(`Failed to create refund: ${response.message}`);
+        toast({
+          title: "Error",
+          description: `Failed to create refund: ${response.message}`,
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error('Error creating refund:', error);
-      alert('Error creating refund. Please try again.');
+      toast({
+        title: "Error",
+        description: "Error creating refund. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefunding(false);
     }
   };
 
@@ -788,10 +897,30 @@ const Invoices = () => {
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="COMPLETED">Completed</SelectItem>
-                  <SelectItem value="PENDING">Pending</SelectItem>
-                  <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                  <SelectItem
+                    value="all"
+                    className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                  >
+                    All Status
+                  </SelectItem>
+                  <SelectItem
+                    value="COMPLETED"
+                    className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                  >
+                    Completed
+                  </SelectItem>
+                  <SelectItem
+                    value="PENDING"
+                    className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                  >
+                    Pending
+                  </SelectItem>
+                  <SelectItem
+                    value="CANCELLED"
+                    className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                  >
+                    Cancelled
+                  </SelectItem>
                 </SelectContent>
               </Select>
 
@@ -801,10 +930,30 @@ const Invoices = () => {
                   <SelectValue placeholder="Filter by payment method" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Payment Methods</SelectItem>
-                  <SelectItem value="CASH">Cash</SelectItem>
-                  <SelectItem value="CARD">Card</SelectItem>
-                  <SelectItem value="MOBILE">Mobile</SelectItem>
+                  <SelectItem
+                    value="all"
+                    className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                  >
+                    All Payment Methods
+                  </SelectItem>
+                  <SelectItem
+                    value="CASH"
+                    className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                  >
+                    Cash
+                  </SelectItem>
+                  <SelectItem
+                    value="CARD"
+                    className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                  >
+                    Card
+                  </SelectItem>
+                  <SelectItem
+                    value="MOBILE"
+                    className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                  >
+                    Mobile
+                  </SelectItem>
                 </SelectContent>
               </Select>
 
@@ -851,7 +1000,7 @@ const Invoices = () => {
                           PKR {invoice.totalAmount.toFixed(2)}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          {formatDate(invoice.createdAt)}
+                          {invoice.saleDate ? formatDate(invoice.saleDate) : formatDate(invoice.createdAt)}
                         </p>
                       </div>
                     </div>
@@ -899,6 +1048,31 @@ const Invoices = () => {
                       </div>
                     </div>
 
+                    {/* Invoice Summary */}
+                    <div className="mb-3 p-3 bg-gray-50 rounded-lg">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Subtotal:</span>
+                          <span className="font-medium">PKR {invoice.subtotal.toFixed(2)}</span>
+                        </div>
+                        {((invoice.discountPercentage && invoice.discountPercentage > 0) || invoice.discountAmount > 0) && (
+                          <div className="flex justify-between text-green-600">
+                            <span>Discount:</span>
+                            <span>
+                              {invoice.discountPercentage && invoice.discountPercentage > 0
+                                ? `${invoice.discountPercentage}% (-PKR ${(invoice.subtotal * invoice.discountPercentage / 100).toFixed(2)})`
+                                : `-PKR ${invoice.discountAmount.toFixed(2)}`
+                              }
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex justify-between font-semibold">
+                          <span>Total:</span>
+                          <span className="text-[#0c2c8a]">PKR {invoice.totalAmount.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Action Buttons */}
                     <div className="flex space-x-2 pt-3 border-t">
                       <Button
@@ -924,6 +1098,15 @@ const Invoices = () => {
                       >
                         <Download className="w-4 h-4 mr-2" />
                         Download
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => editInvoice(invoice)}
+                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                      >
+                        <Edit className="w-4 h-4 mr-2" />
+                        Edit
                       </Button>
                       <Button
                         variant="outline"
@@ -975,6 +1158,16 @@ const Invoices = () => {
           </CardContent>
         </Card>
 
+        {/* Total Revenue Display */}
+        {filteredInvoices.length > 0 && (
+          <div className="text-center py-4">
+            <div className="text-sm text-gray-600">
+              Total Revenue: <span className="font-semibold text-green-600">PKR {totalRevenue.toFixed(2)}</span>
+              <span className="text-gray-500 ml-2">({totalInvoices} invoice{totalInvoices !== 1 ? 's' : ''})</span>
+            </div>
+          </div>
+        )}
+
         {/* Invoice Details Dialog */}
         <Dialog open={isInvoiceDialogOpen} onOpenChange={setIsInvoiceDialogOpen}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -1016,7 +1209,7 @@ const Invoices = () => {
                     <p className="text-muted-foreground">Your Health, Our Priority</p>
                     <div className="mt-4 space-y-1 text-sm">
                       <p><strong>Invoice Number:</strong> {selectedInvoice.invoiceNumber}</p>
-                      <p><strong>Date:</strong> {formatDate(selectedInvoice.createdAt)}</p>
+                      <p><strong>Date:</strong> {selectedInvoice.saleDate ? formatDate(selectedInvoice.saleDate) : formatDate(selectedInvoice.createdAt)}</p>
                       <p><strong>Cashier:</strong> {selectedInvoice.user.name}</p>
                       <p><strong>Branch:</strong> {selectedInvoice.branch.name}</p>
                     </div>
@@ -1077,14 +1270,20 @@ const Invoices = () => {
                     <span>Subtotal:</span>
                     <span>PKR {selectedInvoice.subtotal.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>GST (17%):</span>
-                    <span>PKR {selectedInvoice.taxAmount.toFixed(2)}</span>
-                  </div>
-                  {selectedInvoice.discountAmount > 0 && (
+                  {((selectedInvoice.discountPercentage && selectedInvoice.discountPercentage > 0) || selectedInvoice.discountAmount > 0) && (
                     <div className="flex justify-between text-green-600">
-                      <span>Discount:</span>
-                      <span>-PKR {selectedInvoice.discountAmount.toFixed(2)}</span>
+                      <span>
+                        {selectedInvoice.discountPercentage && selectedInvoice.discountPercentage > 0
+                          ? `Discount (${selectedInvoice.discountPercentage}%):`
+                          : 'Discount:'
+                        }
+                      </span>
+                      <span>
+                        -PKR {selectedInvoice.discountPercentage && selectedInvoice.discountPercentage > 0
+                          ? (selectedInvoice.subtotal * selectedInvoice.discountPercentage / 100).toFixed(2)
+                          : selectedInvoice.discountAmount.toFixed(2)
+                        }
+                      </span>
                     </div>
                   )}
                   <div className="flex justify-between text-lg font-bold border-t pt-2">
@@ -1117,9 +1316,14 @@ const Invoices = () => {
               <DialogTitle className="flex items-center justify-between">
                 <span>Create Refund - {selectedInvoice?.invoiceNumber}</span>
                 <div className="flex space-x-2">
-                  <Button variant="outline" size="sm" onClick={createRefund}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={createRefund}
+                    disabled={isRefunding}
+                  >
                     <RotateCcw className="w-4 h-4 mr-2" />
-                    Process Refund
+                    {isRefunding ? 'Processing...' : 'Process Refund'}
                   </Button>
                 </div>
               </DialogTitle>
@@ -1228,6 +1432,141 @@ const Invoices = () => {
                       PKR {refundItems.reduce((total, item) => total + (item.quantity * item.unitPrice), 0).toFixed(2)}
                     </span>
                   </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Invoice Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center space-x-2">
+                <Edit className="w-5 h-5 text-blue-600" />
+                <span>Edit Invoice - {editingInvoice?.invoiceNumber}</span>
+              </DialogTitle>
+            </DialogHeader>
+
+            {editingInvoice && (
+              <div className="space-y-6">
+                {/* Invoice Info */}
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <h3 className="font-semibold mb-2">Invoice Information</h3>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Customer:</span>
+                      <span className="ml-2 font-medium">
+                        {editingInvoice.customer?.name || 'Walk-in Customer'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Items:</span>
+                      <span className="ml-2 font-medium">{editingInvoice.items.length} item(s)</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Subtotal:</span>
+                      <span className="ml-2 font-medium">PKR {editingInvoice.subtotal.toFixed(2)}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Current Total:</span>
+                      <span className="ml-2 font-medium text-[#0c2c8a]">PKR {editingInvoice.totalAmount.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Edit Form */}
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Discount Percentage</label>
+                      <div className="flex items-center space-x-2">
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={editFormData.discountPercentage}
+                          onChange={(e) => setEditFormData({
+                            ...editFormData,
+                            discountPercentage: Math.min(100, Math.max(0, parseFloat(e.target.value) || 0))
+                          })}
+                          className="flex-1"
+                        />
+                        <span className="text-sm text-muted-foreground">%</span>
+                      </div>
+                      {editFormData.discountPercentage > 0 && (
+                        <p className="text-xs text-green-600">
+                          Discount Amount: -PKR {((editingInvoice.subtotal * editFormData.discountPercentage) / 100).toFixed(2)}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Sale Date</label>
+                      <Input
+                        type="date"
+                        value={editFormData.saleDate}
+                        onChange={(e) => setEditFormData({
+                          ...editFormData,
+                          saleDate: e.target.value
+                        })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Notes (Optional)</label>
+                    <Input
+                      value={editFormData.notes}
+                      onChange={(e) => setEditFormData({
+                        ...editFormData,
+                        notes: e.target.value
+                      })}
+                      placeholder="Add any notes about this invoice..."
+                    />
+                  </div>
+                </div>
+
+                {/* New Totals Preview */}
+                {editFormData.discountPercentage !== (editingInvoice.discountPercentage || 0) && (
+                  <div className="p-4 bg-blue-50 rounded-lg">
+                    <h4 className="font-semibold text-blue-800 mb-2">New Totals Preview</h4>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span>Subtotal:</span>
+                        <span>PKR {editingInvoice.subtotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-green-600">
+                        <span>Discount ({editFormData.discountPercentage}%):</span>
+                        <span>-PKR {((editingInvoice.subtotal * editFormData.discountPercentage) / 100).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between font-semibold border-t pt-1">
+                        <span>New Total:</span>
+                        <span className="text-blue-600">
+                          PKR {(editingInvoice.subtotal - (editingInvoice.subtotal * editFormData.discountPercentage / 100)).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex justify-end space-x-3 pt-4 border-t">
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsEditDialogOpen(false)}
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleEditSave}
+                    disabled={isEditing}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Save className="w-4 h-4 mr-2" />
+                    {isEditing ? 'Saving...' : 'Save Changes'}
+                  </Button>
                 </div>
               </div>
             )}

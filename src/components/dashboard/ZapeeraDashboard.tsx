@@ -12,35 +12,80 @@ import {
   Plus
 } from "lucide-react";
 import ZapeeraLayout from "@/components/layout/ZapeeraLayout";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import OnboardingTour, { OnboardingStep } from "@/components/OnboardingTour";
+import { useMutation } from "@tanstack/react-query";
 import { apiService } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAdmin } from "@/contexts/AdminContext";
 import { toast } from "@/hooks/use-toast";
 
 const ZapeeraDashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { setSelectedCompanyId, allCompanies } = useAdmin();
   const [selectedCompany, setSelectedCompany] = useState<string>("");
   const [showCompanySelection, setShowCompanySelection] = useState(false);
 
-  // Get user's companies
-  const { data: companies, isLoading: companiesLoading, refetch: refetchCompanies } = useQuery({
-    queryKey: ['companies'],
-    queryFn: () => apiService.getCompanies(),
-    enabled: !!user
-  });
+  // Onboarding tour steps for the dashboard
+  const dashboardSteps: OnboardingStep[] = [
+    {
+      target: '.sidebar-menu',
+      content: (
+        <div>
+          <h3 className="text-lg font-semibold mb-2">Navigation Menu</h3>
+          <p>This is your main menu — access all modules from here. You can navigate to different sections like POS, Reports, and Settings.</p>
+        </div>
+      ),
+      title: "Welcome to Zapeera! 👋",
+      placement: 'right',
+      disableBeacon: true,
+    },
+    {
+      target: '.new-sale-button',
+      content: (
+        <div>
+          <h3 className="text-lg font-semibold mb-2">New Sale Button</h3>
+          <p>Click here to start a new sale transaction. This is where you'll process customer purchases and manage your point of sale.</p>
+        </div>
+      ),
+      title: "Start Selling",
+      placement: 'bottom',
+    },
+    {
+      target: '.feature-cards',
+      content: (
+        <div>
+          <h3 className="text-lg font-semibold mb-2">Key Features</h3>
+          <p>Explore these feature cards to understand what Zapeera can do for your business. Each card represents a core functionality.</p>
+        </div>
+      ),
+      title: "Discover Features",
+      placement: 'top',
+    },
+    {
+      target: '.help-section',
+      content: (
+        <div>
+          <h3 className="text-lg font-semibold mb-2">Need Help?</h3>
+          <p>If you need assistance, use these support options to get in touch with our team via WhatsApp or email.</p>
+        </div>
+      ),
+      title: "Get Support",
+      placement: 'top',
+    }
+  ];
 
   // Check if user has companies and if any need business type
   useEffect(() => {
-    if (companies?.data) {
-      const hasNoCompanies = companies.data.length === 0;
-      const companyNeedingType = companies.data.find((company: any) => !company.businessType);
+    if (allCompanies) {
+      const hasNoCompanies = allCompanies.length === 0;
+      const companyNeedingType = allCompanies.find((company: any) => !company.businessType);
 
       if (hasNoCompanies || companyNeedingType) {
         setShowCompanySelection(true);
       }
     }
-  }, [companies]);
+  }, [allCompanies]);
 
   const handleCreateBusiness = () => {
     navigate('/admin/companies');
@@ -61,18 +106,45 @@ const ZapeeraDashboard = () => {
       return;
     }
 
-    // Always redirect to main dashboard after company selection
+    // Set the selected company in AdminContext
+    setSelectedCompanyId(selectedCompany);
+
+    // Find the selected company details
+    const company = allCompanies.find(c => c.id === selectedCompany);
+
+    // Show success message
+    toast({
+      title: "Company Selected",
+      description: `You are now viewing ${company?.name || 'the selected company'}'s dashboard.`,
+      duration: 3000,
+    });
+
+    // Navigate to the main dashboard with the selected company context
     navigate('/dashboard');
   };
 
   const handleChatSupport = () => {
-    // Implement chat support functionality
-    console.log("Chat with support clicked");
+    // Open WhatsApp with the support number
+    const phoneNumber = "+923107100663";
+    const message = "Hello! I need support with Zapeera.";
+    const whatsappUrl = `https://wa.me/${phoneNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
   };
 
   const handleScheduleDemo = () => {
-    // Implement demo scheduling functionality
-    console.log("Schedule demo clicked");
+    // Open email client to schedule a demo call
+    const subject = "Schedule Demo Call - Zapeera";
+    const body = `Hello,
+
+I would like to schedule a demo call to learn more about Zapeera.
+
+Please let me know your available time slots.
+
+Best regards,
+${user?.name || 'User'}`;
+
+    const emailUrl = `mailto:support@zapeera.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(emailUrl, '_blank');
   };
 
   const handleExploreDemo = () => {
@@ -82,6 +154,18 @@ const ZapeeraDashboard = () => {
 
   return (
     <ZapeeraLayout>
+      {/* Onboarding Tour */}
+      <OnboardingTour
+        steps={dashboardSteps}
+        storageKey="zapeera-dashboard-tour"
+        onComplete={(data) => {
+          console.log('Dashboard tour completed!', data);
+        }}
+        onSkip={(data) => {
+          console.log('Dashboard tour skipped!', data);
+        }}
+      />
+
       <div className="p-6">
         {/* Welcome Section */}
         <div className="max-w-6xl mx-auto">
@@ -108,8 +192,12 @@ const ZapeeraDashboard = () => {
                           <SelectValue placeholder="Choose your company" />
                         </SelectTrigger>
                         <SelectContent>
-                          {companies?.data?.map((company: any) => (
-                            <SelectItem key={company.id} value={company.id}>
+                          {allCompanies?.map((company: any) => (
+                            <SelectItem
+                              key={company.id}
+                              value={company.id}
+                              className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                            >
                               <div className="flex items-center space-x-2">
                                 <Building className="w-4 h-4" />
                                 <span>{company.name}</span>
@@ -183,7 +271,7 @@ const ZapeeraDashboard = () => {
           </div>
 
           {/* Need Help Section */}
-          <div className="text-center mb-12">
+          <div className="text-center mb-12 help-section">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Need Help?</h2>
             <div className="flex justify-center space-x-8">
               <button
@@ -208,7 +296,7 @@ const ZapeeraDashboard = () => {
           </div>
 
           {/* Feature Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 feature-cards">
             {/* Multiple Businesses */}
             <Card className="bg-gray-50 border-0">
               <CardContent className="p-6 text-center">

@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiService } from "@/services/api";
+import { toast } from "sonner";
 import {
   Users,
   UserPlus,
@@ -39,23 +40,83 @@ interface AdminUserManagementProps {
   branchId: string;
 }
 
+interface Company {
+  id: string;
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+interface Branch {
+  id: string;
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+  isActive: boolean;
+  adminId?: string;
+  createdBy?: string;
+  createdAt: string;
+}
+
 const AdminUserManagement = ({ adminId, adminName, branchId }: AdminUserManagementProps) => {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>("");
+  const [selectedBranchId, setSelectedBranchId] = useState<string>(branchId);
   const [newUser, setNewUser] = useState({
     name: "",
     email: "",
     username: "",
     password: "",
-    role: "CASHIER" as 'MANAGER' | 'CASHIER'
+    role: "CASHIER" as 'MANAGER' | 'CASHIER',
+    companyId: "",
+    branchId: branchId
   });
 
   useEffect(() => {
     loadUsers();
+    loadCompanies();
+    loadBranches();
   }, [adminId]);
+
+  const loadCompanies = async () => {
+    try {
+      const response = await apiService.getCompanies();
+      if (response.success) {
+        setCompanies(response.data);
+      } else {
+        toast.error(response.message || 'Failed to load companies');
+      }
+    } catch (error) {
+      console.error('Error loading companies:', error);
+      toast.error('Failed to load companies');
+    }
+  };
+
+  const loadBranches = async () => {
+    try {
+      const response = await apiService.getBranches();
+      if (response.success) {
+        setBranches(response.data.branches);
+      } else {
+        toast.error(response.message || 'Failed to load branches');
+      }
+    } catch (error) {
+      console.error('Error loading branches:', error);
+      toast.error('Failed to load branches');
+    }
+  };
 
   const loadUsers = async () => {
     setIsLoading(true);
@@ -64,9 +125,13 @@ const AdminUserManagement = ({ adminId, adminName, branchId }: AdminUserManageme
       const response = await apiService.getAdminUsers(adminId);
       if (response.success) {
         setUsers(response.data);
+      } else {
+        toast.error(response.message || 'Failed to load users');
+        setError('Failed to load users');
       }
     } catch (error) {
       console.error('Error loading users:', error);
+      toast.error('Failed to load users');
       setError('Failed to load users');
     } finally {
       setIsLoading(false);
@@ -74,12 +139,12 @@ const AdminUserManagement = ({ adminId, adminName, branchId }: AdminUserManageme
   };
 
   const createUser = async () => {
-    if (!newUser.name || !newUser.email || !newUser.username || !newUser.password) {
-      alert("Please fill in all required fields!");
+    if (!newUser.name || !newUser.email || !newUser.username || !newUser.password || !newUser.companyId || !newUser.branchId) {
+      toast.error("Please fill in all required fields including company and branch!");
       return;
     }
 
-    setIsLoading(true);
+    setIsSubmitting(true);
     try {
       const response = await apiService.createUser({
         name: newUser.name,
@@ -87,28 +152,31 @@ const AdminUserManagement = ({ adminId, adminName, branchId }: AdminUserManageme
         username: newUser.username,
         password: newUser.password,
         role: newUser.role,
-        branchId: branchId
+        companyId: newUser.companyId,
+        branchId: newUser.branchId
       });
 
       if (response.success) {
-        alert("User created successfully!");
+        toast.success("User created successfully!");
         loadUsers();
         setNewUser({
           name: "",
           email: "",
           username: "",
           password: "",
-          role: "CASHIER"
+          role: "CASHIER",
+          companyId: "",
+          branchId: branchId
         });
         setIsCreateUserOpen(false);
       } else {
-        alert(response.message || "Failed to create user");
+        toast.error(response.message || "Failed to create user");
       }
     } catch (error) {
       console.error('Error creating user:', error);
-      alert("Failed to create user. Please try again.");
+      toast.error("Failed to create user. Please try again.");
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -156,7 +224,7 @@ const AdminUserManagement = ({ adminId, adminName, branchId }: AdminUserManageme
         </div>
         <Dialog open={isCreateUserOpen} onOpenChange={setIsCreateUserOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)] text-white hover:opacity-90">
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all duration-200">
               <Plus className="w-4 h-4 mr-2" />
               Add User
             </Button>
@@ -219,10 +287,84 @@ const AdminUserManagement = ({ adminId, adminName, branchId }: AdminUserManageme
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="SUPERADMIN">Super Admin</SelectItem>
-                    <SelectItem value="ADMIN">Admin</SelectItem>
-                    <SelectItem value="MANAGER">Manager</SelectItem>
-                    <SelectItem value="CASHIER">Cashier</SelectItem>
+                    <SelectItem
+                      value="SUPERADMIN"
+                      className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                    >
+                      Super Admin
+                    </SelectItem>
+                    <SelectItem
+                      value="ADMIN"
+                      className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                    >
+                      Admin
+                    </SelectItem>
+                    <SelectItem
+                      value="MANAGER"
+                      className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                    >
+                      Manager
+                    </SelectItem>
+                    <SelectItem
+                      value="CASHIER"
+                      className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                    >
+                      Cashier
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="userCompany">Company *</Label>
+                <Select
+                  value={newUser.companyId}
+                  onValueChange={(value) => {
+                    setNewUser({ ...newUser, companyId: value });
+                    // Reset branch selection when company changes
+                    setSelectedCompanyId(value);
+                    setNewUser({ ...newUser, companyId: value, branchId: "" });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a company" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {companies.map((company) => (
+                      <SelectItem
+                        key={company.id}
+                        value={company.id}
+                        className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                      >
+                        {company.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="userBranch">Branch *</Label>
+                <Select
+                  value={newUser.branchId}
+                  onValueChange={(value) => setNewUser({ ...newUser, branchId: value })}
+                  disabled={!newUser.companyId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={newUser.companyId ? "Select a branch" : "Select a company first"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {branches
+                      .filter(branch => !newUser.companyId || branch.adminId === adminId || branch.createdBy === adminId)
+                      .map((branch) => (
+                        <SelectItem
+                          key={branch.id}
+                          value={branch.id}
+                          className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                        >
+                          {branch.name}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -234,10 +376,10 @@ const AdminUserManagement = ({ adminId, adminName, branchId }: AdminUserManageme
               </Button>
               <Button
                 onClick={createUser}
-                disabled={isLoading}
+                disabled={isSubmitting}
                 className="bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)] text-white hover:opacity-90"
               >
-                {isLoading ? 'Creating...' : 'Create User'}
+                {isSubmitting ? 'Creating...' : 'Create User'}
               </Button>
             </div>
           </DialogContent>

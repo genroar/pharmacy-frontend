@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +40,7 @@ import React from "react"; // Added missing import
 import { apiService } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/AdminContext";
+import { useToast } from "@/hooks/use-toast";
 
 interface CartItem {
   id: string;
@@ -117,7 +119,8 @@ interface Receipt {
   customer: Customer | null;
   items: CartItem[];
   subtotal: number;
-  tax: number;
+  discountPercentage?: number;
+  discountAmount?: number;
   total: number;
   paymentMethod: string;
   paymentStatus: string;
@@ -130,6 +133,9 @@ interface Receipt {
 const POSInterface = () => {
   const { user } = useAuth();
   const { selectedBranchId, selectedBranch, allBranches } = useAdmin();
+  const { toast } = useToast();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPayment, setSelectedPayment] = useState<'cash' | 'card' | 'mobile'>('cash');
@@ -176,9 +182,34 @@ const POSInterface = () => {
   const [foundInvoice, setFoundInvoice] = useState<any>(null);
   const [invoiceLookupLoading, setInvoiceLookupLoading] = useState(false);
   const [isRefundSearchOpen, setIsRefundSearchOpen] = useState(false);
+  const [discountPercentage, setDiscountPercentage] = useState<number>(0);
+  const [manualDate, setManualDate] = useState<string>("");
+  const [useManualDate, setUseManualDate] = useState<boolean>(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [isCreatingInvoice, setIsCreatingInvoice] = useState(false);
+
+  // Check for openInvoice query parameter and open invoice dialog
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    if (urlParams.get('openInvoice') === 'true') {
+      setIsInvoiceDialogOpen(true);
+      // Clean up the URL by removing the query parameter
+      window.history.replaceState({}, '', '/pos');
+    }
+  }, [location.search]);
+  const [isProcessingRefund, setIsProcessingRefund] = useState(false);
 
   // Load selected customer from localStorage if coming from Customer Management
   React.useEffect(() => {
+    // Initialize sale branch for admins based on selected branch or user's branch
+    if (!saleBranchId) {
+      if (user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') {
+        setSaleBranchId(selectedBranchId || null);
+      } else if (user?.branchId) {
+        setSaleBranchId(user.branchId);
+      }
+    }
+
     const savedCustomer = localStorage.getItem('selectedCustomer');
     if (savedCustomer) {
       try {
@@ -220,7 +251,7 @@ const POSInterface = () => {
             }
           } else {
             // Regular users see only their branch products
-            branchId = user?.branchId || "cmfprkvh6000t7yyp8q2197xa";
+            branchId = user?.branchId || "default-branch";
             console.log('🔄 Regular user branch (immediate):', branchId);
           }
 
@@ -292,7 +323,7 @@ const POSInterface = () => {
             }
           } else {
             // Regular users see only their branch categories
-            branchId = user?.branchId || "cmfprkvh6000t7yyp8q2197xa";
+            branchId = user?.branchId || "default-branch";
             console.log('🔄 Regular user branch for categories (simple):', branchId);
           }
 
@@ -414,7 +445,7 @@ const POSInterface = () => {
         }
       } else {
         // Regular users see only their branch products
-        branchId = user?.branchId || "cmfprkvh6000t7yyp8q2197xa";
+        branchId = user?.branchId || "default-branch";
         console.log('🔄 Regular user branch:', branchId);
       }
 
@@ -452,16 +483,25 @@ const POSInterface = () => {
 
         if (Array.isArray(productsArray) && productsArray.length > 0) {
           // Transform API data to match Product interface
-          const transformedProducts = productsArray.map(product => ({
-            id: product.id,
-            name: product.name,
-            price: product.sellingPrice,
-            stock: product.stock,
-            unitType: product.unitType,
-            category: product.category?.name || 'No Category',
-            requiresPrescription: product.requiresPrescription,
-            barcode: product.barcode
-          }));
+          // Batch data is now included in the product response
+          const transformedProducts = productsArray.map((product) => {
+            console.log(`🔄 Processing product ${product.name}:`, {
+              price: product.price,
+              stock: product.stock,
+              currentBatch: product.currentBatch
+            });
+
+            return {
+              id: product.id,
+              name: product.name,
+              price: product.price || 0, // Price now comes from batch data
+              stock: product.stock || 0, // Stock now comes from batch data
+              unitType: product.unitType,
+              category: product.category?.name || 'No Category',
+              requiresPrescription: product.requiresPrescription,
+              barcode: product.barcode
+            };
+          });
           console.log('🔄 Transformed products:', transformedProducts);
           setProducts(transformedProducts);
           console.log('🔄 Products set successfully');
@@ -497,7 +537,7 @@ const POSInterface = () => {
           }
         } else {
           // Regular users see only their branch categories
-          branchId = user?.branchId || "cmfprkvh6000t7yyp8q2197xa";
+          branchId = user?.branchId || "default-branch";
           console.log('🔄 Regular user branch for categories:', branchId);
         }
 
@@ -661,36 +701,15 @@ const POSInterface = () => {
 
   const subtotal = cart.reduce((sum, item) => sum + item.totalPrice, 0);
 
-  // Get tax rate from settings (default to 17% if not set)
-  const getTaxRate = () => {
-    try {
-      // First try to get from global variable
-      if ((window as any).globalPOSSettings?.defaultTax !== undefined) {
-        return (window as any).globalPOSSettings.defaultTax / 100;
-      }
+  // Calculate discount based on percentage
+  const calculatedDiscountAmount = (subtotal * discountPercentage) / 100;
+  const subtotalAfterDiscount = subtotal - calculatedDiscountAmount;
 
-      // Then try localStorage
-      const savedSettings = localStorage.getItem('pos_settings');
-      if (savedSettings) {
-        const posSettings = JSON.parse(savedSettings);
-        return (posSettings.defaultTax || 17) / 100;
-      }
+  // Calculate total without tax
+  const total = subtotalAfterDiscount;
 
-      // Default fallback
-      return 0.17; // 17%
-    } catch (error) {
-      console.error('Error getting tax rate:', error);
-      return 0.17; // Default to 17%
-    }
-  };
-
-  // Make tax rate reactive by recalculating it each time
-  const taxRate = getTaxRate();
-  const tax = subtotal * taxRate;
-  const total = subtotal + tax - discountAmount;
-
-  // Debug log to see current tax rate
-  console.log('🧾 Current tax rate:', (taxRate * 100).toFixed(0) + '%', 'Tax amount:', tax.toFixed(2));
+  // Debug log for totals
+  console.log('🧾 Subtotal:', subtotal.toFixed(2), 'Total:', total.toFixed(2));
 
   const paymentMethods = [
     { id: 'cash', label: 'Cash', icon: Banknote },
@@ -920,6 +939,8 @@ const POSInterface = () => {
 
   const generateReceipt = async () => {
     try {
+      setIsProcessingPayment(true);
+
       // First, create customer if selected and not already in database
       let customerId = null;
       if (selectedCustomer && !selectedCustomer.id.startsWith('temp_')) {
@@ -933,7 +954,9 @@ const POSInterface = () => {
             phone: selectedCustomer.phone,
             email: selectedCustomer.email || "",
             address: selectedCustomer.address || "",
-            branchId: user?.branchId || ""
+            branchId: (user?.role === 'ADMIN' || user?.role === 'SUPERADMIN')
+              ? (saleBranchId || selectedBranchId || user?.branchId || "")
+              : (user?.branchId || "")
           });
 
           if (customerResponse.success) {
@@ -959,7 +982,9 @@ const POSInterface = () => {
           expiryDate: item.expiry || ""
         })),
         paymentMethod: selectedPayment.toUpperCase() as 'CASH' | 'CARD' | 'MOBILE' | 'BANK_TRANSFER',
-        discountAmount: 0
+        discountAmount: calculatedDiscountAmount,
+        discountPercentage: discountPercentage,
+        saleDate: useManualDate && manualDate ? manualDate : undefined
       };
 
       console.log('Creating sale with data:', saleData);
@@ -968,7 +993,11 @@ const POSInterface = () => {
       const saleResponse = await apiService.createSale(saleData);
 
       if (!saleResponse.success) {
-        alert(saleResponse.message || "Failed to create sale. Please try again.");
+        toast({
+          title: "Error",
+          description: saleResponse.message || "Failed to create sale. Please try again.",
+          variant: "destructive",
+        });
         return;
       }
 
@@ -994,6 +1023,9 @@ const POSInterface = () => {
         };
       }
 
+      // Use manual date if provided, otherwise use current date
+      const receiptDate = useManualDate && manualDate ? new Date(manualDate) : now;
+
       const receipt: Receipt = {
         id: sale.id,
         customer: customer,
@@ -1009,12 +1041,13 @@ const POSInterface = () => {
           expiry: item.expiryDate ? new Date(item.expiryDate).toISOString().split('T')[0] : ""
         })),
         subtotal: sale.subtotal,
-        tax: sale.taxAmount,
+        discountPercentage: discountPercentage || 0,
+        discountAmount: calculatedDiscountAmount || 0,
         total: sale.totalAmount,
         paymentMethod: sale.paymentMethod.toLowerCase() as 'cash' | 'card' | 'mobile',
         paymentStatus: sale.paymentStatus === 'COMPLETED' ? 'Paid' : 'Pending',
-        date: now.toLocaleDateString(),
-        time: now.toLocaleTimeString(),
+        date: receiptDate.toLocaleDateString(),
+        time: receiptDate.toLocaleTimeString(),
         cashier: user?.name || "Cashier",
         receiptNumber: sale.receiptNumber
       };
@@ -1028,10 +1061,24 @@ const POSInterface = () => {
       setCashAmount("");
       setChangeAmount(0);
       setPaymentStatus('pending');
+      setDiscountPercentage(0);
+      setManualDate("");
+      setUseManualDate(false);
+
+      toast({
+        title: "Success",
+        description: "Sale completed successfully! Receipt generated.",
+      });
 
     } catch (error) {
       console.error('Error creating sale:', error);
-      alert('Error creating sale. Please try again.');
+      toast({
+        title: "Error",
+        description: "Error creating sale. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessingPayment(false);
     }
   };
 
@@ -1159,6 +1206,16 @@ const POSInterface = () => {
       return;
     }
 
+    // Check if admin has selected a branch
+    if ((user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') && !saleBranchId && !selectedBranchId) {
+      toast({
+        title: "Branch Selection Required",
+        description: "Please select a branch before creating an invoice.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Validate all items before creating invoice
     console.log('🔍 DEBUG - Validating invoice items before creation:');
     for (const item of invoiceItems) {
@@ -1196,7 +1253,9 @@ const POSInterface = () => {
           phone: customerPhone,
           email: invoiceCustomer.email || "",
           address: invoiceCustomer.address || "",
-          branchId: user?.branchId || ""
+          branchId: (user?.role === 'ADMIN' || user?.role === 'SUPERADMIN')
+            ? (saleBranchId || selectedBranchId || user?.branchId || "")
+            : (user?.branchId || "")
         });
 
         if (customerResponse.success) {
@@ -1222,18 +1281,32 @@ const POSInterface = () => {
       }
 
       // Prepare sale data for API
+      const invoiceSubtotal = invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0);
+      const invoiceDiscountAmount = (invoiceSubtotal * discountPercentage) / 100;
+
+      const targetBranchId = (user?.role === 'ADMIN' || user?.role === 'SUPERADMIN')
+        ? (saleBranchId || selectedBranchId || '')
+        : (user?.branchId || '');
+
+      if (!targetBranchId) {
+        alert('Please select a branch before creating an invoice.');
+        return;
+      }
+
       const saleData = {
         customerId: customerId,
-        branchId: user?.branchId || "",
+        branchId: targetBranchId,
         items: invoiceItems.map(item => ({
           productId: item.id,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           batchNumber: item.batch || "",
-          expiryDate: item.expiry || ""
+          expiryDate: item.expiry || null
         })),
         paymentMethod: 'CASH' as const,
-        discountAmount: discountAmount
+        discountAmount: invoiceDiscountAmount,
+        discountPercentage: discountPercentage,
+        saleDate: useManualDate && manualDate ? manualDate : undefined
       };
 
       console.log('Creating sale with data:', saleData);
@@ -1249,7 +1322,18 @@ const POSInterface = () => {
       const sale = saleResponse.data;
       console.log('Sale created successfully:', sale);
 
+      // Dispatch sale change event to notify inventory system
+      window.dispatchEvent(new CustomEvent('saleChanged', {
+        detail: {
+          action: 'created',
+          sale: sale
+        }
+      }));
+
       // Create receipt for display
+      // Use manual date if provided, otherwise use current date
+      const invoiceReceiptDate = useManualDate && manualDate ? new Date(manualDate) : new Date();
+
       const receipt: Receipt = {
         id: sale.id,
         customer: {
@@ -1265,12 +1349,13 @@ const POSInterface = () => {
         },
         items: invoiceItems,
         subtotal: sale.subtotal,
-        tax: sale.taxAmount,
+        discountPercentage: discountPercentage || 0,
+        discountAmount: invoiceDiscountAmount || 0,
         total: sale.totalAmount,
         paymentMethod: 'cash',
         paymentStatus: 'Paid',
-        date: new Date().toLocaleDateString(),
-        time: new Date().toLocaleTimeString(),
+        date: invoiceReceiptDate.toLocaleDateString(),
+        time: invoiceReceiptDate.toLocaleTimeString(),
         cashier: user?.name || "Cashier",
         receiptNumber: sale.receiptNumber
       };
@@ -1293,6 +1378,9 @@ const POSInterface = () => {
       });
       setInvoiceItems([]);
       setInvoiceSearchQuery("");
+      setDiscountPercentage(0);
+      setManualDate("");
+      setUseManualDate(false);
       setAppliedPromotions([]);
       setPromoCode("");
       setDiscountAmount(0);
@@ -1474,10 +1562,12 @@ const POSInterface = () => {
                 <span>Subtotal:</span>
                 <span>PKR ${currentReceipt.subtotal.toFixed(2)}</span>
               </div>
-              <div class="total-line">
-                <span>GST (${(taxRate * 100).toFixed(0)}%):</span>
-                <span>PKR ${currentReceipt.tax.toFixed(2)}</span>
+              ${currentReceipt.discountPercentage && currentReceipt.discountPercentage > 0 ? `
+              <div class="total-line" style="color: #16a34a;">
+                <span>Discount (${currentReceipt.discountPercentage}%):</span>
+                <span>-PKR ${currentReceipt.discountAmount?.toFixed(2) || '0.00'}</span>
               </div>
+              ` : ''}
               <div class="total-line total-final">
                 <span>TOTAL:</span>
                 <span>PKR ${currentReceipt.total.toFixed(2)}</span>
@@ -1701,10 +1791,12 @@ const POSInterface = () => {
             <span>Subtotal:</span>
             <span>PKR ${receipt.subtotal.toFixed(2)}</span>
           </div>
-          <div class="total-row">
-            <span>GST (${(taxRate * 100).toFixed(0)}%):</span>
-            <span>PKR ${receipt.tax.toFixed(2)}</span>
+          ${receipt.discountPercentage && receipt.discountPercentage > 0 ? `
+          <div class="total-row" style="color: #16a34a;">
+            <span>Discount (${receipt.discountPercentage}%):</span>
+            <span>-PKR ${receipt.discountAmount?.toFixed(2) || '0.00'}</span>
           </div>
+          ` : ''}
           <div class="total-row total-final">
             <span>Total:</span>
             <span>PKR ${receipt.total.toFixed(2)}</span>
@@ -1815,8 +1907,7 @@ ${currentReceipt.items.map(item => `
 
 Summary:
 - Subtotal: PKR ${currentReceipt.subtotal.toFixed(2)}
-- GST (${(taxRate * 100).toFixed(0)}%): PKR ${currentReceipt.tax.toFixed(2)}
-- Total: PKR ${currentReceipt.total.toFixed(2)}
+${currentReceipt.discountPercentage && currentReceipt.discountPercentage > 0 ? `- Discount (${currentReceipt.discountPercentage}%): -PKR ${currentReceipt.discountAmount?.toFixed(2) || '0.00'}\n` : ''}- Total: PKR ${currentReceipt.total.toFixed(2)}
 - Payment Method: ${currentReceipt.paymentMethod.toUpperCase()}
 
 Please keep this receipt for your records.
@@ -2203,6 +2294,38 @@ Sale amount has been deducted from reports.`);
 
   return (
     <div className="p-6">
+      {/* Branch selector for admins */}
+      {(user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-base">Select Branch</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-3">
+              <Label className="text-sm text-gray-600">Branch</Label>
+              <Select
+                value={saleBranchId || selectedBranchId || ''}
+                onValueChange={(v) => setSaleBranchId(v)}
+              >
+                <SelectTrigger className="w-64">
+                  <SelectValue placeholder={selectedBranch?.name || 'Select branch'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {allBranches?.map((b) => (
+                    <SelectItem
+                      key={b.id}
+                      value={b.id}
+                      className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                    >
+                      {b.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
 
         {/* Product Search & Selection */}
@@ -2215,8 +2338,8 @@ Sale amount has been deducted from reports.`);
             </CardTitle>
               <div className="flex space-x-2">
                 <Button
-                  onClick={() => setIsInvoiceDialogOpen(true)}
-                  className="text-white bg-[#0c2c8a] hover:bg-transparent hover:text-[#0c2c8a] border-[1px] border-[#0c2c8a]"
+                  onClick={() => navigate('/create-invoice')}
+                  className="text-white bg-blue-600 hover:bg-blue-700 border-blue-600 hover:border-blue-700 shadow-md hover:shadow-lg transition-all duration-200"
                 >
                   <Receipt className="w-4 h-4 mr-2" />
                   Create Invoice for New Customer
@@ -2264,7 +2387,7 @@ Sale amount has been deducted from reports.`);
                   console.log('🚀 Loading products directly...');
                   try {
                     const token = localStorage.getItem('token');
-                    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/products?limit=1000&branchId=${user?.branchId || 'cmfprkvh6000t7yyp8q2197xa'}`, {
+                    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/products?limit=1000&branchId=${user?.branchId || 'default-branch'}`, {
                       headers: {
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
@@ -2317,7 +2440,7 @@ Sale amount has been deducted from reports.`);
                   size="sm"
                   onClick={() => setSelectedCategory(category)}
                   className={`capitalize ${selectedCategory === category
-                      ? "text-white bg-[#0c2c8a] hover:bg-transparent hover:text-[#0c2c8a] border-[1px] border-[#0c2c8a]"
+                      ? "text-white bg-blue-600 hover:bg-blue-700 border-blue-600"
                       : ""
                     }`}
                 >
@@ -2491,10 +2614,12 @@ Sale amount has been deducted from reports.`);
                   <span>Subtotal:</span>
                   <span>PKR {currentReceipt.subtotal.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>GST ({(taxRate * 100).toFixed(0)}%):</span>
-                  <span>PKR {currentReceipt.tax.toFixed(2)}</span>
-                </div>
+                {currentReceipt.discountPercentage && currentReceipt.discountPercentage > 0 && (
+                  <div className="flex justify-between text-green-600">
+                    <span>Discount ({currentReceipt.discountPercentage}%):</span>
+                    <span>-PKR {currentReceipt.discountAmount?.toFixed(2) || '0.00'}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-lg font-bold border-t pt-2">
                   <span>Total:</span>
                   <span className="text-primary">PKR {currentReceipt.total.toFixed(2)}</span>
@@ -2622,143 +2747,162 @@ Sale amount has been deducted from reports.`);
             </DialogTitle>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Customer Details Form */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Customer Details</h3>
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  <Label htmlFor="invoiceCustomerName">Customer Name (Optional)</Label>
-                  <Input
-                    id="invoiceCustomerName"
-                    placeholder="Enter customer name"
-                    value={invoiceCustomer.name}
-                    onChange={(e) => setInvoiceCustomer({ ...invoiceCustomer, name: e.target.value })}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="invoiceCustomerPhone">Phone Number (Optional)</Label>
-                  <Input
-                    id="invoiceCustomerPhone"
-                    placeholder="Enter phone number"
-                    value={invoiceCustomer.phone}
-                    onChange={(e) => setInvoiceCustomer({ ...invoiceCustomer, phone: e.target.value })}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="invoiceCustomerEmail">Email (Optional)</Label>
-                  <Input
-                    id="invoiceCustomerEmail"
-                    type="email"
-                    placeholder="Enter email address"
-                    value={invoiceCustomer.email}
-                    onChange={(e) => setInvoiceCustomer({ ...invoiceCustomer, email: e.target.value })}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="invoiceCustomerAddress">Address (Optional)</Label>
-                  <Input
-                    id="invoiceCustomerAddress"
-                    placeholder="Enter address"
-                    value={invoiceCustomer.address}
-                    onChange={(e) => setInvoiceCustomer({ ...invoiceCustomer, address: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              {/* Medicine Search */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Left Side: Search & Customer Details */}
+            <div className="space-y-6">
+              {/* Product Search Section */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Search Medicines</h3>
+                <h3 className="text-lg font-semibold">Search & Add Products</h3>
 
                 {/* Search Bar */}
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search by medicine name..."
+                    placeholder="Search by medicine name, barcode, or SKU..."
                     value={invoiceSearchQuery}
                     onChange={(e) => setInvoiceSearchQuery(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 h-12 text-base"
                   />
                 </div>
 
-
-                {/* Products List */}
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {filteredInvoiceProducts.map((product) => (
-                    <div key={product.id} className="p-3 border rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex-1">
-                          <h4 className="font-medium text-sm">{product.name}</h4>
-                          <div className="flex items-center space-x-2 mt-1">
+                {/* Products List - Only show search results */}
+                <div className="space-y-2 max-h-80 overflow-y-auto border rounded-lg p-4 bg-gray-50">
+                  {invoiceSearchQuery.trim() && filteredInvoiceProducts.length > 0 ? (
+                    filteredInvoiceProducts.map((product) => (
+                      <div key={product.id} className="p-3 border rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex items-center space-x-3">
+                          {/* Product Info */}
+                          <div className="flex items-center space-x-2 flex-1 min-w-0">
                             {getUnitIcon(product.unitType)}
-                            <span className="text-xs text-muted-foreground">
-                              Item
-                            </span>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-medium text-sm truncate">{product.name}</h4>
+                              <span className="text-xs text-muted-foreground">
+                                {product.unitType} • Stock: {product.stock}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Price */}
+                          <span className="text-sm font-bold text-primary whitespace-nowrap">
+                            PKR {product.price}
+                          </span>
+
+                          {/* Quantity Input */}
+                          <Input
+                            type="number"
+                            min="0"
+                            max="1000"
+                            placeholder="Qty"
+                            className="w-16 h-8 text-sm text-center"
+                            id={`invoice-pack-${product.id}`}
+                          />
+
+                          {/* Action Buttons */}
+                          <div className="flex space-x-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="px-2 h-8 text-xs"
+                              onClick={() => {
+                                const input = document.getElementById(`invoice-pack-${product.id}`) as HTMLInputElement;
+                                const quantity = parseInt(input.value) || 0;
+                                if (quantity > 0) {
+                                  addToInvoiceCart(product, quantity, "pack");
+                                  input.value = "";
+                                }
+                              }}
+                            >
+                              <Package className="w-3 h-3 mr-1" />
+                              Pack
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="px-2 h-8 bg-blue-600 hover:bg-blue-700 text-white text-xs"
+                              onClick={() => {
+                                const input = document.getElementById(`invoice-pack-${product.id}`) as HTMLInputElement;
+                                const quantity = parseInt(input.value) || 0;
+                                if (quantity > 0) {
+                                  addToInvoiceCart(product, quantity, product.unitType);
+                                  input.value = "";
+                                }
+                              }}
+                            >
+                              {getUnitIcon(product.unitType)}
+                              <span className="ml-1">Add</span>
+                            </Button>
                           </div>
                         </div>
-                        <span className="text-sm font-bold text-primary">PKR {product.price}</span>
                       </div>
-
-                      <div className="flex space-x-2">
-                        <Input
-                          type="number"
-                          min="0"
-                          max="1000"
-                          placeholder="0"
-                          className="flex-1 h-8 text-sm"
-                          id={`invoice-pack-${product.id}`}
-                        />
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="px-3"
-                          onClick={() => {
-                            const input = document.getElementById(`invoice-pack-${product.id}`) as HTMLInputElement;
-                            const quantity = parseInt(input.value) || 0;
-                            console.log('🔍 DEBUG - Pack quantity input value:', input.value);
-                            console.log('🔍 DEBUG - Parsed quantity:', quantity);
-                            if (quantity > 0) {
-                              addToInvoiceCart(product, quantity, "pack");
-                              input.value = "";
-                            }
-                          }}
-                        >
-                          <Package className="w-4 h-4 mr-1" />
-                          Add Pack
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="px-3"
-                          onClick={() => {
-                            const input = document.getElementById(`invoice-pack-${product.id}`) as HTMLInputElement;
-                            const quantity = parseInt(input.value) || 0;
-                            console.log('🔍 DEBUG - Unit quantity input value:', input.value);
-                            console.log('🔍 DEBUG - Parsed quantity:', quantity);
-                            if (quantity > 0) {
-                              addToInvoiceCart(product, quantity, product.unitType);
-                              input.value = "";
-                            }
-                          }}
-                        >
-                          {getUnitIcon(product.unitType)}
-                          <span className="ml-1">Add</span>
-                        </Button>
-                      </div>
+                    ))
+                  ) : invoiceSearchQuery.trim() ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Search className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p>No products found</p>
+                      <p className="text-xs">Try a different search term</p>
                     </div>
-                  ))}
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Search className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p>Start typing to search for medicines</p>
+                      <p className="text-xs">Search by name, barcode, or SKU</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Customer Details Section */}
+              <div className="space-y-4 border-t pt-6">
+                <h3 className="text-lg font-semibold">Customer Details (Optional)</h3>
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="invoiceCustomerName">Customer Name</Label>
+                    <Input
+                      id="invoiceCustomerName"
+                      placeholder="Enter customer name"
+                      value={invoiceCustomer.name}
+                      onChange={(e) => setInvoiceCustomer({ ...invoiceCustomer, name: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="invoiceCustomerPhone">Phone Number</Label>
+                    <Input
+                      id="invoiceCustomerPhone"
+                      placeholder="Enter phone number"
+                      value={invoiceCustomer.phone}
+                      onChange={(e) => setInvoiceCustomer({ ...invoiceCustomer, phone: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="invoiceCustomerEmail">Email</Label>
+                    <Input
+                      id="invoiceCustomerEmail"
+                      type="email"
+                      placeholder="Enter email address"
+                      value={invoiceCustomer.email}
+                      onChange={(e) => setInvoiceCustomer({ ...invoiceCustomer, email: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="invoiceCustomerAddress">Address</Label>
+                    <Input
+                      id="invoiceCustomerAddress"
+                      placeholder="Enter address"
+                      value={invoiceCustomer.address}
+                      onChange={(e) => setInvoiceCustomer({ ...invoiceCustomer, address: e.target.value })}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Selected Items & Totals */}
+            {/* Right Side: Selected Items & Totals */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Selected Items</h3>
 
-              {/* Selected Items List */}
+                {/* Selected Items List */}
               <div className="space-y-3 max-h-80 overflow-y-auto">
                 {invoiceItems.map((item) => (
                   <div key={item.id} className="p-3 bg-gradient-surface rounded-lg">
@@ -2888,6 +3032,60 @@ Sale amount has been deducted from reports.`);
                 </div>
               )}
 
+              {/* Discount Percentage Section */}
+              {invoiceItems.length > 0 && (
+                <div className="space-y-3 border-t pt-4">
+                  <h4 className="font-medium text-sm discountPercentage">Discount</h4>
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      id="discountPercentage"
+                      type="number"
+                      min="0"
+                      max="100"
+                      placeholder="0"
+                      value={discountPercentage || ''}
+                      onChange={(e) => setDiscountPercentage(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
+                      className="flex-1"
+                    />
+                    <span className="text-sm font-medium">%</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Date Selection Section */}
+              {invoiceItems.length > 0 && (
+                <div className="space-y-3 border-t pt-4">
+                  <h4 className="font-medium text-sm">Invoice Date</h4>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="useManualDate"
+                      checked={useManualDate}
+                      onChange={(e) => setUseManualDate(e.target.checked)}
+                      className="w-4 h-4"
+                      aria-label="Use manual date"
+                    />
+                    <Label htmlFor="useManualDate" className="text-sm">Use manual date</Label>
+                  </div>
+                  {useManualDate ? (
+                    <div className="flex items-center space-x-2">
+                      <Label htmlFor="manualDate" className="text-sm whitespace-nowrap">Date:</Label>
+                      <Input
+                        id="manualDate"
+                        type="date"
+                        value={manualDate}
+                        onChange={(e) => setManualDate(e.target.value)}
+                        className="flex-1"
+                      />
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">
+                      Using today's date: {new Date().toLocaleDateString()}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Totals */}
               {invoiceItems.length > 0 && (
                 <div className="space-y-2 border-t pt-4">
@@ -2895,20 +3093,27 @@ Sale amount has been deducted from reports.`);
                     <span className="text-muted-foreground">Subtotal</span>
                     <span className="font-medium">PKR {invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0).toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">GST ({(taxRate * 100).toFixed(0)}%)</span>
-                    <span className="font-medium">PKR {(invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0) * taxRate).toFixed(2)}</span>
-                  </div>
+                  {discountPercentage > 0 && (
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span>Discount ({discountPercentage}%)</span>
+                      <span>-PKR {((invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0) * discountPercentage) / 100).toFixed(2)}</span>
+                    </div>
+                  )}
                   {discountAmount > 0 && (
                     <div className="flex justify-between text-sm text-green-600">
-                      <span>Discount</span>
+                      <span>Promo Discount</span>
                       <span>-PKR {discountAmount.toFixed(2)}</span>
                     </div>
                   )}
                   <Separator />
                   <div className="flex justify-between text-lg font-bold">
                     <span>Total</span>
-                    <span className="text-primary">PKR {((invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0) * 1.17) - discountAmount).toFixed(2)}</span>
+                    <span className="text-primary">PKR {(() => {
+                      const invoiceSubtotal = invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0);
+                      const discountAmt = (invoiceSubtotal * discountPercentage) / 100;
+                      const subtotalAfterDiscount = invoiceSubtotal - discountAmt;
+                      return subtotalAfterDiscount.toFixed(2);
+                    })()}</span>
                   </div>
                 </div>
               )}
@@ -3047,10 +3252,6 @@ Sale amount has been deducted from reports.`);
                           <div className="flex justify-between">
                             <span>Subtotal:</span>
                             <span>PKR {foundInvoice.subtotal.toFixed(2)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>GST ({(taxRate * 100).toFixed(0)}%):</span>
-                            <span>PKR {foundInvoice.taxAmount.toFixed(2)}</span>
                           </div>
                           {foundInvoice.discountAmount > 0 && (
                             <div className="flex justify-between text-green-600">

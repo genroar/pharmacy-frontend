@@ -385,7 +385,7 @@ const CompanyManagement = () => {
                 </div>
                 <div>
                   <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-                    Company Management
+                    Business Management
                   </h1>
                   <p className="text-gray-600 text-lg">
                     {user?.role === 'ADMIN'

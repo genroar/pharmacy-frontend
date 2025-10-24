@@ -88,8 +88,16 @@ const AdminDashboard = () => {
   const [isBranchSummaryCollapsed, setIsBranchSummaryCollapsed] = useState(false);
   const [activeStatTab, setActiveStatTab] = useState(0); // Only first card is active, no changes allowed
 
+  // Expiry alerts state
+  const [nearExpiryBatches, setNearExpiryBatches] = useState<any[]>([]);
+  const [expiredBatches, setExpiredBatches] = useState<any[]>([]);
+  const [showAllExpiryAlerts, setShowAllExpiryAlerts] = useState(false);
+
   // Company management state (now handled by AdminContext)
   const [globalSelectedCompany, setGlobalSelectedCompany] = useState<any>(null);
+
+  // Loading state for company/branch selection
+  const [isLoading, setIsLoading] = useState(false);
 
   // Real-time clock timer
   useEffect(() => {
@@ -130,9 +138,21 @@ const AdminDashboard = () => {
       // Load real data from database - sales, products, and users in parallel
       // Companies are now loaded by AdminContext
       const [salesResponse, productsResponse, usersResponse] = await Promise.all([
-        apiService.getSales({ page: 1, limit: 100 }), // Load recent sales from all branches
-        apiService.getProducts({ page: 1, limit: 100 }), // Load products from all branches
-        apiService.getUsers({ page: 1, limit: 100 }) // Load users from all branches
+        apiService.getSales({
+          page: 1,
+          limit: 100,
+          ...(selectedBranchId && { branchId: selectedBranchId })
+        }), // Load recent sales from selected branch
+        apiService.getProducts({
+          page: 1,
+          limit: 100,
+          ...(selectedBranchId && { branchId: selectedBranchId })
+        }), // Load products from selected branch
+        apiService.getUsers({
+          page: 1,
+          limit: 100,
+          ...(selectedBranchId && { branchId: selectedBranchId })
+        }) // Load users from selected branch
       ]);
 
       // Process real sales data
@@ -218,10 +238,58 @@ const AdminDashboard = () => {
     }
   }, []); // Empty dependency array since this function doesn't depend on any props or state
 
+  // Load expiry alerts data
+  const loadExpiryAlerts = useCallback(async () => {
+    try {
+      console.log('Loading expiry alerts (Admin)...', { selectedBranchId, selectedCompanyId });
+
+      // Load near expiry batches (within 30 days)
+      const nearExpiryResponse = await apiService.getNearExpiryBatches(30);
+      console.log('Near expiry response (Admin):', nearExpiryResponse);
+      if (nearExpiryResponse?.success) {
+        setNearExpiryBatches(nearExpiryResponse.data || []);
+      } else {
+        console.warn('Failed to load near expiry batches:', nearExpiryResponse?.message);
+        setNearExpiryBatches([]);
+      }
+
+      // Load expired batches (past expiry date)
+      const expiredResponse = await apiService.getNearExpiryBatches(0);
+      console.log('Expired response (Admin):', expiredResponse);
+      if (expiredResponse?.success) {
+        setExpiredBatches(expiredResponse.data || []);
+      } else {
+        console.warn('Failed to load expired batches:', expiredResponse?.message);
+        setExpiredBatches([]);
+      }
+
+      console.log('Near expiry batches (Admin):', nearExpiryBatches);
+      console.log('Expired batches (Admin):', expiredBatches);
+    } catch (error) {
+      console.error('Error loading expiry alerts (Admin):', error);
+      // Set empty arrays on error to prevent UI issues
+      setNearExpiryBatches([]);
+      setExpiredBatches([]);
+    }
+  }, [selectedBranchId, selectedCompanyId]);
+
   // Load dashboard data on component mount
   useEffect(() => {
     loadDashboardData();
-  }, [loadDashboardData]);
+    loadExpiryAlerts();
+  }, [loadDashboardData, loadExpiryAlerts]);
+
+  // Reload dashboard data when selected branch changes
+  useEffect(() => {
+    if (selectedBranchId) {
+      loadDashboardData();
+    }
+  }, [selectedBranchId, loadDashboardData]);
+
+  // Reload expiry alerts when branch selection changes
+  useEffect(() => {
+    loadExpiryAlerts();
+  }, [selectedBranchId, selectedCompanyId, loadExpiryAlerts]);
 
   // Filter data based on selected branch
   const filteredData = useMemo(() => {
@@ -427,12 +495,19 @@ const AdminDashboard = () => {
     navigate('/admin/users');
   }, [navigate]);
 
-  const handleBranchSelect = useCallback((branchId: string | null) => {
+  const handleBranchSelect = useCallback(async (branchId: string | null) => {
+    setIsLoading(true);
     setSelectedBranchId(branchId);
     setIsBranchDropdownOpen(false);
+
+    // Simulate loading for better UX
+    await new Promise(resolve => setTimeout(resolve, 2500));
+    setIsLoading(false);
   }, [setSelectedBranchId]);
 
-  const handleCompanySelect = useCallback((companyId: string | null) => {
+  const handleCompanySelect = useCallback(async (companyId: string | null) => {
+    setIsLoading(true);
+
     // Use AdminContext methods for persistence
     setSelectedCompanyId(companyId);
     setSelectedBranchId(null); // Reset branch selection when company changes
@@ -440,6 +515,10 @@ const AdminDashboard = () => {
     // Find the selected company
     const selectedCompany = companyId ? allCompanies.find(c => c.id === companyId) : null;
     setGlobalSelectedCompany(selectedCompany);
+
+    // Simulate loading for better UX
+    await new Promise(resolve => setTimeout(resolve, 2500));
+    setIsLoading(false);
   }, [allCompanies, setSelectedCompanyId, setSelectedBranchId]);
 
   const handleToggleBranchSummary = useCallback(() => {
@@ -477,7 +556,6 @@ const AdminDashboard = () => {
   return (
     <div className="p-6 space-y-6 bg-background rounded-[20px] min-h-screen">
       {/* Header */}
-
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">
@@ -492,176 +570,113 @@ const AdminDashboard = () => {
             }
           </p>
         </div>
-
-        {/* Company and Branch Selectors */}
         <div className="flex items-center space-x-4">
-          {/* Company Selector */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                role="combobox"
-                aria-expanded={false}
-                className="w-48 justify-between bg-white border border-gray-300 hover:bg-gray-50"
-              >
-                <div className="flex items-center space-x-2">
-                  <Building2 className="w-4 h-4" />
-                  <span className="truncate">
-                    {selectedCompanyId
-                      ? globalSelectedCompany?.name
-                      : "All Companies"
-                    }
-                  </span>
-                </div>
-                <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80 p-0 bg-white border border-gray-200 shadow-lg">
-              <Command>
-                <CommandInput placeholder="Search companies..." />
-                <CommandList>
-                  <CommandEmpty>No companies found.</CommandEmpty>
-                  <CommandGroup>
+        {/* Company Selector */}
+        {/* <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={false}
+              className="w-48 justify-between bg-white border border-gray-300 hover:bg-gray-50"
+            >
+              <div className="flex items-center space-x-2">
+                <Building2 className="w-4 h-4" />
+                <span className="truncate">
+                  {selectedCompanyId
+                    ? globalSelectedCompany?.name
+                    : "All Companies"
+                  }
+                </span>
+              </div>
+              <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 p-0 bg-white border border-gray-200 shadow-lg">
+            <Command>
+              <CommandInput placeholder="Search companies..." />
+              <CommandList>
+                <CommandEmpty>No companies found.</CommandEmpty>
+                <CommandGroup>
+                  <CommandItem
+                    value="all-companies"
+                    onSelect={() => handleCompanySelect(null)}
+                  >
+                    <Building2 className="mr-2 h-4 w-4" />
+                    <span>All Companies</span>
+                    {!selectedCompanyId && <CheckCircle className="ml-auto h-4 w-4" />}
+                  </CommandItem>
+                  {allCompanies.map((company) => (
                     <CommandItem
-                      value="all-companies"
-                      onSelect={() => handleCompanySelect(null)}
+                      key={company.id}
+                      value={company.name}
+                      onSelect={() => handleCompanySelect(company.id)}
                     >
                       <Building2 className="mr-2 h-4 w-4" />
-                      <span>All Companies</span>
-                      {!selectedCompanyId && <CheckCircle className="ml-auto h-4 w-4" />}
+                      <span className="truncate">{company.name}</span>
+                      {selectedCompanyId === company.id && <CheckCircle className="ml-auto h-4 w-4" />}
                     </CommandItem>
-                    {allCompanies.map((company) => (
-                      <CommandItem
-                        key={company.id}
-                        value={company.name}
-                        onSelect={() => handleCompanySelect(company.id)}
-                      >
-                        <Building2 className="mr-2 h-4 w-4" />
-                        <span className="truncate">{company.name}</span>
-                        {selectedCompanyId === company.id && <CheckCircle className="ml-auto h-4 w-4" />}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover> */}
 
-          {/* Branch Selector */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                role="combobox"
-                aria-expanded={false}
-                className="w-48 justify-between bg-white border border-gray-300 hover:bg-gray-50"
-              >
-                <div className="flex items-center space-x-2">
-                  <Filter className="w-4 h-4" />
-                  <span className="truncate">
-                    {selectedBranchId
-                      ? globalSelectedBranch?.name
-                      : "All Branches"
-                    }
-                  </span>
-                </div>
-                <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80 p-0 bg-white border border-gray-200 shadow-lg">
-              <Command>
-                <CommandInput placeholder="Search branches..." />
-                <CommandList>
-                  <CommandEmpty>No branches found.</CommandEmpty>
-                  <CommandGroup>
+        {/* Branch Selector */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={false}
+              className="w-48 justify-between bg-white border border-gray-300 hover:bg-gray-50"
+            >
+              <div className="flex items-center space-x-2">
+                <Filter className="w-4 h-4" />
+                <span className="truncate">
+                  {selectedBranchId
+                    ? globalSelectedBranch?.name
+                    : "All Branches"
+                  }
+                </span>
+              </div>
+              <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 p-0 bg-white border border-gray-200 shadow-lg">
+            <Command>
+              <CommandInput placeholder="Search branches..." />
+              <CommandList>
+                <CommandEmpty>No branches found.</CommandEmpty>
+                <CommandGroup>
+                  <CommandItem
+                    value="all-branches"
+                    onSelect={() => handleBranchSelect(null)}
+                  >
+                    <Building2 className="mr-2 h-4 w-4" />
+                    <span>All Branches</span>
+                    {!selectedBranchId && <CheckCircle className="ml-auto h-4 w-4" />}
+                  </CommandItem>
+                  {filteredBranches.map((branch) => (
                     <CommandItem
-                      value="all-branches"
-                      onSelect={() => handleBranchSelect(null)}
+                      key={branch.id}
+                      value={branch.name}
+                      onSelect={() => handleBranchSelect(branch.id)}
                     >
                       <Building2 className="mr-2 h-4 w-4" />
-                      <span>All Branches</span>
-                      {!selectedBranchId && <CheckCircle className="ml-auto h-4 w-4" />}
+                      <span className="truncate">{branch.name}</span>
+                      {selectedBranchId === branch.id && <CheckCircle className="ml-auto h-4 w-4" />}
                     </CommandItem>
-                    {filteredBranches.map((branch) => (
-                      <CommandItem
-                        key={branch.id}
-                        value={branch.name}
-                        onSelect={() => handleBranchSelect(branch.id)}
-                      >
-                        <Building2 className="mr-2 h-4 w-4" />
-                        <span className="truncate">{branch.name}</span>
-                        {selectedBranchId === branch.id && <CheckCircle className="ml-auto h-4 w-4" />}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
-        </div>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
 
-        {/* Analog Clock Display */}
-        <div className="flex items-center space-x-4">
-          {/* Analog Clock */}
-            <div className="relative w-20 h-20 bg-white rounded-full border-4 border-[#0C2C8A] shadow-lg overflow-hidden">
-            {/* Clock Center */}
-            <div className="absolute top-1/2 left-1/2 w-2 h-2 bg-[#0C2C8A] rounded-full transform -translate-x-1/2 -translate-y-1/2 z-10"></div>
-
-            {/* Hour Hand */}
-            <div
-              className="absolute top-1/2 left-1/2 w-1 bg-[#0C2C8A] z-5"
-              style={{
-                height: '16px',
-                transform: `rotate(${(currentDateTime.getHours() % 12) * 30 + currentDateTime.getMinutes() * 0.5}deg)`,
-                transformOrigin: '50% 100%',
-                left: '50%',
-                top: '50%',
-                marginLeft: '-2px',
-                marginTop: '-15px'
-              }}
-            ></div>
-
-            {/* Minute Hand */}
-            <div
-              className="absolute top-1/2 left-1/2 w-0.5 bg-[#0C2C8A] z-5"
-              style={{
-                height: '16px',
-                transform: `rotate(${currentDateTime.getMinutes() * 6}deg)`,
-                transformOrigin: '50% 100%',
-                left: '50%',
-                top: '50%',
-                marginLeft: '-1px',
-                marginTop: '-16px'
-              }}
-            ></div>
-
-            {/* Second Hand */}
-            <div
-              className="absolute top-1/2 left-1/2 w-0.5 bg-red-500 z-5"
-              style={{
-                height: '18px',
-                transform: `rotate(${currentDateTime.getSeconds() * 6}deg)`,
-                transformOrigin: '50% 100%',
-                left: '50%',
-                top: '50%',
-                marginLeft: '-1px',
-                marginTop: '-18px'
-              }}
-            ></div>
-
-            {/* Clock Numbers */}
-            <div className="absolute top-1 text-xs font-bold text-[#0C2C8A] left-1/2 transform -translate-x-1/2">12</div>
-            <div className="absolute right-1 top-1/2 text-xs font-bold text-[#0C2C8A] transform translate-y-[-50%]">3</div>
-            <div className="absolute bottom-1 text-xs font-bold text-[#0C2C8A] left-1/2 transform -translate-x-1/2">6</div>
-            <div className="absolute left-1 top-1/2 text-xs font-bold text-[#0C2C8A] transform translate-y-[-50%]">9</div>
-          </div>
-
-
-        </div>
-
-        {/* Branch Filter Dropdown */}
+        {/* Digital Time Display */}
         <div className="w-full sm:w-80">
-          {/* Digital Time */}
           <div className="text-right mb-[10px]">
             <p className="text-sm font-medium text-foreground">
               {currentDateTime.toLocaleDateString('en-US', {
@@ -671,65 +686,31 @@ const AdminDashboard = () => {
                 day: 'numeric'
               })}
             </p>
-
+            <div className="text-sm font-bold text-[#0C2C8A]">
+              {currentDateTime.toLocaleTimeString('en-US', {
+                hour12: true,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+              })}
+            </div>
           </div>
-          <Popover open={isBranchDropdownOpen} onOpenChange={setIsBranchDropdownOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                role="combobox"
-                aria-expanded={isBranchDropdownOpen}
-                className="w-full justify-between"
-              >
-                <div className="flex items-center space-x-2">
-                  <Filter className="w-4 h-4" />
-                  <span className="truncate">
-                    {selectedBranchId
-                      ? globalSelectedBranch?.name
-                      : "All Branches"
-                    }
-                  </span>
-                </div>
-                <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80 p-0 bg-white border border-gray-200 shadow-lg">
-              <Command>
-                <CommandInput placeholder="Search branches..." />
-                <CommandList>
-                  <CommandEmpty>No branches found.</CommandEmpty>
-                  <CommandGroup>
-                    <CommandItem
-                      value="all-branches"
-                      onSelect={() => handleBranchSelect(null)}
-                    >
-                      <Building2 className="mr-2 h-4 w-4" />
-                      <span>All Branches</span>
-                      {!selectedBranchId && <CheckCircle className="ml-auto h-4 w-4" />}
-                    </CommandItem>
-                    {allBranches.map((branch) => (
-                      <CommandItem
-                        key={branch.id}
-                        value={branch.name}
-                        onSelect={() => handleBranchSelect(branch.id)}
-                      >
-                        <Building2 className="mr-2 h-4 w-4" />
-                        <span className="truncate">{branch.name}</span>
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          {branch.address}
-                        </span>
-                        {selectedBranchId === branch.id && (
-                          <CheckCircle className="ml-auto h-4 w-4" />
-                        )}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
         </div>
       </div>
+
+      </div>
+
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 flex flex-col items-center gap-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0C2C8A]"></div>
+            <p className="text-gray-700 font-medium">Loading data...</p>
+          </div>
+        </div>
+      )}
+
+      {/* Company and Branch Selectors */}
 
       {/* Admin Stats Grid - Tab-like Behavior */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
@@ -767,6 +748,115 @@ const AdminDashboard = () => {
           );
         })}
       </div>
+
+      {/* Expiry Alerts Section */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-500" />
+              Expiry Alerts
+            </h2>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAllExpiryAlerts(!showAllExpiryAlerts)}
+              className="text-sm"
+            >
+              {showAllExpiryAlerts ? 'Show Less' : 'Show All'}
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Expired Items */}
+            {expiredBatches.length > 0 && (
+              <Card className="border-red-200 bg-red-50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-red-700 flex items-center gap-2">
+                    <X className="w-4 h-4" />
+                    Expired Items ({expiredBatches.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {(showAllExpiryAlerts ? expiredBatches : expiredBatches.slice(0, 3)).map((batch: any, index: number) => (
+                    <div key={index} className="p-3 bg-red-100 rounded-lg border border-red-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-red-800">{batch.product?.name || 'Unknown Product'}</p>
+                          <p className="text-sm text-red-600">Batch: {batch.batchNo}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-medium text-red-800">
+                            Expired {Math.ceil((new Date().getTime() - new Date(batch.expireDate).getTime()) / (1000 * 60 * 60 * 24))} days ago
+                          </p>
+                          <p className="text-xs text-red-600">
+                            {new Date(batch.expireDate).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {expiredBatches.length > 3 && !showAllExpiryAlerts && (
+                    <p className="text-sm text-red-600 text-center">
+                      +{expiredBatches.length - 3} more expired items
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Near Expiry Items */}
+            {nearExpiryBatches.length > 0 && (
+              <Card className="border-orange-200 bg-orange-50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-orange-700 flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    Near Expiry ({nearExpiryBatches.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {(showAllExpiryAlerts ? nearExpiryBatches : nearExpiryBatches.slice(0, 3)).map((batch: any, index: number) => {
+                    const daysUntilExpiry = Math.ceil((new Date(batch.expireDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                    return (
+                      <div key={index} className="p-3 bg-orange-100 rounded-lg border border-orange-200">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-orange-800">{batch.product?.name || 'Unknown Product'}</p>
+                            <p className="text-sm text-orange-600">Batch: {batch.batchNo}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-medium text-orange-800">
+                              {daysUntilExpiry > 0 ? `${daysUntilExpiry} days left` : 'Expires today'}
+                            </p>
+                            <p className="text-xs text-orange-600">
+                              {new Date(batch.expireDate).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {nearExpiryBatches.length > 3 && !showAllExpiryAlerts && (
+                    <p className="text-sm text-orange-600 text-center">
+                      +{nearExpiryBatches.length - 3} more near expiry items
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* No Alerts Message */}
+          {expiredBatches.length === 0 && nearExpiryBatches.length === 0 && (
+            <div className="text-center py-4">
+              <div className="flex flex-col items-center space-y-1">
+                <CheckCircle className="w-8 h-8 text-green-500" />
+                <p className="text-base font-medium text-gray-700">No Expiry Alerts</p>
+                <p className="text-xs text-gray-500">All products are within their expiry dates</p>
+              </div>
+            </div>
+          )}
+        </div>
+
 
       {/* Recent Sales and Low Stock Alert in one row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

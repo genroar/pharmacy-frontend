@@ -32,6 +32,7 @@ import {
 import { apiService } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import CategoryForm from "@/components/inventory/CategoryForm";
 
 interface Category {
   id: string;
@@ -61,7 +62,9 @@ const Categories = () => {
   const [selectedType, setSelectedType] = useState("all");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   // Form state for adding/editing categories
   const [formData, setFormData] = useState({
@@ -99,123 +102,14 @@ const Categories = () => {
 
         setCategories(transformedCategories);
       } else {
-        // If API fails, use mock data for demonstration
-        const mockCategories: Category[] = [
-          {
-            id: '1',
-            name: 'Prescription Drugs',
-            description: 'Medications that require a prescription',
-            type: 'medical',
-            isActive: true,
-            productCount: 45,
-            color: '#3B82F6',
-            icon: 'Package',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            _count: { products: 45 }
-          },
-          {
-            id: '2',
-            name: 'Over-the-Counter',
-            description: 'Medications available without prescription',
-            type: 'medical',
-            isActive: true,
-            productCount: 32,
-            color: '#10B981',
-            icon: 'Package',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            _count: { products: 32 }
-          },
-          {
-            id: '3',
-            name: 'Health Supplements',
-            description: 'Vitamins and dietary supplements',
-            type: 'non-medical',
-            isActive: true,
-            productCount: 28,
-            color: '#F59E0B',
-            icon: 'Package',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            _count: { products: 28 }
-          },
-          {
-            id: '4',
-            name: 'Medical Equipment',
-            description: 'Medical devices and equipment',
-            type: 'medical',
-            isActive: true,
-            productCount: 15,
-            color: '#EF4444',
-            icon: 'Package',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            _count: { products: 15 }
-          }
-        ];
-        setCategories(mockCategories);
+        console.log('🔍 No categories found or API failed');
+        setCategories([]);
         setError(null); // Clear any previous errors
       }
     } catch (err) {
       console.error('Error loading categories:', err);
-      // Use mock data if API fails
-      const mockCategories: Category[] = [
-        {
-          id: '1',
-          name: 'Prescription Drugs',
-          description: 'Medications that require a prescription',
-          type: 'medical',
-          isActive: true,
-          productCount: 45,
-          color: '#3B82F6',
-          icon: 'Package',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          _count: { products: 45 }
-        },
-        {
-          id: '2',
-          name: 'Over-the-Counter',
-          description: 'Medications available without prescription',
-          type: 'medical',
-          isActive: true,
-          productCount: 32,
-          color: '#10B981',
-          icon: 'Package',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          _count: { products: 32 }
-        },
-        {
-          id: '3',
-          name: 'Health Supplements',
-          description: 'Vitamins and dietary supplements',
-          type: 'non-medical',
-          isActive: true,
-          productCount: 28,
-          color: '#F59E0B',
-          icon: 'Package',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          _count: { products: 28 }
-        },
-        {
-          id: '4',
-          name: 'Medical Equipment',
-          description: 'Medical devices and equipment',
-          type: 'medical',
-          isActive: true,
-          productCount: 15,
-          color: '#EF4444',
-          icon: 'Package',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          _count: { products: 15 }
-        }
-      ];
-      setCategories(mockCategories);
-      setError(null); // Clear any previous errors
+      setCategories([]);
+      setError('Failed to load categories');
     } finally {
       setLoading(false);
     }
@@ -244,13 +138,16 @@ const Categories = () => {
   const medicalCategories = (Array.isArray(categories) ? categories : []).filter(c => c.type === 'MEDICAL').length;
   const nonMedicalCategories = (Array.isArray(categories) ? categories : []).filter(c => c.type === 'NON_MEDICAL').length;
 
-  const handleAddCategory = async () => {
+  const handleAddCategory = async (formData: any) => {
     try {
+      setIsSubmitting(true);
+
       // Send the fields that the backend expects
       const categoryData = {
         name: formData.name,
         description: formData.description,
-        type: formData.type.toUpperCase() // Convert to uppercase to match enum values
+        type: formData.type, // Already converted to uppercase in CategoryForm
+        color: formData.color
       };
       console.log('🔍 Creating category with data:', categoryData);
       const response = await apiService.createCategory(categoryData);
@@ -277,7 +174,7 @@ const Categories = () => {
           id: Date.now().toString(),
           name: formData.name,
           description: formData.description,
-          type: formData.type,
+          type: formData.type as 'general' | 'medical' | 'non-medical',
           parentId: formData.parentId || undefined,
           isActive: true,
           productCount: 0,
@@ -337,17 +234,23 @@ const Categories = () => {
         color: '#3B82F6',
         icon: 'Package'
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleEditCategory = async () => {
+  const handleEditCategory = async (formData: any) => {
     if (!editingCategory) return;
 
     try {
+      setIsSubmitting(true);
+
       // Convert type to uppercase to match backend validation
       const updateData = {
-        ...formData,
-        type: formData.type.toUpperCase()
+        name: formData.name,
+        description: formData.description,
+        type: formData.type, // Already converted to uppercase in CategoryForm
+        color: formData.color
       };
 
       const response = await apiService.updateCategory(editingCategory.id, updateData);
@@ -381,13 +284,28 @@ const Categories = () => {
         description: "Failed to update category.",
         variant: "destructive",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleDeleteCategory = async (categoryId: string) => {
+    // Find the category to check if it has products
+    const category = categories.find(cat => cat.id === categoryId);
+
+    if (category && category._count?.products > 0) {
+      toast({
+        title: "Cannot Delete Category",
+        description: "This category cannot be deleted because it contains products. Please move or delete all products first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!confirm('Are you sure you want to delete this category?')) return;
 
     try {
+      setIsDeleting(categoryId);
       const response = await apiService.deleteCategory(categoryId);
 
       if (response.success) {
@@ -397,12 +315,21 @@ const Categories = () => {
         });
         loadCategories();
       } else {
-        // For demo purposes, remove from local state if API fails
-        setCategories(prev => (Array.isArray(prev) ? prev : []).filter(cat => cat.id !== categoryId));
-        toast({
-          title: "Category Deleted",
-          description: "Category has been deleted successfully (demo mode).",
-        });
+        // Handle API error response
+        if (response.message?.includes('existing products')) {
+          toast({
+            title: "Cannot Delete Category",
+            description: "This category cannot be deleted because it contains products. Please move or delete all products first.",
+            variant: "destructive",
+          });
+        } else {
+          // For demo purposes, remove from local state if API fails
+          setCategories(prev => (Array.isArray(prev) ? prev : []).filter(cat => cat.id !== categoryId));
+          toast({
+            title: "Category Deleted",
+            description: "Category has been deleted successfully (demo mode).",
+          });
+        }
       }
     } catch (err) {
       console.error('Error deleting category:', err);
@@ -412,6 +339,8 @@ const Categories = () => {
         title: "Category Deleted",
         description: "Category has been deleted successfully (demo mode).",
       });
+    } finally {
+      setIsDeleting(null);
     }
   };
 
@@ -508,7 +437,7 @@ const Categories = () => {
           </div>
           <Button
             onClick={() => setShowAddDialog(true)}
-            className="bg-purple-600 hover:bg-purple-700 text-white"
+            className="bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all duration-200"
           >
             <Plus className="w-4 h-4 mr-2" />
             Add Category
@@ -600,10 +529,30 @@ const Categories = () => {
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="MEDICAL">Medical</SelectItem>
-                  <SelectItem value="NON_MEDICAL">Non-Medical</SelectItem>
-                  <SelectItem value="GENERAL">General</SelectItem>
+                  <SelectItem
+                    value="all"
+                    className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                  >
+                    All Types
+                  </SelectItem>
+                  <SelectItem
+                    value="MEDICAL"
+                    className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                  >
+                    Medical
+                  </SelectItem>
+                  <SelectItem
+                    value="NON_MEDICAL"
+                    className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                  >
+                    Non-Medical
+                  </SelectItem>
+                  <SelectItem
+                    value="GENERAL"
+                    className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                  >
+                    General
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -656,10 +605,22 @@ const Categories = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="text-red-600 hover:text-red-700"
+                          className={`${category._count?.products > 0
+                            ? 'text-gray-400 cursor-not-allowed'
+                            : 'text-red-600 hover:text-red-700'
+                          }`}
                           onClick={() => handleDeleteCategory(category.id)}
+                          disabled={category._count?.products > 0 || isDeleting === category.id}
+                          title={category._count?.products > 0
+                            ? `Cannot delete: ${category._count.products} products in this category`
+                            : 'Delete category'
+                          }
                         >
-                          <Trash2 className="w-4 h-4" />
+                          {isDeleting === category.id ? (
+                            <div className="w-4 h-4 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
                         </Button>
                       </div>
                     </div>
@@ -673,9 +634,14 @@ const Categories = () => {
                           {getTypeIcon(category.type)}
                           <span className="ml-1 capitalize">{category.type}</span>
                         </Badge>
-                        <span className="text-sm text-gray-500">
-                          {category.productCount} products
-                        </span>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm text-gray-500">
+                            {category.productCount} products
+                          </span>
+                          {category._count?.products > 0 && (
+                            <AlertTriangle className="w-4 h-4 text-amber-500" />
+                          )}
+                        </div>
                       </div>
 
                       <div className="flex items-center justify-between pt-2">
@@ -731,7 +697,12 @@ const Categories = () => {
                         </Badge>
                       </td>
                       <td className="py-4 px-4">
-                        <span className="font-medium text-gray-900">{category.productCount}</span>
+                        <div className="flex items-center space-x-2">
+                          <span className="font-medium text-gray-900">{category.productCount}</span>
+                          {category._count?.products > 0 && (
+                            <AlertTriangle className="w-4 h-4 text-amber-500" />
+                          )}
+                        </div>
                       </td>
                       <td className="py-4 px-4">
                         {category.isActive ? (
@@ -748,10 +719,22 @@ const Categories = () => {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="text-red-600 hover:text-red-700"
+                            className={`${category._count?.products > 0
+                              ? 'text-gray-400 cursor-not-allowed'
+                              : 'text-red-600 hover:text-red-700'
+                            }`}
                             onClick={() => handleDeleteCategory(category.id)}
+                            disabled={category._count?.products > 0 || isDeleting === category.id}
+                            title={category._count?.products > 0
+                              ? `Cannot delete: ${category._count.products} products in this category`
+                              : 'Delete category'
+                            }
                           >
-                            <Trash2 className="w-4 h-4" />
+                            {isDeleting === category.id ? (
+                              <div className="w-4 h-4 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
                           </Button>
                         </div>
                       </td>
@@ -789,81 +772,21 @@ const Categories = () => {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="name">Category Name</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Enter category name"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Enter category description"
-                rows={3}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="type">Type</Label>
-              <Select value={formData.type} onValueChange={(value: 'medical' | 'non-medical' | 'general') =>
-                setFormData({ ...formData, type: value })
-              }>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="general">General</SelectItem>
-                  <SelectItem value="medical">Medical</SelectItem>
-                  <SelectItem value="non-medical">Non-Medical</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="color">Color</Label>
-              <div className="flex items-center space-x-2">
-                <Input
-                  id="color"
-                  type="color"
-                  value={formData.color}
-                  onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                  className="w-16 h-10 p-1"
-                />
-                <Input
-                  value={formData.color}
-                  onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                  placeholder="#3B82F6"
-                  className="flex-1"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-2 pt-4">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowAddDialog(false);
-                  setEditingCategory(null);
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={editingCategory ? handleEditCategory : handleAddCategory}
-                className="bg-purple-600 hover:bg-purple-700"
-              >
-                {editingCategory ? 'Update' : 'Add'} Category
-              </Button>
-            </div>
-          </div>
+          <CategoryForm
+            initialData={editingCategory ? {
+              name: editingCategory.name,
+              description: editingCategory.description || '',
+              type: (editingCategory.type?.toLowerCase() as 'general' | 'medical' | 'non-medical') || 'general',
+              color: editingCategory.color || '#3B82F6'
+            } : {}}
+            onSubmit={editingCategory ? handleEditCategory : handleAddCategory}
+            onCancel={() => {
+              setShowAddDialog(false);
+              setEditingCategory(null);
+            }}
+            isSubmitting={isSubmitting}
+            submitButtonText={editingCategory ? 'Update Category' : 'Add Category'}
+          />
         </DialogContent>
       </Dialog>
     </div>

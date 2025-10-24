@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import CategoryManagement from "./CategoryManagement";
+import CategoryForm from "./CategoryForm";
 import {
   Search,
   Plus,
@@ -36,11 +37,14 @@ import {
 import { apiService } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/AdminContext";
+import { useToast } from "@/hooks/use-toast";
 
 interface Product {
   id: string;
   name: string;
   description?: string;
+  formula?: string; // Product composition/formula
+  sku?: string; // Stock Keeping Unit
   category: {
     id: string;
     name: string;
@@ -53,18 +57,14 @@ interface Product {
     id: string;
     name: string;
   };
-  costPrice: number;
-  sellingPrice: number;
-  stock: number;
-  minStock: number;
-  maxStock?: number;
-  unitType: string;
-  unitsPerPack: number;
   barcode?: string;
   requiresPrescription: boolean;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  // Batch-derived fields
+  price?: number;
+  stock?: number;
 }
 
 interface Category {
@@ -85,7 +85,8 @@ interface Supplier {
 
 const Inventory = () => {
   const { user } = useAuth();
-  const { selectedBranchId, selectedBranch } = useAdmin();
+  const { selectedBranchId, selectedBranch, setSelectedBranchId, allBranches } = useAdmin();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [showAllProducts, setShowAllProducts] = useState(true); // Show all products by default
@@ -118,19 +119,16 @@ const Inventory = () => {
   const [newMedicine, setNewMedicine] = useState({
     name: "",
     categoryId: "",
-    costPrice: "",
-    sellingPrice: "",
-    stock: "",
-    minStock: "10",
-    maxStock: "",
-    barcode: "",
-    unitsPerPack: "1"
+    formula: "",
+    barcode: ""
   });
 
   // Form state for creating new category
   const [newCategory, setNewCategory] = useState({
     name: "",
-    description: ""
+    description: "",
+    type: 'general' as 'medical' | 'non-medical' | 'general',
+    color: "#3B82F6"
   });
 
 
@@ -192,14 +190,27 @@ const Inventory = () => {
       }
     };
 
+    const handleSaleChanged = (event: CustomEvent) => {
+      console.log('🔄 Real-time sale change received:', event.detail);
+      const { action, sale } = event.detail;
+
+      if (action === 'created') {
+        // Reload inventory data to reflect stock changes
+        console.log('🔄 Sale created, reloading inventory data...');
+        loadData();
+      }
+    };
+
     // Add event listeners
     window.addEventListener('productChanged', handleProductChanged as EventListener);
     window.addEventListener('inventoryChanged', handleInventoryChanged as EventListener);
+    window.addEventListener('saleChanged', handleSaleChanged as EventListener);
 
     // Cleanup
     return () => {
       window.removeEventListener('productChanged', handleProductChanged as EventListener);
       window.removeEventListener('inventoryChanged', handleInventoryChanged as EventListener);
+      window.removeEventListener('saleChanged', handleSaleChanged as EventListener);
     };
   }, []);
 
@@ -220,17 +231,16 @@ const Inventory = () => {
       let branchId: string | undefined;
 
       if (user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') {
-        // Admin users can see products from selected branch or all branches
+        // Admin uses selected branch if provided; if only one branch exists, it was auto-selected in AdminContext
         if (selectedBranchId) {
           branchId = selectedBranchId;
           console.log('Admin selected specific branch:', selectedBranch?.name);
         } else {
-          // Admin viewing all branches - don't filter by branch
           console.log('Admin viewing all branches - loading all products');
         }
       } else {
         // Regular users see only their branch products
-        branchId = user?.branchId || "cmfprkvh6000t7yyp8q2197xa";
+          branchId = user?.branchId || "default-branch";
         console.log('Regular user branch:', branchId);
       }
 
@@ -257,8 +267,27 @@ const Inventory = () => {
         console.log('Total products from API:', allProducts.length);
         console.log('All products:', allProducts);
 
+        // Batch data is now included in the product response
+        console.log('🔄 Processing products with batch data...');
+        const productsWithBatchData = allProducts.map((product: any) => {
+          console.log(`🔄 Processing product ${product.name}:`, {
+            price: product.price,
+            stock: product.stock,
+            currentBatch: product.currentBatch
+          });
+
+          return {
+            ...product,
+            price: product.price || 0, // Price now comes from batch data
+            stock: product.stock || 0  // Stock now comes from batch data
+          };
+        });
+
+        console.log('🔄 Products with batch data:', productsWithBatchData);
+        const allProductsWithBatchData = productsWithBatchData;
+
         // Filter products based on search and category
-        let filteredProducts = allProducts;
+        let filteredProducts = allProductsWithBatchData;
 
         if (searchQuery) {
           console.log('Filtering by search query:', searchQuery);
@@ -329,9 +358,13 @@ const Inventory = () => {
         }
       }
 
-      // Load categories from database - show all categories for current branch
+      // Load categories from database - show categories for selected branch
+      const categoryBranchId = (user?.role === 'ADMIN' || user?.role === 'SUPERADMIN')
+        ? (selectedBranchId || user?.branchId || "")
+        : (user?.branchId || "");
+
       const categoriesResponse = await apiService.getCategories({
-        branchId: user?.branchId || ""
+        branchId: categoryBranchId
       });
       if (categoriesResponse.success && categoriesResponse.data) {
         // Show all categories for the current branch (not filtered by products)
@@ -341,9 +374,13 @@ const Inventory = () => {
         setCategories([]);
       }
 
-      // Load suppliers from database - show all suppliers for current branch
+      // Load suppliers from database - show suppliers for selected branch
+      const supplierBranchId = (user?.role === 'ADMIN' || user?.role === 'SUPERADMIN')
+        ? (selectedBranchId || user?.branchId || "")
+        : (user?.branchId || "");
+
       const suppliersResponse = await apiService.getSuppliers({
-        branchId: user?.branchId || ""
+        branchId: supplierBranchId
       });
       if (suppliersResponse.success && suppliersResponse.data) {
         // Show all suppliers for the current branch (not filtered by products)
@@ -382,9 +419,9 @@ const Inventory = () => {
     }
   };
 
-  const lowStockCount = products.filter(p => p.stock <= p.minStock).length;
+  const lowStockCount = 0; // Stock is now managed via batches
   const totalProducts = pagination.total;
-  const totalValue = products.reduce((sum, p) => sum + (p.sellingPrice * p.stock), 0);
+  const totalValue = 0; // Value is now calculated from batches
 
   const getStockStatus = (stock: number, minStock: number) => {
     if (stock === 0) return { status: "out", color: "destructive" };
@@ -392,28 +429,20 @@ const Inventory = () => {
     return { status: "good", color: "default" };
   };
 
-  const getUnitIcon = (unitType: string) => {
-    switch (unitType) {
-      case "tablets":
-      case "capsules":
-        return <Pill className="w-4 h-4" />;
-      case "bottles":
-        return <Droplets className="w-4 h-4" />;
-      case "vials":
-        return <Syringe className="w-4 h-4" />;
-      default:
-        return <Package className="w-4 h-4" />;
-    }
-  };
 
   const generateBarcode = () => {
     const randomNum = Math.floor(Math.random() * 10000000000000);
     return randomNum.toString().padStart(13, '0');
   };
 
-  const handleCreateCategory = async () => {
-    if (!newCategory.name) {
-      alert("Please enter category name!");
+  const handleCreateCategory = async (formData: any) => {
+    // Check if admin has selected a branch
+    if ((user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') && !selectedBranchId) {
+      toast({
+        title: "Branch Selection Required",
+        description: "Please select a branch before creating a category!",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -421,8 +450,10 @@ const Inventory = () => {
       setLoading(true);
 
       const categoryData = {
-        name: newCategory.name,
-        description: newCategory.description || ""
+        name: formData.name,
+        description: formData.description || "",
+        type: formData.type, // Already converted to uppercase in CategoryForm
+        color: formData.color
       };
 
       // Create category via API
@@ -434,28 +465,61 @@ const Inventory = () => {
         // Reload data to get the updated list
         await loadData();
 
+        // Auto-select the newly created category in the product form
+        if (response.data && response.data.id) {
+          setNewMedicine({...newMedicine, categoryId: response.data.id});
+        }
+
         // Reset form
         setNewCategory({
           name: "",
-          description: ""
+          description: "",
+          type: 'general',
+          color: "#3B82F6"
         });
 
         setIsCreateCategoryDialogOpen(false);
-        alert("Category created successfully!");
+        toast({
+          title: "Success",
+          description: "Category created successfully!",
+          variant: "default",
+        });
       } else {
-        alert(response.message || "Failed to create category");
+        toast({
+          title: "Creation Failed",
+          description: response.message || "Failed to create category",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error('Error creating category:', error);
-      alert("Failed to create category. Please try again.");
+      toast({
+        title: "Creation Error",
+        description: "Failed to create category. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
 
   const handleAddMedicine = async () => {
-    if (!newMedicine.name || !newMedicine.categoryId || !newMedicine.sellingPrice || !newMedicine.stock) {
-      alert("Please fill all required fields!");
+    if (!newMedicine.name || !newMedicine.categoryId) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill all required fields!",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if admin has selected a branch
+    if ((user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') && !selectedBranchId) {
+      toast({
+        title: "Branch Selection Required",
+        description: "Please select a branch before adding a product!",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -463,7 +527,9 @@ const Inventory = () => {
       setLoading(true);
 
       // Get branch ID - use user's branch or get first available branch
-      let branchId = user?.branchId || "cmfprkvh6000t7yyp8q2197xa";
+      let branchId = (user?.role === 'ADMIN' || user?.role === 'SUPERADMIN')
+        ? (selectedBranchId || user?.branchId || "")
+        : (user?.branchId || "default-branch");
       if (!branchId) {
         const branchesResponse = await apiService.getBranches();
         if (branchesResponse.success && branchesResponse.data?.branches?.length > 0) {
@@ -472,7 +538,11 @@ const Inventory = () => {
       }
 
       if (!branchId) {
-        alert("No branch available. Please contact administrator.");
+        toast({
+          title: "No Branch Available",
+          description: "No branch available. Please contact administrator.",
+          variant: "destructive",
+        });
         return;
       }
 
@@ -482,19 +552,17 @@ const Inventory = () => {
       const productData = {
         name: newMedicine.name,
         description: "",
+        formula: newMedicine.formula || "",
         categoryId: newMedicine.categoryId,
         supplierId: supplierId,
         branchId: branchId,
-        costPrice: parseFloat(newMedicine.costPrice) || 0,
-        sellingPrice: parseFloat(newMedicine.sellingPrice),
-        stock: parseInt(newMedicine.stock),
-        minStock: parseInt(newMedicine.minStock) || 10,
-        maxStock: newMedicine.maxStock ? parseInt(newMedicine.maxStock) : null,
         unitType: "tablets", // Default unit type
-        unitsPerPack: 1, // Always 1 since pricing is per unit
         barcode: newMedicine.barcode || null,
-        requiresPrescription: false, // Default to false
-        isActive: true
+        requiresPrescription: false,
+        isActive: true,
+        minStock: 1,
+        maxStock: 1000,
+        unitsPerPack: 1
       };
 
       console.log('Creating product with data:', productData);
@@ -626,23 +694,30 @@ const Inventory = () => {
         setNewMedicine({
           name: "",
           categoryId: "",
-          costPrice: "",
-          sellingPrice: "",
-          stock: "",
-          minStock: "10",
-          maxStock: "",
-          barcode: "",
-          unitsPerPack: "1"
+          formula: "",
+          barcode: ""
         });
 
         setIsAddDialogOpen(false);
-        alert("Medicine added successfully!");
+        toast({
+          title: "Success",
+          description: "Product added successfully!",
+          variant: "default",
+        });
       } else {
-        alert(response.message || "Failed to add medicine");
+        toast({
+          title: "Add Failed",
+          description: response.message || "Failed to add product",
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      console.error('Error adding medicine:', error);
-      alert("Failed to add medicine. Please try again.");
+      console.error('Error adding product:', error);
+      toast({
+        title: "Add Error",
+        description: "Failed to add product. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -653,20 +728,29 @@ const Inventory = () => {
     setNewMedicine({
       name: product.name,
       categoryId: product.category.id,
-      costPrice: product.costPrice.toString(),
-      sellingPrice: product.sellingPrice.toString(),
-      stock: product.stock.toString(),
-      minStock: product.minStock.toString(),
-      maxStock: product.maxStock?.toString() || "",
-      barcode: product.barcode || "",
-      unitsPerPack: product.unitsPerPack.toString()
+      formula: product.formula || "",
+      barcode: product.barcode || ""
     });
     setIsEditDialogOpen(true);
   };
 
   const handleUpdateProduct = async () => {
-    if (!editingProduct || !newMedicine.name || !newMedicine.categoryId || !newMedicine.sellingPrice || !newMedicine.stock) {
-      alert("Please fill all required fields!");
+    if (!editingProduct || !newMedicine.name || !newMedicine.categoryId) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill all required fields!",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if admin has selected a branch
+    if ((user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') && !selectedBranchId) {
+      toast({
+        title: "Branch Selection Required",
+        description: "Please select a branch before updating a product!",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -676,19 +760,17 @@ const Inventory = () => {
       const productData = {
         name: newMedicine.name,
         description: editingProduct.description || "",
+        formula: newMedicine.formula || "",
+        sku: editingProduct.sku || "", // Add SKU field
         categoryId: newMedicine.categoryId,
         supplierId: editingProduct.supplier.id,
         branchId: editingProduct.branch.id,
-        costPrice: parseFloat(newMedicine.costPrice) || 0,
-        sellingPrice: parseFloat(newMedicine.sellingPrice),
-        stock: parseInt(newMedicine.stock),
-        minStock: parseInt(newMedicine.minStock) || 10,
-        maxStock: newMedicine.maxStock ? parseInt(newMedicine.maxStock) : null,
-        unitType: editingProduct.unitType || "tablets",
-        unitsPerPack: editingProduct.unitsPerPack || 1,
         barcode: newMedicine.barcode || "",
         requiresPrescription: editingProduct.requiresPrescription || false,
-        isActive: editingProduct.isActive !== undefined ? editingProduct.isActive : true
+        isActive: editingProduct.isActive !== undefined ? editingProduct.isActive : true,
+        minStock: 1,
+        maxStock: 1000,
+        unitsPerPack: 1
       };
 
       console.log('Updating product with data:', productData);
@@ -709,7 +791,7 @@ const Inventory = () => {
         try {
           const allProductsResponse = await apiService.getProducts({
             limit: 1000,
-            branchId: user?.branchId || "cmfprkvh6000t7yyp8q2197xa"
+            branchId: (user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') ? (selectedBranchId || user?.branchId || "") : (user?.branchId || "default-branch")
           });
           if (allProductsResponse.success && allProductsResponse.data) {
             const allProducts = allProductsResponse.data.products;
@@ -753,32 +835,49 @@ const Inventory = () => {
         setNewMedicine({
           name: "",
           categoryId: "",
-          costPrice: "",
-          sellingPrice: "",
-          stock: "",
-          minStock: "10",
-          maxStock: "",
-          barcode: "",
-          unitsPerPack: "1"
+          formula: "",
+          barcode: ""
         });
 
         setIsEditDialogOpen(false);
-        alert("Product updated successfully!");
+        toast({
+          title: "Success",
+          description: "Product updated successfully!",
+          variant: "default",
+        });
       } else {
         console.error('Failed to update product:', response.message);
         console.error('Validation errors:', response.errors);
-        alert(`Failed to update product: ${response.message}. Errors: ${response.errors?.join(', ') || 'Unknown error'}`);
+        toast({
+          title: "Update Failed",
+          description: `Failed to update product: ${response.message}. Errors: ${response.errors?.join(', ') || 'Unknown error'}`,
+          variant: "destructive",
+        });
       }
     } catch (error: any) {
       console.error('Error updating product:', error);
       console.error('Error details:', error.response?.data);
-      alert(`Failed to update product: ${error.message || 'Unknown error'}`);
+      toast({
+        title: "Update Error",
+        description: `Failed to update product: ${error.message || 'Unknown error'}`,
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeleteClick = (product: Product) => {
+    // Check if admin has selected a branch
+    if ((user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') && !selectedBranchId) {
+      toast({
+        title: "Branch Selection Required",
+        description: "Please select a branch before deleting a product!",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setDeletingProduct(product);
     setIsDeleteDialogOpen(true);
   };
@@ -800,7 +899,7 @@ const Inventory = () => {
         try {
           const allProductsResponse = await apiService.getProducts({
             limit: 1000,
-            branchId: user?.branchId || "cmfprkvh6000t7yyp8q2197xa"
+            branchId: (user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') ? (selectedBranchId || user?.branchId || "") : (user?.branchId || "default-branch")
           });
           if (allProductsResponse.success && allProductsResponse.data) {
             const allProducts = allProductsResponse.data.products;
@@ -842,14 +941,27 @@ const Inventory = () => {
         // Close dialog and reset state
         setIsDeleteDialogOpen(false);
         setDeletingProduct(null);
-        } else {
-          alert(response.message || "Failed to delete medicine");
-        }
-      } catch (error) {
-        console.error('Error deleting medicine:', error);
-        alert("Failed to delete medicine. Please try again.");
-      } finally {
-        setLoading(false);
+        toast({
+          title: "Success",
+          description: "Product deleted successfully!",
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Delete Failed",
+          description: response.message || "Failed to delete product",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      toast({
+        title: "Delete Error",
+        description: "Failed to delete product. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -877,6 +989,17 @@ const Inventory = () => {
 
   const handleBulkDeleteClick = () => {
     if (selectedProducts.length === 0) return;
+
+    // Check if admin has selected a branch
+    if ((user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') && !selectedBranchId) {
+      toast({
+        title: "Branch Selection Required",
+        description: "Please select a branch before deleting products!",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsBulkDeleteDialogOpen(true);
   };
 
@@ -897,12 +1020,25 @@ const Inventory = () => {
         await loadData();
         setSelectedProducts([]);
         console.log(`Successfully bulk deleted ${response.data.data.deletedCount} products`);
+        toast({
+          title: "Success",
+          description: `Successfully deleted ${response.data.data.deletedCount} products!`,
+          variant: "default",
+        });
       } else {
-        alert(response.message || "Failed to bulk delete products");
+        toast({
+          title: "Bulk Delete Failed",
+          description: response.message || "Failed to bulk delete products",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error('Error bulk deleting products:', error);
-      setError('Failed to bulk delete products');
+      toast({
+        title: "Bulk Delete Error",
+        description: "Failed to bulk delete products. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
       setIsBulkDeleteDialogOpen(false);
@@ -921,12 +1057,9 @@ const Inventory = () => {
         'Product Name': product.name,
         'Category': product.category.name,
         'Supplier': product.supplier.name,
-        'Cost Price': product.costPrice,
-        'Selling Price': product.sellingPrice,
-        'Stock': product.stock,
-        'Min Stock': product.minStock,
-        'Max Stock': product.maxStock || '',
-        'Unit Type': product.unitType,
+        'Formula': product.formula || '',
+        'Price': `PKR ${product.price || 0}`,
+        'Stock': `${product.stock || 0} units`,
         'Barcode': product.barcode || '',
         'Requires Prescription': product.requiresPrescription ? 'Yes' : 'No',
         'Description': product.description || ''
@@ -959,10 +1092,18 @@ const Inventory = () => {
       link.click();
       document.body.removeChild(link);
 
-      alert('Inventory exported successfully!');
+      toast({
+        title: "Export Successful",
+        description: "Inventory exported successfully!",
+        variant: "default",
+      });
     } catch (error) {
       console.error('Error exporting inventory:', error);
-      alert('Error exporting inventory. Please try again.');
+      toast({
+        title: "Export Error",
+        description: "Error exporting inventory. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -979,7 +1120,11 @@ const Inventory = () => {
     ];
 
     if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls|csv)$/i)) {
-      alert('Please select an Excel (.xlsx, .xls) or CSV file.');
+      toast({
+        title: "Invalid File Type",
+        description: "Please select an Excel (.xlsx, .xls) or CSV file.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -1033,7 +1178,7 @@ const Inventory = () => {
             } else if ((lowerHeader.includes('stock') && !lowerHeader.includes('min') && !lowerHeader.includes('max')) || lowerHeader === 'stock') {
               row.stock = parseInt(value) || 0;
             } else if ((lowerHeader.includes('unit') && lowerHeader.includes('type')) || lowerHeader === 'unit type') {
-              row.unitType = value || 'tablets';
+              // Skip unit type - not used anymore
             } else if ((lowerHeader.includes('units') && lowerHeader.includes('pack')) || lowerHeader === 'units per pack') {
               // Skip units per pack - always 1 for unit pricing
             } else if (lowerHeader.includes('barcode') || lowerHeader === 'barcode') {
@@ -1046,7 +1191,6 @@ const Inventory = () => {
           });
 
           // Set default values for required fields
-          if (!row.unitType) row.unitType = 'tablets';
           // unitsPerPack is always 1 for unit pricing
           if (!row.costPrice) row.costPrice = 0;
           // Ensure stock is always a valid number (default to 0 if not provided)
@@ -1062,7 +1206,11 @@ const Inventory = () => {
         }); // Only include rows with product names
       } else {
         // For Excel files, show a message to convert to CSV first
-        alert('Excel files are not fully supported yet. Please save your Excel file as CSV format and try again.\n\nTo convert:\n1. Open your Excel file\n2. Go to File > Save As\n3. Choose CSV format\n4. Upload the CSV file');
+        toast({
+          title: "Excel Not Supported",
+          description: "Excel files are not fully supported yet. Please save your Excel file as CSV format and try again.",
+          variant: "destructive",
+        });
         return;
       }
 
@@ -1098,18 +1246,30 @@ const Inventory = () => {
       console.log('Valid products:', validProducts);
 
       if (validProducts.length === 0) {
-        alert('No valid products found in the file. Please ensure your CSV has:\n- Product names (non-empty)\n- Selling prices (numeric values > 0)\n- Categories (optional, will use default)');
+        toast({
+          title: "No Valid Products",
+          description: "No valid products found in the file. Please ensure your CSV has product names and selling prices.",
+          variant: "destructive",
+        });
         return;
       }
 
-      // Show a simple alert with the count
-      alert(`File parsed successfully! Found ${validProducts.length} valid products out of ${extractedData.length} total rows.`);
+      // Show a toast with the count
+      toast({
+        title: "File Parsed Successfully",
+        description: `Found ${validProducts.length} valid products out of ${extractedData.length} total rows.`,
+        variant: "default",
+      });
 
       setImportedProducts(validProducts);
       setIsPreviewDialogOpen(true);
     } catch (error) {
       console.error('Error processing file:', error);
-      alert('Error processing file. Please try again or convert Excel to CSV format.');
+      toast({
+        title: "File Processing Error",
+        description: "Error processing file. Please try again or convert Excel to CSV format.",
+        variant: "destructive",
+      });
     } finally {
       setProcessingImage(false);
     }
@@ -1120,7 +1280,11 @@ const Inventory = () => {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      alert('Please select an image file.');
+      toast({
+        title: "Invalid File Type",
+        description: "Please select an image file.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -1144,7 +1308,6 @@ const Inventory = () => {
           costPrice: 2.50,
           sellingPrice: 5.00,
           stock: 100,
-          unitType: 'tablets'
         },
         {
           name: 'Amoxicillin 250mg',
@@ -1152,7 +1315,6 @@ const Inventory = () => {
           costPrice: 15.00,
           sellingPrice: 25.00,
           stock: 50,
-          unitType: 'capsules'
         },
         {
           name: 'Vitamin C 1000mg',
@@ -1160,7 +1322,6 @@ const Inventory = () => {
           costPrice: 8.00,
           sellingPrice: 12.00,
           stock: 75,
-          unitType: 'tablets'
         }
       ];
 
@@ -1168,13 +1329,27 @@ const Inventory = () => {
       setIsPreviewDialogOpen(true);
     } catch (error) {
       console.error('Error processing image:', error);
-      alert('Error processing image. Please try again.');
+      toast({
+        title: "Image Processing Error",
+        description: "Error processing image. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setProcessingImage(false);
     }
   };
 
   const handleProceedImport = async () => {
+    // Check if admin has selected a branch
+    if ((user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') && !selectedBranchId) {
+      toast({
+        title: "Branch Selection Required",
+        description: "Please select a branch before importing products!",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -1189,7 +1364,9 @@ const Inventory = () => {
       console.log('Available suppliers:', suppliers);
 
       // Get branchId once for all products
-      let branchId = user?.branchId || "cmfprkvh6000t7yyp8q2197xa";
+      let branchId = (user?.role === 'ADMIN' || user?.role === 'SUPERADMIN')
+        ? (selectedBranchId || user?.branchId || "")
+        : (user?.branchId || "default-branch");
 
       // If no branchId from user object, try to get it from localStorage
       if (!branchId) {
@@ -1339,7 +1516,7 @@ const Inventory = () => {
           stock: stock,
           minStock: minStock,
           maxStock: productData.maxStock || null,
-          unitType: (productData.unitType || "tablets").trim(),
+          unitType: "tablets", // Default unit type
           unitsPerPack: 1, // Always 1 for unit pricing
           barcode: (productData.barcode || "").trim() || null,
           requiresPrescription: Boolean(productData.requiresPrescription),
@@ -1364,7 +1541,11 @@ const Inventory = () => {
       console.log('Products to import:', productsToImport);
 
       if (productsToImport.length === 0) {
-        alert('No valid products to import. Please check that your CSV file has the correct format with product names, categories, and prices.');
+        toast({
+          title: "No Valid Products",
+          description: "No valid products to import. Please check that your CSV file has the correct format with product names, categories, and prices.",
+          variant: "destructive",
+        });
         setLoading(false);
         return;
       }
@@ -1570,11 +1751,19 @@ const Inventory = () => {
           successfulProducts: response.data.successful.length
         });
       } else {
-        alert(response.message || 'Failed to import products. Please try again.');
+        toast({
+          title: "Import Failed",
+          description: response.message || 'Failed to import products. Please try again.',
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error('Error importing products:', error);
-      alert('Error importing products. Please try again.');
+      toast({
+        title: "Import Error",
+        description: "Error importing products. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -1609,6 +1798,31 @@ const Inventory = () => {
           </p>
         </div>
         <div className="flex items-center space-x-3">
+          {/* Branch selector for admins */}
+          {(user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') && (
+            <div className="flex items-center gap-2">
+              <Label className="text-sm text-gray-600">Branch</Label>
+              <Select
+                value={selectedBranchId || ''}
+                onValueChange={(v) => setSelectedBranchId(v)}
+              >
+                <SelectTrigger className="w-64">
+                  <SelectValue placeholder={selectedBranch?.name || 'Select branch'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {allBranches?.map((b) => (
+                    <SelectItem
+                      key={b.id}
+                      value={b.id}
+                      className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                    >
+                      {b.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
 
           {/* Export/Import Buttons */}
@@ -1681,48 +1895,7 @@ const Inventory = () => {
                         </Button>
                       </div>
                     </div>
-
-                    {/* Image Upload */}
-                    <div className="border-2 border-dashed border-[#0c2c8a] rounded-lg p-6 text-center hover:border-[#153186] transition-colors">
-                      <div className="flex flex-col items-center space-y-3">
-                        <div className="w-12 h-12 bg-[#0c2c8a]/10 rounded-full flex items-center justify-center">
-                          <Image className="w-6 h-6 text-[#0c2c8a]" />
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-gray-900">Upload Photo</h4>
-                          <p className="text-sm text-gray-500">Take a photo of your product list</p>
-                        </div>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageUpload}
-                          className="hidden"
-                          id="image-upload"
-                          aria-label="Upload image file"
-                          title="Upload image file"
-                        />
-                        <Button
-                          variant="outline"
-                          className="border-[#0c2c8a] text-[#0c2c8a] hover:bg-[#0c2c8a]/10"
-                          onClick={() => document.getElementById('image-upload')?.click()}
-                          disabled={processingImage}
-                        >
-                          {processingImage ? (
-                            <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              Processing...
-                            </>
-                          ) : (
-                            <>
-                              <Image className="w-4 h-4 mr-2" />
-                              Upload Photo
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
                   </div>
-
                   <div className="text-center">
                     <p className="text-xs text-gray-400">
                       Supported formats: CSV, Images (.png, .jpg, .jpeg)
@@ -1747,7 +1920,7 @@ const Inventory = () => {
           {/* Create Category Dialog */}
           <Dialog open={isCreateCategoryDialogOpen} onOpenChange={setIsCreateCategoryDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="text-white hover:text-[#0c2c8a] bg-[#0c2c8a]  border-[1px] border-[#0c2c8a]">
+              <Button variant="outline" className="text-white hover:text-blue-600 bg-blue-600 border-blue-600 hover:bg-blue-50 shadow-md hover:shadow-lg transition-all duration-200">
                 <Plus className="w-4 h-4 mr-2" />
                 Create Category
               </Button>
@@ -1763,47 +1936,12 @@ const Inventory = () => {
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="categoryName">Category Name *</Label>
-                  <Input
-                    id="categoryName"
-                    placeholder="e.g., Catagory Name"
-                    value={newCategory.name}
-                    onChange={(e) => setNewCategory({...newCategory, name: e.target.value})}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="categoryDescription">Description</Label>
-                  <Textarea
-                    id="categoryDescription"
-                    placeholder="Brief description of the category..."
-                    value={newCategory.description}
-                    onChange={(e) => setNewCategory({...newCategory, description: e.target.value})}
-                    rows={3}
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-2 pt-4">
-                <Button variant="outline" onClick={() => setIsCreateCategoryDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button className="text-white bg-[#0c2c8a] hover:bg-transparent  hover:text-[#0c2c8a]  border-[1px] border-[#0c2c8a] " onClick={handleCreateCategory} disabled={loading}>
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4 mr-2" />
-                      Create Category
-                    </>
-                  )}
-                </Button>
-              </div>
+              <CategoryForm
+                onSubmit={handleCreateCategory}
+                onCancel={() => setIsCreateCategoryDialogOpen(false)}
+                isSubmitting={loading}
+                submitButtonText="Create Category"
+              />
             </DialogContent>
           </Dialog>
 
@@ -1811,7 +1949,7 @@ const Inventory = () => {
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button
-                className="text-white bg-[#0c2c8a] hover:bg-transparent  hover:text-[#0c2c8a]  border-[1px] border-[#0c2c8a] "
+                className="text-white bg-blue-600 hover:bg-blue-700 border-blue-600 shadow-md hover:shadow-lg transition-all duration-200"
                 onClick={() => {
                   console.log('Add Product button clicked');
                   setIsAddDialogOpen(true);
@@ -1849,80 +1987,54 @@ const Inventory = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="category">Category *</Label>
-                    <Select value={newMedicine.categoryId} onValueChange={(value) => setNewMedicine({...newMedicine, categoryId: value})}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map((category) => (
-                          <SelectItem key={category.id} value={category.id}>{category.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="flex gap-2">
+                      <Select value={newMedicine.categoryId} onValueChange={(value) => setNewMedicine({...newMedicine, categoryId: value})}>
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((category) => (
+                            <SelectItem
+                              key={category.id}
+                              value={category.id}
+                              className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                            >
+                              {category.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsCreateCategoryDialogOpen(true)}
+                        className="px-3"
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Add New
+                      </Button>
+                    </div>
                   </div>
 
 
                 </div>
 
-                {/* Pricing & Stock */}
+                {/* Product Details */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-foreground border-b pb-2">Pricing & Stock</h3>
+                  <h3 className="text-lg font-semibold text-foreground border-b pb-2">Product Details</h3>
 
                   <div className="space-y-2">
-                    <Label htmlFor="costPrice">Cost Price per Unit (PKR)</Label>
-                    <Input
-                      id="costPrice"
-                      type="number"
-                      placeholder="e.g., 3.00"
-                      value={newMedicine.costPrice}
-                      onChange={(e) => setNewMedicine({...newMedicine, costPrice: e.target.value})}
+                    <Label htmlFor="formula">Formula/Composition</Label>
+                    <Textarea
+                      id="formula"
+                      placeholder="Enter product formula or composition (e.g., Paracetamol 500mg, Lactose, Starch)"
+                      value={newMedicine.formula}
+                      onChange={(e) => setNewMedicine({...newMedicine, formula: e.target.value})}
+                      rows={3}
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="sellingPrice">Selling Price per Unit (PKR) *</Label>
-                    <Input
-                      id="sellingPrice"
-                      type="number"
-                      placeholder="e.g., 5.00"
-                      value={newMedicine.sellingPrice}
-                      onChange={(e) => setNewMedicine({...newMedicine, sellingPrice: e.target.value})}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="stock">Current Stock (Units) *</Label>
-                    <Input
-                      id="stock"
-                      type="number"
-                      placeholder="e.g., 150"
-                      value={newMedicine.stock}
-                      onChange={(e) => setNewMedicine({...newMedicine, stock: e.target.value})}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="minStock">Minimum Stock Level (Units)</Label>
-                    <Input
-                      id="minStock"
-                      type="number"
-                      placeholder="e.g., 50"
-                      value={newMedicine.minStock}
-                      onChange={(e) => setNewMedicine({...newMedicine, minStock: e.target.value})}
-                    />
-                  </div>
-
-
-                  <div className="space-y-2">
-                    <Label htmlFor="maxStock">Maximum Stock Level</Label>
-                    <Input
-                      id="maxStock"
-                      type="number"
-                      placeholder="e.g., 200"
-                      value={newMedicine.maxStock}
-                      onChange={(e) => setNewMedicine({...newMedicine, maxStock: e.target.value})}
-                    />
-                  </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="barcode">Barcode</Label>
@@ -1951,7 +2063,7 @@ const Inventory = () => {
                 <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button className="text-white bg-[#0c2c8a] hover:bg-transparent  hover:text-[#0c2c8a]  border-[1px] border-[#0c2c8a] " onClick={handleAddMedicine} disabled={loading}>
+                <Button className="text-white bg-blue-600 hover:bg-blue-700 border-blue-600 shadow-md hover:shadow-lg transition-all duration-200" onClick={handleAddMedicine} disabled={loading}>
                   {loading ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -2004,82 +2116,35 @@ const Inventory = () => {
                       </SelectTrigger>
                       <SelectContent>
                         {categories.map((category) => (
-                          <SelectItem key={category.id} value={category.id}>{category.name}</SelectItem>
+                          <SelectItem
+                            key={category.id}
+                            value={category.id}
+                            className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                          >
+                            {category.name}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-unitsPerPack">Units per Pack</Label>
-                    <Input
-                      id="edit-unitsPerPack"
-                      type="number"
-                      placeholder="e.g., 20"
-                      value={newMedicine.unitsPerPack}
-                      onChange={(e) => setNewMedicine({...newMedicine, unitsPerPack: e.target.value})}
-                    />
-                  </div>
                 </div>
 
-                {/* Pricing & Stock */}
+                {/* Product Details */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-foreground border-b pb-2">Pricing & Stock</h3>
+                  <h3 className="text-lg font-semibold text-foreground border-b pb-2">Product Details</h3>
 
                   <div className="space-y-2">
-                    <Label htmlFor="edit-costPrice">Cost Price (PKR)</Label>
-                    <Input
-                      id="edit-costPrice"
-                      type="number"
-                      placeholder="e.g., 60"
-                      value={newMedicine.costPrice}
-                      onChange={(e) => setNewMedicine({...newMedicine, costPrice: e.target.value})}
+                    <Label htmlFor="edit-formula">Formula/Composition</Label>
+                    <Textarea
+                      id="edit-formula"
+                      placeholder="Enter product formula or composition (e.g., Paracetamol 500mg, Lactose, Starch)"
+                      value={newMedicine.formula}
+                      onChange={(e) => setNewMedicine({...newMedicine, formula: e.target.value})}
+                      rows={3}
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-sellingPrice">Selling Price (PKR) *</Label>
-                    <Input
-                      id="edit-sellingPrice"
-                      type="number"
-                      placeholder="e.g., 85"
-                      value={newMedicine.sellingPrice}
-                      onChange={(e) => setNewMedicine({...newMedicine, sellingPrice: e.target.value})}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-stock">Current Stock *</Label>
-                    <Input
-                      id="edit-stock"
-                      type="number"
-                      placeholder="e.g., 150"
-                      value={newMedicine.stock}
-                      onChange={(e) => setNewMedicine({...newMedicine, stock: e.target.value})}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-minStock">Minimum Stock Level</Label>
-                    <Input
-                      id="edit-minStock"
-                      type="number"
-                      placeholder="e.g., 50"
-                      value={newMedicine.minStock}
-                      onChange={(e) => setNewMedicine({...newMedicine, minStock: e.target.value})}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-maxStock">Maximum Stock Level</Label>
-                    <Input
-                      id="edit-maxStock"
-                      type="number"
-                      placeholder="e.g., 200"
-                      value={newMedicine.maxStock}
-                      onChange={(e) => setNewMedicine({...newMedicine, maxStock: e.target.value})}
-                    />
-                  </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="edit-barcode">Barcode</Label>
@@ -2107,7 +2172,7 @@ const Inventory = () => {
                 <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button className="text-white bg-[#0c2c8a] hover:bg-transparent  hover:text-[#0c2c8a]  border-[1px] border-[#0c2c8a] " onClick={handleUpdateProduct} disabled={loading}>
+                <Button className="text-white bg-blue-600 hover:bg-blue-700 border-blue-600 shadow-md hover:shadow-lg transition-all duration-200" onClick={handleUpdateProduct} disabled={loading}>
                   {loading ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -2158,9 +2223,6 @@ const Inventory = () => {
                         </p>
                         <p className="text-xs text-gray-500">
                           Category: {deletingProduct.category.name}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          Stock: {deletingProduct.stock} units
                         </p>
                       </div>
                     )}
@@ -2391,7 +2453,8 @@ const Inventory = () => {
                     </th>
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">Product</th>
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">Category</th>
-                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Pricing</th>
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Formula</th>
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Price</th>
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">Stock</th>
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">Actions</th>
                   </tr>
@@ -2399,7 +2462,7 @@ const Inventory = () => {
                 <tbody>
                   {products.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="text-center py-8 text-muted-foreground">
+                      <td colSpan={8} className="text-center py-8 text-muted-foreground">
                         <div className="flex flex-col items-center space-y-2">
                           <Package className="w-12 h-12 text-muted-foreground/50" />
                           <p className="text-lg font-medium">No products found</p>
@@ -2419,8 +2482,6 @@ const Inventory = () => {
                     </tr>
                   ) : (
                     products.map((product) => {
-                      const stockStatus = getStockStatus(product.stock, product.minStock);
-
                       return (
                         <tr key={product.id} className="border-b border-border hover:bg-muted/50">
                           <td className="py-4 px-4 w-12">
@@ -2449,22 +2510,21 @@ const Inventory = () => {
                           </td>
                           <td className="py-4 px-4">
                             <div className="text-sm">
-                              <p className="font-medium">PKR {product.sellingPrice}</p>
-                              <p className="text-muted-foreground">Cost: PKR {product.costPrice}</p>
+                              <p className="text-muted-foreground">{product.formula || 'No formula provided'}</p>
                             </div>
                           </td>
                           <td className="py-4 px-4">
-                            <div className="flex items-center space-x-2">
-                              <span className="font-medium">{product.stock}</span>
-                              <Badge
-                                variant={stockStatus.color === 'destructive' ? 'destructive' : 'default'}
-                                className={stockStatus.color === 'warning' ? 'bg-orange-100 text-orange-800 border-orange-200' : ''}
-                              >
-                                {stockStatus.status}
-                              </Badge>
+                            <div className="text-sm">
+                              <p className="font-medium text-green-600">
+                                PKR {product.price || 0}
+                              </p>
                             </div>
-                            <div className="text-xs text-muted-foreground mt-1">
-                              Min: {product.minStock} | Max: {product.maxStock || 'N/A'}
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="text-sm">
+                              <p className="font-medium text-blue-600">
+                                {product.stock || 0} units
+                              </p>
                             </div>
                           </td>
                           <td className="py-4 px-4">
@@ -2532,11 +2592,7 @@ const Inventory = () => {
                       <tr>
                         <th className="text-left py-3 px-4 font-medium text-gray-700">Product Name</th>
                         <th className="text-left py-3 px-4 font-medium text-gray-700">Category</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Unit Type</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Cost Price</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Selling Price</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Stock</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Units/Pack</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-700">Formula</th>
                         <th className="text-left py-3 px-4 font-medium text-gray-700">Barcode</th>
                       </tr>
                     </thead>
@@ -2581,73 +2637,12 @@ const Inventory = () => {
                             )}
                           </td>
                           <td className="py-3 px-4">
-                            <Select
-                              value={product.unitType}
-                              onValueChange={(value) => {
-                                const updated = [...importedProducts];
-                                updated[index].unitType = value;
-                                setImportedProducts(updated);
-                              }}
-                            >
-                              <SelectTrigger className="w-full">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="tablets">Tablets</SelectItem>
-                                <SelectItem value="capsules">Capsules</SelectItem>
-                                <SelectItem value="syrup">Syrup</SelectItem>
-                                <SelectItem value="injection">Injection</SelectItem>
-                                <SelectItem value="drops">Drops</SelectItem>
-                                <SelectItem value="cream">Cream</SelectItem>
-                                <SelectItem value="ointment">Ointment</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </td>
-                          <td className="py-3 px-4">
                             <Input
-                              type="number"
-                              step="0.01"
-                              value={product.costPrice}
+                              placeholder="Enter formula/composition"
+                              value={product.formula || ''}
                               onChange={(e) => {
                                 const updated = [...importedProducts];
-                                updated[index].costPrice = parseFloat(e.target.value) || 0;
-                                setImportedProducts(updated);
-                              }}
-                              className="w-full"
-                            />
-                          </td>
-                          <td className="py-3 px-4">
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={product.sellingPrice}
-                              onChange={(e) => {
-                                const updated = [...importedProducts];
-                                updated[index].sellingPrice = parseFloat(e.target.value) || 0;
-                                setImportedProducts(updated);
-                              }}
-                              className="w-full"
-                            />
-                          </td>
-                          <td className="py-3 px-4">
-                            <Input
-                              type="number"
-                              value={product.stock}
-                              onChange={(e) => {
-                                const updated = [...importedProducts];
-                                updated[index].stock = parseInt(e.target.value) || 0;
-                                setImportedProducts(updated);
-                              }}
-                              className="w-full"
-                            />
-                          </td>
-                          <td className="py-3 px-4">
-                            <Input
-                              type="number"
-                              value={product.unitsPerPack}
-                              onChange={(e) => {
-                                const updated = [...importedProducts];
-                                updated[index].unitsPerPack = parseInt(e.target.value) || 1;
+                                updated[index].formula = e.target.value;
                                 setImportedProducts(updated);
                               }}
                               className="w-full"

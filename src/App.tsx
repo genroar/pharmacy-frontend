@@ -11,11 +11,15 @@ import AuthContainer from "./components/auth/AuthContainer";
 import MainLayout from "./components/layout/MainLayout";
 import Index from "./pages/Index";
 import POS from "./pages/POS";
+import CreateInvoice from "./pages/CreateInvoice";
 import Login from "./pages/Login";
 import InventoryPage from "./pages/Inventory";
 import MedicalProductsPage from "./pages/MedicalProducts";
 import NonMedicalProductsPage from "./pages/NonMedicalProducts";
 import CategoriesPage from "./pages/Categories";
+import ManufacturersPage from "./pages/Manufacturers";
+import SuppliersPage from "./pages/Suppliers";
+import ShelvesPage from "./pages/Shelves";
 import CustomersPage from "./pages/Customers";
 import ReportsPage from "./pages/Reports";
 import SettingsPage from "./pages/Settings";
@@ -44,8 +48,8 @@ import AdminManagement from "./components/superadmin/AdminManagement";
 import SubscriptionManagement from "./components/admin/SubscriptionManagement";
 import AdminShiftManagement from "./components/admin/ShiftManagement";
 import OrderPurchase from "./components/admin/OrderPurchase";
-import BusinessTypeGuard from "./components/auth/BusinessTypeGuard";
 import ZapeeraDashboard from "./components/dashboard/ZapeeraDashboard";
+import BusinessTypeGuard from "./components/auth/BusinessTypeGuard";
 import ZapeeraLayout from "./components/layout/ZapeeraLayout";
 import Batches from "./pages/Batches";
 import Purchases from "./pages/Purchases";
@@ -132,6 +136,13 @@ const AppRoutes = () => {
           <AuthStatus fallback={<Navigate to="/login" replace />}>
             <BusinessTypeGuard>
               <POS />
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        <Route path="/create-invoice" element={
+          <AuthStatus fallback={<Navigate to="/login" replace />}>
+            <BusinessTypeGuard>
+              <CreateInvoice />
             </BusinessTypeGuard>
           </AuthStatus>
         } />
@@ -239,6 +250,35 @@ const AppRoutes = () => {
             </BusinessTypeGuard>
           </AuthStatus>
         } />
+        <Route path="/manufacturers" element={
+          <AuthStatus fallback={<Navigate to="/login" replace />}>
+            <BusinessTypeGuard>
+              <MainLayout>
+                <ManufacturersPage />
+              </MainLayout>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        <Route path="/suppliers" element={
+          <AuthStatus fallback={<Navigate to="/login" replace />}>
+            <BusinessTypeGuard>
+              <RoleProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN', 'MANAGER', 'CASHIER', 'PHARMACIST']}>
+                <MainLayout>
+                  <SuppliersPage />
+                </MainLayout>
+              </RoleProtectedRoute>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        <Route path="/shelves" element={
+          <AuthStatus fallback={<Navigate to="/login" replace />}>
+            <BusinessTypeGuard>
+              <MainLayout>
+                <ShelvesPage />
+              </MainLayout>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
         <Route path="/inventory/medical" element={
           <AuthStatus fallback={<Navigate to="/login" replace />}>
             <BusinessTypeGuard>
@@ -313,6 +353,51 @@ const AppRoutes = () => {
               <ZapeeraLayout>
                 <SettingsPage />
               </ZapeeraLayout>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+
+        <Route path="/zapeera" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <ZapeeraDashboard />
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+
+        {/* Zapeera-specific routes that use ZapeeraLayout */}
+        <Route path="/zapeera/companies" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <RoleProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN']}>
+                <ZapeeraLayout>
+                  <CompanyManagement />
+                </ZapeeraLayout>
+              </RoleProtectedRoute>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+
+        <Route path="/zapeera/users" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <RoleProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN', 'PRODUCT_OWNER']}>
+                <ZapeeraLayout>
+                  <UserManagement />
+                </ZapeeraLayout>
+              </RoleProtectedRoute>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+
+        <Route path="/zapeera/branches" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <RoleProtectedRoute allowedRoles={['SUPERADMIN', 'ADMIN']}>
+                <ZapeeraLayout>
+                  <BranchManagement />
+                </ZapeeraLayout>
+              </RoleProtectedRoute>
             </BusinessTypeGuard>
           </AuthStatus>
         } />

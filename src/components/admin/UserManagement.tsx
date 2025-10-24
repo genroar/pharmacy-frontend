@@ -444,7 +444,7 @@ const UserManagement = () => {
         <div className="flex space-x-3">
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="text-white bg-[#0c2c8a] hover:bg-transparent hover:text-[#0c2c8a] border-[1px] border-[#0c2c8a] hover:opacity-90">
+              <Button className="text-white bg-blue-600 hover:bg-blue-700 border-blue-600 shadow-md hover:shadow-lg transition-all duration-200">
                 <UserPlus className="w-4 h-4 mr-2" />
                 Create New User
               </Button>
@@ -545,7 +545,7 @@ const UserManagement = () => {
                 <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button className="text-white bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)] hover:opacity-90" onClick={handleCreateUser}>
+                <Button className="text-white bg-blue-600 hover:bg-blue-700 shadow-md hover:shadow-lg transition-all duration-200" onClick={handleCreateUser}>
                   Create User
                 </Button>
               </DialogFooter>

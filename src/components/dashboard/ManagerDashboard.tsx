@@ -59,6 +59,11 @@ const ManagerDashboard = () => {
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
   const [activeStatTab, setActiveStatTab] = useState(0); // Only first card is active, no changes allowed
 
+  // Expiry alerts state
+  const [nearExpiryBatches, setNearExpiryBatches] = useState<any[]>([]);
+  const [expiredBatches, setExpiredBatches] = useState<any[]>([]);
+  const [showAllExpiryAlerts, setShowAllExpiryAlerts] = useState(false);
+
   // Load dashboard data
   const loadDashboardData = useCallback(async () => {
     try {
@@ -151,12 +156,48 @@ const ManagerDashboard = () => {
     }
   }, [user]);
 
+  // Load expiry alerts data
+  const loadExpiryAlerts = useCallback(async () => {
+    try {
+      console.log('Loading expiry alerts (Manager)...');
+
+      // Load near expiry batches (within 30 days)
+      const nearExpiryResponse = await apiService.getNearExpiryBatches(30);
+      console.log('Near expiry response (Manager):', nearExpiryResponse);
+      if (nearExpiryResponse?.success) {
+        setNearExpiryBatches(nearExpiryResponse.data || []);
+      } else {
+        console.warn('Failed to load near expiry batches:', nearExpiryResponse?.message);
+        setNearExpiryBatches([]);
+      }
+
+      // Load expired batches (past expiry date)
+      const expiredResponse = await apiService.getNearExpiryBatches(0);
+      console.log('Expired response (Manager):', expiredResponse);
+      if (expiredResponse?.success) {
+        setExpiredBatches(expiredResponse.data || []);
+      } else {
+        console.warn('Failed to load expired batches:', expiredResponse?.message);
+        setExpiredBatches([]);
+      }
+
+      console.log('Near expiry batches (Manager):', nearExpiryBatches);
+      console.log('Expired batches (Manager):', expiredBatches);
+    } catch (error) {
+      console.error('Error loading expiry alerts (Manager):', error);
+      // Set empty arrays on error to prevent UI issues
+      setNearExpiryBatches([]);
+      setExpiredBatches([]);
+    }
+  }, []);
+
   // Load data on component mount
   useEffect(() => {
     if (user) {
       loadDashboardData();
+      loadExpiryAlerts();
     }
-  }, [user, loadDashboardData]);
+  }, [user, loadDashboardData, loadExpiryAlerts]);
 
   // Update time every second
   useEffect(() => {
@@ -259,6 +300,7 @@ const ManagerDashboard = () => {
   }
 
   return (
+    <div>
     <div className="min-h-screen bg-[#f8f9fa] p-6">
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
@@ -269,80 +311,29 @@ const ManagerDashboard = () => {
           </p>
         </div>
 
-        {/* Date and Time Display with Analog Clock */}
+        {/* Date and Time Display with Digital Clock */}
         <div className="flex items-center space-x-4">
           {/* Date and Time Text */}
+
+
+          {/* Digital Time Display */}
           <div className="text-center">
-            <p className="text-sm font-medium text-foreground">
+            <div className="text-2xl font-bold text-[#0c2c8a]">
+              {currentDateTime.toLocaleTimeString('en-US', {
+                hour12: true,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+              })}
+            </div>
+            <div className="text-sm text-gray-600">
               {currentDateTime.toLocaleDateString('en-US', {
                 weekday: 'long',
                 year: 'numeric',
                 month: 'long',
                 day: 'numeric'
               })}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {currentDateTime.toLocaleTimeString('en-US', {
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-                hour12: true
-              })}
-            </p>
-          </div>
-
-          {/* Analog Clock */}
-          <div className="relative w-20 h-20 bg-white rounded-full border-4 border-[#0c2c8a] shadow-lg overflow-hidden">
-            {/* Clock Center */}
-            <div className="absolute top-1/2 left-1/2 w-2 h-2 bg-[#0c2c8a] rounded-full transform -translate-x-1/2 -translate-y-1/2 z-10"></div>
-
-            {/* Hour Hand */}
-            <div
-              className="absolute top-1/2 left-1/2 w-1 bg-[#0c2c8a] z-5"
-              style={{
-                height: '16px',
-                transform: `rotate(${(currentDateTime.getHours() % 12) * 30 + currentDateTime.getMinutes() * 0.5}deg)`,
-                transformOrigin: '50% 100%',
-                left: '50%',
-                top: '50%',
-                marginLeft: '-2px',
-                marginTop: '-16px'
-              }}
-            ></div>
-
-            {/* Minute Hand */}
-            <div
-              className="absolute top-1/2 left-1/2 w-1 bg-[#0c2c8a] z-5"
-              style={{
-                height: '16px',
-                transform: `rotate(${currentDateTime.getMinutes() * 6}deg)`,
-                transformOrigin: '50% 100%',
-                left: '50%',
-                top: '50%',
-                marginLeft: '-2px',
-                marginTop: '-16px'
-              }}
-            ></div>
-
-            {/* Second Hand */}
-            <div
-              className="absolute top-1/2 left-1/2 w-0.5 bg-red-500 z-5"
-              style={{
-                height: '20px',
-                transform: `rotate(${currentDateTime.getSeconds() * 6}deg)`,
-                transformOrigin: '50% 100%',
-                left: '50%',
-                top: '50%',
-                marginLeft: '-1px',
-                marginTop: '-20px'
-              }}
-            ></div>
-
-            {/* Clock Numbers */}
-            <div className="absolute top-1 text-xs font-bold text-[#0c2c8a] left-1/2 transform -translate-x-1/2">12</div>
-            <div className="absolute right-1 top-1/2 text-xs font-bold text-[#0c2c8a] transform translate-y-[-50%]">3</div>
-            <div className="absolute bottom-1 text-xs font-bold text-[#0c2c8a] left-1/2 transform -translate-x-1/2">6</div>
-            <div className="absolute left-1 top-1/2 text-xs font-bold text-[#0c2c8a] transform translate-y-[-50%]">9</div>
+            </div>
           </div>
         </div>
       </div>
@@ -405,7 +396,116 @@ const ManagerDashboard = () => {
         </CardContent>
       </Card>
 
-      {/* Main Content Grid */}
+      {/* Expiry Alerts Section */}
+      <div className="mb-6 space-y-4">
+        <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-500" />
+              Expiry Alerts
+            </h2>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAllExpiryAlerts(!showAllExpiryAlerts)}
+              className="text-sm"
+            >
+              {showAllExpiryAlerts ? 'Show Less' : 'Show All'}
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Expired Items */}
+            {expiredBatches.length > 0 && (
+              <Card className="border-red-200 bg-red-50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-red-700 flex items-center gap-2">
+                    <X className="w-4 h-4" />
+                    Expired Items ({expiredBatches.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {(showAllExpiryAlerts ? expiredBatches : expiredBatches.slice(0, 3)).map((batch: any, index: number) => (
+                    <div key={index} className="p-3 bg-red-100 rounded-lg border border-red-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-red-800">{batch.product?.name || 'Unknown Product'}</p>
+                          <p className="text-sm text-red-600">Batch: {batch.batchNo}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-medium text-red-800">
+                            Expired {Math.ceil((new Date().getTime() - new Date(batch.expireDate).getTime()) / (1000 * 60 * 60 * 24))} days ago
+                          </p>
+                          <p className="text-xs text-red-600">
+                            {new Date(batch.expireDate).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {expiredBatches.length > 3 && !showAllExpiryAlerts && (
+                    <p className="text-sm text-red-600 text-center">
+                      +{expiredBatches.length - 3} more expired items
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Near Expiry Items */}
+            {nearExpiryBatches.length > 0 && (
+              <Card className="border-orange-200 bg-orange-50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-orange-700 flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    Near Expiry ({nearExpiryBatches.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {(showAllExpiryAlerts ? nearExpiryBatches : nearExpiryBatches.slice(0, 3)).map((batch: any, index: number) => {
+                    const daysUntilExpiry = Math.ceil((new Date(batch.expireDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                    return (
+                      <div key={index} className="p-3 bg-orange-100 rounded-lg border border-orange-200">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-orange-800">{batch.product?.name || 'Unknown Product'}</p>
+                            <p className="text-sm text-orange-600">Batch: {batch.batchNo}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-medium text-orange-800">
+                              {daysUntilExpiry > 0 ? `${daysUntilExpiry} days left` : 'Expires today'}
+                            </p>
+                            <p className="text-xs text-orange-600">
+                              {new Date(batch.expireDate).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {nearExpiryBatches.length > 3 && !showAllExpiryAlerts && (
+                    <p className="text-sm text-orange-600 text-center">
+                      +{nearExpiryBatches.length - 3} more near expiry items
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* No Alerts Message */}
+          {expiredBatches.length === 0 && nearExpiryBatches.length === 0 && (
+            <div className="text-center py-4">
+              <div className="flex flex-col items-center space-y-1">
+                <CheckCircle className="w-8 h-8 text-green-500" />
+                <p className="text-base font-medium text-gray-700">No Expiry Alerts</p>
+                <p className="text-xs text-gray-500">All products are within their expiry dates</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Sales */}
         <Card className="lg:col-span-2 shadow-soft border-0">

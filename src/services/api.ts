@@ -85,6 +85,9 @@ class ApiService {
     // Get current context (company/branch selection)
     const context = this.getContext ? this.getContext() : {};
 
+    // Debug: Log context
+    console.log('🔍 API Service - Context retrieved:', context);
+
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
@@ -95,6 +98,12 @@ class ApiService {
       },
       ...options,
     };
+
+    // Debug: Log final headers
+    console.log('🔍 API Service - Final headers:', {
+      'X-Company-ID': config.headers?.['X-Company-ID'],
+      'X-Branch-ID': config.headers?.['X-Branch-ID']
+    });
 
     if (DEBUG_MODE) {
       console.log('API Request:', {url, options, token: this.token ? 'Present' : 'Missing'});
@@ -338,6 +347,7 @@ class ApiService {
     limit?: number;
     search?: string;
     category?: string;
+    categoryType?: string;
     branchId?: string;
     lowStock?: boolean;
   }) {
@@ -463,37 +473,41 @@ class ApiService {
   async createProduct(productData: {
     name: string;
     description?: string;
+    formula?: string;
     categoryId: string;
     supplierId: string;
     branchId: string;
-    costPrice: number;
-    sellingPrice: number;
-    stock: number;
-    minStock: number;
-    maxStock?: number;
     unitType: string;
-    unitsPerPack: number;
     barcode?: string;
     requiresPrescription: boolean;
+    // Temporary fields for backend compatibility
+    costPrice?: number;
+    sellingPrice?: number;
+    stock?: number;
+    minStock?: number;
+    maxStock?: number;
+    unitsPerPack?: number;
   }) {
     return this.request<{
       id: string;
       name: string;
       description?: string;
+      formula?: string;
       category: { id: string; name: string };
       supplier: { id: string; name: string };
       branch: { id: string; name: string };
-      costPrice: number;
-      sellingPrice: number;
-      stock: number;
-      minStock: number;
-      maxStock?: number;
       unitType: string;
-      unitsPerPack: number;
       barcode?: string;
       requiresPrescription: boolean;
       isActive: boolean;
       createdAt: string;
+      // Temporary fields for backend compatibility
+      costPrice?: number;
+      sellingPrice?: number;
+      stock?: number;
+      minStock?: number;
+      maxStock?: number;
+      unitsPerPack?: number;
     }>('/products', {
       method: 'POST',
       body: JSON.stringify(productData),
@@ -712,6 +726,8 @@ class ApiService {
     }>;
     paymentMethod: 'CASH' | 'CARD' | 'MOBILE' | 'BANK_TRANSFER';
     discountAmount?: number;
+    discountPercentage?: number;
+    saleDate?: string;
   }) {
     return this.request<{
       id: string;
@@ -752,6 +768,35 @@ class ApiService {
     }>('/sales', {
       method: 'POST',
       body: JSON.stringify(saleData),
+    });
+  }
+
+  async updateSale(saleId: string, updateData: {
+    discountPercentage?: number;
+    saleDate?: string;
+    notes?: string;
+  }) {
+    return this.request<{
+      id: string;
+      invoiceNumber: string;
+      customerId?: string;
+      userId: string;
+      branchId: string;
+      subtotal: number;
+      taxAmount: number;
+      discountAmount: number;
+      discountPercentage?: number;
+      totalAmount: number;
+      paymentMethod: string;
+      paymentStatus: string;
+      status: string;
+      saleDate?: string;
+      createdAt: string;
+      updatedAt: string;
+      receiptNumber: string;
+    }>(`/sales/${saleId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updateData),
     });
   }
 
@@ -1800,12 +1845,14 @@ class ApiService {
     name: string;
     description?: string;
     type?: string;
+    color?: string;
   }) {
     return this.request<{
       id: string;
       name: string;
       description?: string;
       type?: string;
+      color?: string;
       createdAt: string;
     }>('/categories', {
       method: 'POST',
@@ -1910,6 +1957,7 @@ class ApiService {
     phone: string;
     email: string;
     address: string;
+    manufacturerId?: string;
   }) {
     return this.request<{
       id: string;
@@ -1932,6 +1980,7 @@ class ApiService {
     phone?: string;
     email?: string;
     address?: string;
+    manufacturerId?: string;
     isActive?: boolean;
   }) {
     return this.request<{
@@ -1951,6 +2000,224 @@ class ApiService {
 
   async deleteSupplier(supplierId: string) {
     return this.request<{ message: string }>(`/suppliers/${supplierId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Manufacturer APIs
+  async getManufacturers(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    active?: boolean;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.active !== undefined) queryParams.append('active', params.active.toString());
+
+    const queryString = queryParams.toString();
+    const url = queryString ? `/manufacturers?${queryString}` : '/manufacturers';
+
+    return this.request<{
+      manufacturers: Array<{
+        id: string;
+        name: string;
+        description?: string;
+        website?: string;
+        country?: string;
+        isActive: boolean;
+        createdAt: string;
+        updatedAt: string;
+        _count: {
+          suppliers: number;
+        };
+      }>;
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        pages: number;
+      };
+    }>(url);
+  }
+
+  async getManufacturer(manufacturerId: string) {
+    return this.request<{
+      id: string;
+      name: string;
+      description?: string;
+      website?: string;
+      country?: string;
+      isActive: boolean;
+      createdAt: string;
+      updatedAt: string;
+      _count: {
+        suppliers: number;
+      };
+      suppliers: Array<{
+        id: string;
+        name: string;
+        contactPerson: string;
+        phone: string;
+        email: string;
+        isActive: boolean;
+      }>;
+    }>(`/manufacturers/${manufacturerId}`);
+  }
+
+  async createManufacturer(manufacturerData: {
+    name: string;
+    description?: string;
+  }) {
+    return this.request<{
+      id: string;
+      name: string;
+      description?: string;
+      website?: string;
+      country?: string;
+      isActive: boolean;
+      createdAt: string;
+      updatedAt: string;
+    }>('/manufacturers', {
+      method: 'POST',
+      body: JSON.stringify(manufacturerData),
+    });
+  }
+
+  async updateManufacturer(manufacturerId: string, manufacturerData: {
+    name?: string;
+    description?: string;
+    isActive?: boolean;
+  }) {
+    return this.request<{
+      id: string;
+      name: string;
+      description?: string;
+      website?: string;
+      country?: string;
+      isActive: boolean;
+      createdAt: string;
+      updatedAt: string;
+    }>(`/manufacturers/${manufacturerId}`, {
+      method: 'PUT',
+      body: JSON.stringify(manufacturerData),
+    });
+  }
+
+  async deleteManufacturer(manufacturerId: string) {
+    return this.request<{ message: string }>(`/manufacturers/${manufacturerId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Shelf APIs
+  async getShelves(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    active?: boolean;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.active !== undefined) queryParams.append('active', params.active.toString());
+
+    const queryString = queryParams.toString();
+    const url = queryString ? `/shelves?${queryString}` : '/shelves';
+
+    return this.request<{
+      shelves: Array<{
+        id: string;
+        name: string;
+        description?: string;
+        location?: string;
+        isActive: boolean;
+        createdAt: string;
+        updatedAt: string;
+        _count: {
+          batches: number;
+        };
+      }>;
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        pages: number;
+      };
+    }>(url);
+  }
+
+  async getShelf(shelfId: string) {
+    return this.request<{
+      id: string;
+      name: string;
+      description?: string;
+      location?: string;
+      isActive: boolean;
+      createdAt: string;
+      updatedAt: string;
+      _count: {
+        batches: number;
+      };
+      batches: Array<{
+        id: string;
+        batchNo: string;
+        product: {
+          id: string;
+          name: string;
+          sku: string;
+        };
+        quantity: number;
+        expireDate?: string;
+        isActive: boolean;
+      }>;
+    }>(`/shelves/${shelfId}`);
+  }
+
+  async createShelf(shelfData: {
+    name: string;
+    description?: string;
+    location?: string;
+  }) {
+    return this.request<{
+      id: string;
+      name: string;
+      description?: string;
+      location?: string;
+      isActive: boolean;
+      createdAt: string;
+      updatedAt: string;
+    }>('/shelves', {
+      method: 'POST',
+      body: JSON.stringify(shelfData),
+    });
+  }
+
+  async updateShelf(shelfId: string, shelfData: {
+    name?: string;
+    description?: string;
+    location?: string;
+    isActive?: boolean;
+  }) {
+    return this.request<{
+      id: string;
+      name: string;
+      description?: string;
+      location?: string;
+      isActive: boolean;
+      createdAt: string;
+      updatedAt: string;
+    }>(`/shelves/${shelfId}`, {
+      method: 'PUT',
+      body: JSON.stringify(shelfData),
+    });
+  }
+
+  async deleteShelf(shelfId: string) {
+    return this.request<{ message: string }>(`/shelves/${shelfId}`, {
       method: 'DELETE',
     });
   }
@@ -3343,6 +3610,13 @@ class ApiService {
         totalStock: number;
         costPrice: number;
         sellingPrice: number;
+        // New pricing and stock fields
+        costPricePerUnit?: number;
+        costPricePerBox?: number;
+        sellingPricePerUnit?: number;
+        sellingPricePerBox?: number;
+        stockQuantity?: number;
+        minStockLevel?: number;
         stockPurchasePrice: number;
         paidAmount: number;
         supplierOutstanding: number;
@@ -3424,8 +3698,8 @@ class ApiService {
     totalBoxes?: number;
     unitsPerBox?: number;
     totalStock?: number;
-    costPrice: number;
-    sellingPrice: number;
+    costPrice?: number;
+    sellingPrice?: number;
     stockPurchasePrice?: number;
     paidAmount?: number;
     supplierOutstanding?: number;
@@ -3435,6 +3709,14 @@ class ApiService {
     productionDate?: string;
     shelfId?: string;
     shelfName?: string;
+    // New pricing and stock fields
+    costPricePerUnit?: number;
+    costPricePerBox?: number;
+    sellingPricePerUnit?: number;
+    sellingPricePerBox?: number;
+    stockQuantity?: number;
+    minStockLevel?: number;
+    maxStockLevel?: number;
   }) {
     return this.request<{
       id: string;
@@ -3496,6 +3778,13 @@ class ApiService {
     shelfName?: string;
     isActive?: boolean;
     isReported?: boolean;
+    // New pricing and stock fields
+    stockQuantity?: number;
+    costPricePerUnit?: number;
+    costPricePerBox?: number;
+    sellingPricePerUnit?: number;
+    sellingPricePerBox?: number;
+    minStockLevel?: number;
   }) {
     return this.request<{
       id: string;
@@ -3543,6 +3832,34 @@ class ApiService {
       message: string;
     }>(`/batches/${id}`, {
       method: 'DELETE',
+    });
+  }
+
+  async restockBatch(id: string, restockData: {
+    quantity: number;
+    notes?: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      id: string;
+      batchNo: string;
+      stockQuantity: number;
+      updatedAt: string;
+    };
+  }> {
+    return this.request<{
+      success: boolean;
+      message: string;
+      data: {
+        id: string;
+        batchNo: string;
+        stockQuantity: number;
+        updatedAt: string;
+      };
+    }>(`/batches/${id}/restock`, {
+      method: 'POST',
+      body: JSON.stringify(restockData),
     });
   }
 

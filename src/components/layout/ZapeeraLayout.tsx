@@ -25,13 +25,13 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
   // Update active tab based on current route
   useEffect(() => {
     const path = location.pathname;
-    if (path === '/' || path === '/dashboard') {
+    if (path === '/' || path === '/dashboard' || path === '/zapeera') {
       setActiveTab("dashboard");
     } else if (path.startsWith('/pos')) {
       setActiveTab("pos");
-    } else if (path.startsWith('/admin/companies')) {
+    } else if (path.startsWith('/admin/companies') || path.startsWith('/zapeera/companies')) {
       setActiveTab("businesses");
-    } else if (path.startsWith('/admin/branches')) {
+    } else if (path.startsWith('/admin/branches') || path.startsWith('/zapeera/branches')) {
       setActiveTab("branches");
     } else if (path.startsWith('/settings')) {
       setActiveTab("settings");
@@ -42,21 +42,17 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
     setActiveTab(tab);
     switch (tab) {
       case "dashboard":
-        // For admins, always redirect to their admin dashboard
-        if (user?.role === 'ADMIN') {
-          navigate('/dashboard');
-        } else {
-          navigate('/');
-        }
+        // Navigate to Zapeera dashboard
+        navigate('/zapeera');
         break;
       case "pos":
         navigate('/pos');
         break;
       case "businesses":
-        navigate('/admin/companies');
+        navigate('/zapeera/companies');
         break;
       case "branches":
-        navigate('/admin/branches');
+        navigate('/zapeera/branches');
         break;
       case "settings":
         navigate('/settings');
@@ -67,13 +63,27 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
   };
 
   const handleChatSupport = () => {
-    // Implement chat support functionality
-    console.log("Chat with support clicked");
+    // Open WhatsApp with the support number
+    const phoneNumber = "+923107100663";
+    const message = "Hello! I need support with Zapeera.";
+    const whatsappUrl = `https://wa.me/${phoneNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
   };
 
   const handleScheduleDemo = () => {
-    // Implement demo scheduling functionality
-    console.log("Schedule demo clicked");
+    // Open email client to schedule a demo call
+    const subject = "Schedule Demo Call - Zapeera";
+    const body = `Hello,
+
+I would like to schedule a demo call to learn more about Zapeera.
+
+Please let me know your available time slots.
+
+Best regards,
+${user?.name || 'User'}`;
+
+    const emailUrl = `mailto:zapeeraofficial@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(emailUrl, '_blank');
   };
 
   return (
@@ -91,7 +101,7 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-2">
+        <nav className="flex-1 p-4 space-y-2 sidebar-menu">
           <button
             onClick={() => handleNavigation("dashboard")}
             className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${
@@ -113,7 +123,7 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
             }`}
           >
             <CheckSquare className="w-5 h-5" />
-            <span className="font-medium">Businesses</span>
+            <span className="font-medium" >My Businesses</span>
           </button>
 
           <button
@@ -175,6 +185,13 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
               <span className="text-xl font-semibold text-gray-900">Zapeera</span>
             </div>
             <div className="flex items-center space-x-4">
+              <button
+                onClick={() => navigate('/pos?openInvoice=true')}
+                className="bg-[#0C2C8A] hover:bg-[#0a2470] text-white px-4 py-2 rounded-md font-medium text-sm shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-2 new-sale-button"
+              >
+                <ShoppingCart className="w-4 h-4" />
+                New Sale
+              </button>
               <button
                 className="p-2 text-gray-500 hover:text-gray-700 transition-colors"
                 aria-label="Notifications"

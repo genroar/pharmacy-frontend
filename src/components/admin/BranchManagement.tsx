@@ -296,7 +296,7 @@ const BranchManagement = () => {
           <div className="flex items-center space-x-4">
             <Button
               onClick={() => setIsCreateDialogOpen(true)}
-              className="flex items-center gap-2 bg-[#0c2c8a] hover:bg-transparent hover:text-[#0c2c8a] border-[1px] border-[#0c2c8a] hover:opacity-90"
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white border-blue-600 shadow-md hover:shadow-lg transition-all duration-200"
             >
               <Plus className="w-4 h-4" />
               Add Branch
@@ -335,9 +335,20 @@ const BranchManagement = () => {
                   <SelectValue placeholder="Filter by company" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Companies</SelectItem>
+                  <SelectItem
+                    value="all"
+                    className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                  >
+                    All Companies
+                  </SelectItem>
                   {companies.map(company => (
-                    <SelectItem key={company.id} value={company.id}>{company.name}</SelectItem>
+                    <SelectItem
+                      key={company.id}
+                      value={company.id}
+                      className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                    >
+                      {company.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -378,8 +389,8 @@ const BranchManagement = () => {
                   <tr key={branch.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-[#0c2c8a]/10 rounded-lg">
-                          <Building2 className="w-5 h-5 text-[#0c2c8a]" />
+                        <div className="p-2 bg-blue-100 rounded-lg">
+                          <Building2 className="w-5 h-5 text-blue-600" />
                         </div>
                         <div>
                           <div className="text-sm font-semibold text-gray-900">
@@ -511,7 +522,7 @@ const BranchManagement = () => {
             {!searchTerm && (
               <Button
                 onClick={() => setIsCreateDialogOpen(true)}
-                className="bg-[#0c2c8a] hover:bg-transparent hover:text-[#0c2c8a] border-[1px] border-[#0c2c8a] hover:opacity-90"
+                className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600 shadow-md hover:shadow-lg transition-all duration-200"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Create First Branch
@@ -539,7 +550,13 @@ const BranchManagement = () => {
                 </SelectTrigger>
                 <SelectContent>
                   {companies.map(company => (
-                    <SelectItem key={company.id} value={company.id}>{company.name}</SelectItem>
+                    <SelectItem
+                      key={company.id}
+                      value={company.id}
+                      className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                    >
+                      {company.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>

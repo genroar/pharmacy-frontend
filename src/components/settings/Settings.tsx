@@ -543,7 +543,7 @@ const Settings = () => {
           </Button>
           <Button
             onClick={handleSaveSettings}
-            className="bg-[#0c2c8a] hover:bg-transparent hover:text-[#0c2c8a] border-[1px] border-[#0c2c8a] hover:opacity-90"
+            className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600 shadow-md hover:shadow-lg transition-all duration-200"
           >
             <Save className="w-4 h-4 mr-2" />
             Save Changes
@@ -664,7 +664,7 @@ const Settings = () => {
                   />
                 </div>
                 <div className="flex space-x-2">
-                  <Button onClick={handleUpdateProfile} className="flex-1 bg-[#0c2c8a] hover:bg-transparent hover:text-[#0c2c8a] border-[1px] border-[#0c2c8a] hover:opacity-90">
+                  <Button onClick={handleUpdateProfile} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white border-blue-600 shadow-md hover:shadow-lg transition-all duration-200">
                     <Save className="w-4 h-4 mr-2" />
                     Save Changes
                   </Button>
@@ -729,7 +729,7 @@ const Settings = () => {
                       placeholder="Confirm new password"
                     />
                   </div>
-                  <Button onClick={handleChangePassword} className="w-full bg-[#0c2c8a] hover:bg-transparent hover:text-[#0c2c8a] border-[1px] border-[#0c2c8a] hover:opacity-90">
+                  <Button onClick={handleChangePassword} className="w-full bg-blue-600 hover:bg-blue-700 text-white border-blue-600 shadow-md hover:shadow-lg transition-all duration-200">
                     <Save className="w-4 h-4 mr-2" />
                     Update Password
                   </Button>
@@ -836,7 +836,7 @@ const Settings = () => {
                   </Button>
                 ) : (
                   <div className="flex space-x-2">
-                    <Button onClick={handlePOSSave} size="sm" className="bg-[#0c2c8a] hover:bg-transparent hover:text-[#0c2c8a] border-[1px] border-[#0c2c8a] hover:opacity-90">
+                    <Button onClick={handlePOSSave} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600 shadow-md hover:shadow-lg transition-all duration-200">
                       <Save className="w-4 h-4 mr-2" />
                       Save
                     </Button>

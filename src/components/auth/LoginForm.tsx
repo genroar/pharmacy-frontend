@@ -171,7 +171,7 @@ const LoginForm = ({ onLogin, onNavigateToSignup }: LoginFormProps) => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-[#0c2c8a] text-white py-3 rounded-lg font-medium hover:bg-[#153186] transition-colors disabled:opacity-50"
+              className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50"
             >
               {isLoading ? (
                 <div className="flex items-center justify-center space-x-2">
@@ -191,7 +191,7 @@ const LoginForm = ({ onLogin, onNavigateToSignup }: LoginFormProps) => {
             </div>
             <button
               onClick={onNavigateToSignup}
-              className="px-8 py-3  border-2 border-[#0c2c8a] text-[#0c2c8a] rounded-lg font-medium hover:bg-[#0c2c8a] hover:text-white transition-colors"
+              className="px-8 py-3 border-2 border-blue-600 text-blue-600 rounded-lg font-medium hover:bg-blue-600 hover:text-white shadow-md hover:shadow-lg transition-all duration-200"
             >
               Create Account
             </button>
@@ -211,8 +211,8 @@ const LoginForm = ({ onLogin, onNavigateToSignup }: LoginFormProps) => {
         <div className="flex justify-center w-[100%] items-center text-white p-8 relative z-10">
           <div className="text-center w-[100%] flex flex-col items-center justify-center space-y-6">
             <div className="text-center flex flex-col items-center ">
-              <div className="w-[70px] h-[70px] text-[50px] flex items-center justify-center bg-white text-blue-900 rounded-full font-bold">N</div>
-              <h1 className="text-2xl font-bold text-white/90 mb-2">NextBill</h1>
+              <div className="w-[70px] h-[70px] text-[50px] flex items-center justify-center bg-white text-blue-900 rounded-full font-bold">Z</div>
+              <h1 className="text-2xl font-bold text-white/90 mb-2">Zapeera</h1>
               <div className="w-16 h-0.5 bg-white/30 mx-auto"></div>
             </div>
             <h2 className="text-4xl font-bold">Welcome Back!</h2>

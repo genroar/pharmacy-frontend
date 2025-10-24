@@ -133,7 +133,7 @@ const OrderPurchase = () => {
             currentStock: product.stock,
             minStock: product.minStock,
             maxStock: maxStock,
-            unitPrice: product.sellingPrice,
+            unitPrice: product.price || 0, // Price now comes from batch data
             category: product.category?.name || 'Uncategorized',
             branch: {
               id: product.branch?.id || '',
@@ -310,7 +310,7 @@ const OrderPurchase = () => {
               <Button
                 onClick={downloadOrderList}
                 disabled={products.length === 0}
-                className="bg-green-600 hover:bg-green-700 text-white font-medium"
+                className="bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-md hover:shadow-lg transition-all duration-200"
               >
                 <Download className="h-4 w-4 mr-2" />
                 Download CSV

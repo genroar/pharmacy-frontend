@@ -33,6 +33,7 @@ import {
   X
 } from "lucide-react";
 import { apiService } from "@/services/api";
+import CategoryForm from "./CategoryForm";
 
 interface Category {
   id: string;
@@ -64,7 +65,9 @@ const CategoryManagement = ({ isOpen, onClose, onCategoryChange }: CategoryManag
   const [deletingCategory, setDeletingCategory] = useState<Category | null>(null);
   const [newCategory, setNewCategory] = useState({
     name: "",
-    description: ""
+    description: "",
+    type: 'general' as 'medical' | 'non-medical' | 'general',
+    color: "#3B82F6"
   });
 
   const loadCategories = async () => {
@@ -96,18 +99,18 @@ const CategoryManagement = ({ isOpen, onClose, onCategoryChange }: CategoryManag
     }
   }, [isOpen, searchQuery]);
 
-  const handleCreateCategory = async () => {
-    if (!newCategory.name.trim()) return;
-
+  const handleCreateCategory = async (formData: any) => {
     try {
       setLoading(true);
       const response = await apiService.createCategory({
-        name: newCategory.name.trim(),
-        description: newCategory.description.trim() || undefined
+        name: formData.name.trim(),
+        description: formData.description.trim() || undefined,
+        type: formData.type, // Already converted to uppercase in CategoryForm
+        color: formData.color
       });
 
       if (response.success) {
-        setNewCategory({ name: "", description: "" });
+        setNewCategory({ name: "", description: "", type: 'general', color: "#3B82F6" });
         setIsCreateDialogOpen(false);
         await loadCategories();
         onCategoryChange?.();
@@ -122,14 +125,16 @@ const CategoryManagement = ({ isOpen, onClose, onCategoryChange }: CategoryManag
     }
   };
 
-  const handleEditCategory = async () => {
-    if (!editingCategory || !editingCategory.name.trim()) return;
+  const handleEditCategory = async (formData: any) => {
+    if (!editingCategory) return;
 
     try {
       setLoading(true);
       const response = await apiService.updateCategory(editingCategory.id, {
-        name: editingCategory.name.trim(),
-        description: editingCategory.description?.trim() || undefined
+        name: formData.name.trim(),
+        description: formData.description?.trim() || undefined,
+        type: formData.type, // Already converted to uppercase in CategoryForm
+        color: formData.color
       });
 
       if (response.success) {
@@ -318,47 +323,12 @@ const CategoryManagement = ({ isOpen, onClose, onCategoryChange }: CategoryManag
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="categoryName">Category Name *</Label>
-                <Input
-                  id="categoryName"
-                  placeholder="e.g., Pain Relief"
-                  value={newCategory.name}
-                  onChange={(e) => setNewCategory({...newCategory, name: e.target.value})}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="categoryDescription">Description</Label>
-                <Textarea
-                  id="categoryDescription"
-                  placeholder="Brief description of the category..."
-                  value={newCategory.description}
-                  onChange={(e) => setNewCategory({...newCategory, description: e.target.value})}
-                  rows={3}
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-2 pt-4">
-              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleCreateCategory} disabled={loading || !newCategory.name.trim()}>
-                {loading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    Create Category
-                  </>
-                )}
-              </Button>
-            </div>
+            <CategoryForm
+              onSubmit={handleCreateCategory}
+              onCancel={() => setIsCreateDialogOpen(false)}
+              isSubmitting={loading}
+              submitButtonText="Create Category"
+            />
           </DialogContent>
         </Dialog>
 
@@ -372,49 +342,18 @@ const CategoryManagement = ({ isOpen, onClose, onCategoryChange }: CategoryManag
               </DialogDescription>
             </DialogHeader>
 
-            {editingCategory && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="editCategoryName">Category Name *</Label>
-                  <Input
-                    id="editCategoryName"
-                    placeholder="e.g., Pain Relief"
-                    value={editingCategory.name}
-                    onChange={(e) => setEditingCategory({...editingCategory, name: e.target.value})}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="editCategoryDescription">Description</Label>
-                  <Textarea
-                    id="editCategoryDescription"
-                    placeholder="Brief description of the category..."
-                    value={editingCategory.description || ''}
-                    onChange={(e) => setEditingCategory({...editingCategory, description: e.target.value})}
-                    rows={3}
-                  />
-                </div>
-              </div>
-            )}
-
-            <div className="flex justify-end space-x-2 pt-4">
-              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleEditCategory} disabled={loading || !editingCategory?.name.trim()}>
-                {loading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Updating...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    Update Category
-                  </>
-                )}
-              </Button>
-            </div>
+            <CategoryForm
+              initialData={editingCategory ? {
+                name: editingCategory.name,
+                description: editingCategory.description || '',
+                type: (editingCategory.type?.toLowerCase() as 'general' | 'medical' | 'non-medical') || 'general',
+                color: editingCategory.color || '#3B82F6'
+              } : {}}
+              onSubmit={handleEditCategory}
+              onCancel={() => setIsEditDialogOpen(false)}
+              isSubmitting={loading}
+              submitButtonText="Update Category"
+            />
           </DialogContent>
         </Dialog>
 

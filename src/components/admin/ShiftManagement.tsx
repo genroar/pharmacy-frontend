@@ -346,7 +346,7 @@ const ShiftManagement = () => {
         {canCreate && (
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-[#0C2C8A] hover:bg-[#0C2C8A]/90">
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all duration-200">
                 <Plus className="w-4 h-4 mr-2" />
                 Create Shift
               </Button>

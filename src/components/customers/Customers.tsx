@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
 import {
   Search,
   Plus,
@@ -52,10 +56,12 @@ const Customers = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { selectedBranchId, selectedBranch } = useAdmin();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("all");
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +72,15 @@ const Customers = () => {
     total: 0,
     pages: 0
   });
+
+  // Form state for adding new customer
+  const [newCustomer, setNewCustomer] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    address: ""
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Load customers on component mount
   useEffect(() => {
@@ -93,6 +108,61 @@ const Customers = () => {
       window.removeEventListener('customerCreated', handleCustomerCreated);
     };
   }, []);
+
+  const handleAddCustomer = async () => {
+    if (!newCustomer.name.trim() || !newCustomer.phone.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Name and phone number are required!",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const response = await apiService.createCustomer({
+        name: newCustomer.name,
+        phone: newCustomer.phone,
+        email: newCustomer.email,
+        address: newCustomer.address,
+        branchId: selectedBranchId || user?.branchId || ""
+      });
+
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: "Customer added successfully!",
+        });
+
+        // Reset form
+        setNewCustomer({
+          name: "",
+          phone: "",
+          email: "",
+          address: ""
+        });
+
+        setIsAddDialogOpen(false);
+        loadCustomers();
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to add customer",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error adding customer:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add customer. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const loadCustomers = async () => {
     try {
@@ -266,7 +336,10 @@ const Customers = () => {
             <TrendingUp className="w-4 h-4 mr-2" />
             {loading ? 'Refreshing...' : 'Refresh'}
           </Button>
-          <Button className="text-white bg-[#0c2c8a] hover:bg-transparent hover:text-[#0c2c8a] border-[1px] border-[#0c2c8a] hover:opacity-90">
+          <Button
+            onClick={() => setIsAddDialogOpen(true)}
+            className="text-white bg-blue-600 hover:bg-blue-700 border-blue-600 hover:border-blue-700 shadow-md hover:shadow-lg transition-all duration-200"
+          >
             <Plus className="w-4 h-4 mr-2" />
             Add Customer
           </Button>
@@ -355,7 +428,7 @@ const Customers = () => {
                     onClick={() => setSelectedFilter(filter)}
                     className={`${
                       selectedFilter === filter
-                        ? "text-white bg-[#0c2c8a] hover:bg-transparent hover:text-[#0c2c8a] border-[1px] border-[#0c2c8a]"
+                        ? "text-white bg-blue-600 hover:bg-blue-700 border-blue-600"
                         : ""
                     }`}
                   >
@@ -390,89 +463,84 @@ const Customers = () => {
         </Card>
       )}
 
-      {/* Customer Cards */}
+      {/* Customer Table */}
       {!loading && !error && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCustomers.map((customer) => (
-          <Card key={customer.id} className="shadow-soft border-0 hover:shadow-medium transition-shadow">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-[#0c2c8a]/10 rounded-full flex items-center justify-center">
-                    <span className="text-lg font-semibold text-[#0c2c8a]">
-                      {customer.name.split(' ').map(n => n[0]).join('')}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex space-x-1">
-                  <Button variant="ghost" size="sm">
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                  <Button variant="ghost" size="sm">
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-
-            <CardContent className="space-y-4">
-              {/* Contact Info */}
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                  <Phone className="w-4 h-4" />
-                  <span>{customer.phone}</span>
-                </div>
-                <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                  <Mail className="w-4 h-4" />
-                  <span className="truncate">{customer.email}</span>
-                </div>
-                <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                  <MapPin className="w-4 h-4" />
-                  <span className="truncate">{customer.address}</span>
-                </div>
-              </div>
-
-              {/* Stats */}
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Purchases</p>
-                  <p className="font-semibold text-foreground">PKR {customer.totalPurchases.toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Loyalty Points</p>
-                  <p className="font-semibold text-warning">{customer.loyaltyPoints}</p>
-                </div>
-                <div className="col-span-2">
-                  <p className="text-sm text-muted-foreground">Last Visit</p>
-                  <p className="font-semibold text-foreground">{new Date(customer.lastVisit).toLocaleDateString()}</p>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex space-x-2 pt-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => startNewSale(customer)}
-                >
-                  <ShoppingCart className="w-4 h-4 mr-1" />
-                  New Sale
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => viewPurchaseHistory(customer)}
-                >
-                  <Receipt className="w-4 h-4 mr-1" />
-                  History
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-        </div>
+        <Card className="shadow-soft border-0">
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[50px]">Avatar</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Contact</TableHead>
+                  <TableHead>Total Purchases</TableHead>
+                  <TableHead>Loyalty Points</TableHead>
+                  <TableHead>Last Visit</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="w-[200px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredCustomers.map((customer) => (
+                  <TableRow key={customer.id} className="hover:bg-muted/50">
+                    <TableCell>
+                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                        <span className="text-sm font-semibold text-blue-600">
+                          {customer.name.split(' ').map(n => n[0]).join('')}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium">{customer.name}</p>
+                        <p className="text-sm text-muted-foreground truncate max-w-[200px]">{customer.address}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="flex items-center space-x-2 text-sm">
+                          <Phone className="w-3 h-3 text-muted-foreground" />
+                          <span>{customer.phone}</span>
+                        </div>
+                        <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                          <Mail className="w-3 h-3" />
+                          <span className="truncate max-w-[150px]">{customer.email}</span>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <p className="font-semibold text-primary">PKR {customer.totalPurchases.toLocaleString()}</p>
+                    </TableCell>
+                    <TableCell>
+                      <p className="font-semibold text-warning">{customer.loyaltyPoints}</p>
+                    </TableCell>
+                    <TableCell>
+                      <p className="text-sm">{new Date(customer.lastVisit).toLocaleDateString()}</p>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={customer.isVIP ? "default" : "outline"}>
+                        {customer.isVIP ? "VIP" : "Regular"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex space-x-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => viewPurchaseHistory(customer)}
+                          className="h-8 px-2"
+                        >
+                          <Receipt className="w-4 h-4 mr-1" />
+                          History
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       )}
 
       {!loading && !error && filteredCustomers.length === 0 && (
@@ -481,10 +549,7 @@ const Customers = () => {
             <User className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold text-foreground mb-2">No customers found</h3>
             <p className="text-muted-foreground mb-4">Try adjusting your search or filter criteria</p>
-            <Button className="text-white bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)] hover:opacity-90">
-              <Plus className="w-4 h-4 mr-2" />
-              Add First Customer
-            </Button>
+
           </CardContent>Recent Purchases
 
         </Card>
@@ -537,8 +602,8 @@ const Customers = () => {
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-[#0c2c8a]/10 rounded-full flex items-center justify-center">
-                              <Receipt className="w-5 h-5 text-[#0c2c8a]" />
+                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                              <Receipt className="w-5 h-5 text-blue-600" />
                             </div>
                             <div>
                               <p className="font-semibold">Receipt #{purchase.id}</p>
@@ -577,6 +642,98 @@ const Customers = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Customer Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <Plus className="w-5 h-5 text-primary" />
+              <span>Add New Customer</span>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="customerName">Customer Name *</Label>
+              <Input
+                id="customerName"
+                placeholder="Enter customer name"
+                value={newCustomer.name}
+                onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="customerPhone">Phone Number *</Label>
+              <Input
+                id="customerPhone"
+                placeholder="Enter phone number"
+                value={newCustomer.phone}
+                onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="customerEmail">Email (Optional)</Label>
+              <Input
+                id="customerEmail"
+                type="email"
+                placeholder="Enter email address"
+                value={newCustomer.email}
+                onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="customerAddress">Address (Optional)</Label>
+              <Textarea
+                id="customerAddress"
+                placeholder="Enter address"
+                value={newCustomer.address}
+                onChange={(e) => setNewCustomer({ ...newCustomer, address: e.target.value })}
+                rows={3}
+              />
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsAddDialogOpen(false);
+                setNewCustomer({
+                  name: "",
+                  phone: "",
+                  email: "",
+                  address: ""
+                });
+              }}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddCustomer}
+              disabled={isSubmitting || !newCustomer.name.trim() || !newCustomer.phone.trim()}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {isSubmitting ? (
+                <>
+                  <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Adding...
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Customer
+                </>
+              )}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

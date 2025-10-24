@@ -113,6 +113,16 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
         const branchesData = Array.isArray(response.data) ? response.data : response.data.branches;
         setAllBranches(branchesData || []);
         console.log('🏢 Loaded branches:', branchesData?.length || 0);
+
+        // If admin/superadmin has exactly one branch and none selected yet, auto-select it
+        if ((user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') && branchesData?.length === 1 && !selectedBranchId) {
+          const onlyBranchId = branchesData[0].id;
+          setSelectedBranchId(onlyBranchId);
+          if (user) {
+            localStorage.setItem(`selected_branch_${user.id}`, onlyBranchId);
+          }
+          console.log('🏢 Auto-selected the only available branch for admin:', onlyBranchId);
+        }
       } else {
         setError('Failed to load branches');
       }
@@ -122,7 +132,7 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user, selectedBranchId, setSelectedBranchId]);
 
   // Memoize the context getter function
   const contextGetter = useCallback(() => ({
@@ -164,18 +174,31 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
       if (companyId) {
         localStorage.setItem(`selected_company_${user.id}`, companyId);
         console.log('🏢 Saved selected company:', companyId);
+
+        // Auto-select the first branch of the selected company
+        const companyBranches = allBranches.filter(branch => branch.companyId === companyId);
+        if (companyBranches.length > 0) {
+          const firstBranchId = companyBranches[0].id;
+          setSelectedBranchId(firstBranchId);
+          localStorage.setItem(`selected_branch_${user.id}`, firstBranchId);
+          console.log('🏢 Auto-selected first branch of company:', firstBranchId);
+        } else {
+          // No branches for this company, clear branch selection
+          setSelectedBranchId(null);
+          localStorage.removeItem(`selected_branch_${user.id}`);
+          console.log('🏢 No branches found for selected company, cleared branch selection');
+        }
       } else {
         localStorage.removeItem(`selected_company_${user.id}`);
         console.log('🏢 Cleared selected company');
+
+        // Clear branch selection when company is cleared
+        setSelectedBranchId(null);
+        localStorage.removeItem(`selected_branch_${user.id}`);
+        console.log('🏢 Cleared selected branch due to company change');
       }
     }
-
-    // Clear branch selection when company changes
-    setSelectedBranchId(null);
-    if (user) {
-      localStorage.removeItem(`selected_branch_${user.id}`);
-    }
-  }, [user]);
+  }, [user, allBranches]);
 
   // Save branch selection to localStorage
   const handleSetSelectedBranchId = useCallback((branchId: string | null) => {

@@ -68,7 +68,7 @@ interface Product {
   sku: string;
   barcode?: string;
   unitType: string;
-  sellingPrice: number;
+  price: number; // Price from batch data
 }
 
 interface Supplier {
@@ -255,7 +255,7 @@ const Purchases = () => {
       setNewItem(prev => ({
         ...prev,
         productId,
-        unitPrice: product.sellingPrice * 0.8, // Default to 80% of selling price
+        unitPrice: (product.price || 0) * 0.8, // Default to 80% of current price from batch
       }));
     }
   };
@@ -665,7 +665,11 @@ const Purchases = () => {
                     </SelectTrigger>
                     <SelectContent>
                       {products.map(product => (
-                        <SelectItem key={product.id} value={product.id}>
+                        <SelectItem
+                          key={product.id}
+                          value={product.id}
+                          className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                        >
                           {product.name} ({product.sku})
                         </SelectItem>
                       ))}
