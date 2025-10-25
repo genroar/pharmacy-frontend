@@ -6,13 +6,11 @@ import {
   Users,
   ShoppingCart,
   FileText,
-  Settings,
   UserCog,
   Pill,
   Receipt,
   BarChart3,
   Building2,
-  CreditCard,
   Clock,
   LogOut,
   ChevronLeft,
@@ -67,13 +65,6 @@ const navigationItems: NavItem[] = [
       { name: 'Order Purchase', href: '/order-purchase', icon: ShoppingCart, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] }
     ]
   },
-  { name: 'Customers', href: '/customers', icon: Users, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
-
-  // Reports - Available to Manager, Admin, SuperAdmin
-  { name: 'Reports', href: '/reports', icon: BarChart3, roles: ['MANAGER', 'ADMIN', 'SUPERADMIN'] },
-
-  // Prescriptions - Available to Admin, SuperAdmin
-  { name: 'Prescriptions', href: '/prescriptions', icon: Pill, roles: ['ADMIN', 'SUPERADMIN'] },
 
   // Management Dropdown - Available to Admin, SuperAdmin
   {
@@ -83,15 +74,16 @@ const navigationItems: NavItem[] = [
     children: [
       { name: 'User Management', href: '/admin/users', icon: UserCog, roles: ['ADMIN', 'SUPERADMIN'] },
       { name: 'Branch Management', href: '/admin/branches', icon: Building2, roles: ['ADMIN', 'SUPERADMIN'] },
-      { name: 'Shift Management', href: '/admin/shifts', icon: Clock, roles: ['MANAGER', 'ADMIN', 'SUPERADMIN', 'CASHIER'] }
     ]
   },
 
-  // Subscription - Available to Manager, Admin, SuperAdmin
-  { name: 'Subscription', href: '/admin/subscription', icon: CreditCard, roles: ['MANAGER', 'ADMIN', 'SUPERADMIN'] },
+  { name: 'Customers', href: '/customers', icon: Users, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
 
-  // Settings - Available to Admin, SuperAdmin
-  { name: 'Settings', href: '/settings', icon: Settings, roles: ['ADMIN', 'SUPERADMIN'] }
+   // Reports - Available to Manager, Admin, SuperAdmin
+   { name: 'Reports', href: '/reports', icon: BarChart3, roles: ['MANAGER', 'ADMIN', 'SUPERADMIN'] },
+
+
+
 ];
 
 const DropdownNavItem: React.FC<{ item: NavItem; isCollapsed: boolean }> = React.memo(({ item, isCollapsed }) => {

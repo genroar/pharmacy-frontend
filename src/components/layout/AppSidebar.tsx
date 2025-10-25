@@ -19,7 +19,6 @@ import {
   Package,
   Users,
   TrendingUp,
-  Settings,
   Stethoscope,
   Wifi,
   WifiOff,
@@ -84,9 +83,6 @@ const AppSidebar = () => {
     { title: "Employee Management", url: "/admin/employees", icon: UserCheck },
     { title: "Company Management", url: "/admin/companies", icon: Building2 },
     { title: "Branch Management", url: "/admin/branches", icon: Building2 },
-    { title: "Shift Management", url: "/admin/shifts", icon: Clock },
-    { title: "Subscription", url: "/admin/subscription", icon: CreditCard },
-    { title: "Settings", url: "/settings", icon: Settings },
   ];
 
   // SuperAdmin items - full access to all tabs
@@ -106,7 +102,6 @@ const AppSidebar = () => {
     { title: "Branch Management", url: "/admin/branches", icon: Building2 },
     { title: "Admin Payment", url: "/superadmin/payments", icon: CreditCard },
     { title: "Admin Management", url: "/superadmin/admins", icon: UserCog },
-    { title: "Settings", url: "/settings", icon: Settings },
   ];
 
   // Get menu items based on role
@@ -123,7 +118,6 @@ const AppSidebar = () => {
   };
 
   const managementItems = [
-    { title: "Settings", url: "/settings", icon: Settings },
   ];
 
   // Check if a route is active

@@ -39,14 +39,12 @@ import { RoleBasedSidebar } from "./components/layout/RoleBasedSidebar";
 import Refunds from "./components/pos/Refunds";
 import Invoices from "./components/pos/Invoices";
 import EmployeeCheckIn from "./components/pos/EmployeeCheckIn";
-import ShiftManagement from "./components/pos/ShiftManagement";
 import PerformanceTracking from "./components/pos/PerformanceTracking";
 import InventoryTransfers from "./components/inventory/InventoryTransfers";
 import CommissionTracking from "./components/pos/CommissionTracking";
 import AdminPayments from "./components/superadmin/AdminPayments";
 import AdminManagement from "./components/superadmin/AdminManagement";
 import SubscriptionManagement from "./components/admin/SubscriptionManagement";
-import AdminShiftManagement from "./components/admin/ShiftManagement";
 import OrderPurchase from "./components/admin/OrderPurchase";
 import ZapeeraDashboard from "./components/dashboard/ZapeeraDashboard";
 import BusinessTypeGuard from "./components/auth/BusinessTypeGuard";
@@ -182,15 +180,6 @@ const AppRoutes = () => {
             <BusinessTypeGuard>
               <MainLayout>
                 <EmployeeCheckIn />
-              </MainLayout>
-            </BusinessTypeGuard>
-          </AuthStatus>
-        } />
-        <Route path="/shifts" element={
-          <AuthStatus>
-            <BusinessTypeGuard>
-              <MainLayout>
-                <ShiftManagement />
               </MainLayout>
             </BusinessTypeGuard>
           </AuthStatus>
@@ -497,17 +486,6 @@ const AppRoutes = () => {
               <RoleProtectedRoute allowedRoles={['ADMIN']}>
                 <MainLayout>
                   <SubscriptionManagement />
-                </MainLayout>
-              </RoleProtectedRoute>
-            </BusinessTypeGuard>
-          </AuthStatus>
-        } />
-        <Route path="/admin/shifts" element={
-          <AuthStatus>
-            <BusinessTypeGuard>
-              <RoleProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'CASHIER']}>
-                <MainLayout>
-                  <AdminShiftManagement />
                 </MainLayout>
               </RoleProtectedRoute>
             </BusinessTypeGuard>

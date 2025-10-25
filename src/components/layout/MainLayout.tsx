@@ -84,7 +84,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                   )
                 )}
                 <Button
-                  onClick={() => navigate('/pos?openInvoice=true')}
+                  onClick={() => navigate('/create-invoice')}
                   className="bg-[#0C2C8A] hover:bg-[#0a2470] text-white px-4 py-1.5 rounded-md font-medium text-sm shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-2"
                 >
                   <ShoppingCart className="w-4 h-4" />

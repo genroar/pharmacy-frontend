@@ -675,6 +675,7 @@ const Suppliers = () => {
 
           <div className="flex justify-end space-x-2 pt-4">
             <Button
+          
               variant="outline"
               onClick={() => {
                 setShowAddDialog(false);

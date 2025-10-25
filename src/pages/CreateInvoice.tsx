@@ -20,6 +20,7 @@ import {
   Mail
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAdmin } from "@/contexts/AdminContext";
 import { apiService } from "@/services/api";
 import { toast } from "@/hooks/use-toast";
 
@@ -69,6 +70,7 @@ interface Receipt {
 const CreateInvoice = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { selectedBranchId, selectedBranch } = useAdmin();
 
   // State management
   const [products, setProducts] = useState<Product[]>([]);
@@ -109,7 +111,30 @@ const CreateInvoice = () => {
   const loadProducts = async () => {
     try {
       setIsLoading(true);
-      const response = await apiService.getProducts();
+
+      // Determine which branch to load products from
+      let branchId: string | undefined;
+
+      if (user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') {
+        // Admin users use selected branch
+        if (selectedBranchId) {
+          branchId = selectedBranchId;
+          console.log('Admin selected specific branch for products:', selectedBranch?.name);
+        } else {
+          console.log('Admin viewing all branches - loading all products');
+        }
+      } else {
+        // Regular users use their assigned branch
+        branchId = user?.branchId || "default-branch";
+        console.log('Regular user branch for products:', branchId);
+      }
+
+      const params: any = { limit: 1000 };
+      if (branchId) {
+        params.branchId = branchId;
+      }
+
+      const response = await apiService.getProducts(params);
       console.log('Products API response:', response);
 
       if (response.success && response.data && Array.isArray(response.data.products)) {
@@ -257,13 +282,32 @@ const CreateInvoice = () => {
       console.log('Calculated totals:', { subtotal, discountAmount, totalAmount });
 
       // Validate required fields
-      if (!user?.branchId) {
-        toast({
-          title: "Error",
-          description: "Branch ID is required. Please contact support.",
-          variant: "destructive",
-        });
-        return;
+      let branchId: string | undefined;
+
+      if (user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') {
+        // Admin users use selected branch
+        if (selectedBranchId) {
+          branchId = selectedBranchId;
+          console.log('Admin selected specific branch:', selectedBranch?.name);
+        } else {
+          toast({
+            title: "Error",
+            description: "Please select a branch from the admin dashboard first.",
+            variant: "destructive",
+          });
+          return;
+        }
+      } else {
+        // Regular users use their assigned branch
+        branchId = user?.branchId;
+        if (!branchId) {
+          toast({
+            title: "Error",
+            description: "Branch ID is required. Please contact support.",
+            variant: "destructive",
+          });
+          return;
+        }
       }
 
       // Create sale - match API expected format
@@ -276,7 +320,7 @@ const CreateInvoice = () => {
           expiryDate: item.expiry
         })),
         customerId: customerId || undefined, // API expects undefined, not null
-        branchId: user.branchId,
+        branchId: branchId,
         paymentMethod: 'CASH' as const, // API expects uppercase
         discountAmount: discountAmount,
         discountPercentage: discountPercentage || 0,

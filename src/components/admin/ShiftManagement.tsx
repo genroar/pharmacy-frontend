@@ -110,6 +110,7 @@ const ShiftManagement = () => {
       if (shiftsResponse.success && shiftsResponse.data) {
         // Ensure data is an array
         const shiftsData = Array.isArray(shiftsResponse.data) ? shiftsResponse.data : [];
+        console.log('Loaded shifts data:', shiftsData);
         let filteredShifts = shiftsData;
 
         // Filter shifts based on user role and company ownership
@@ -128,6 +129,11 @@ const ShiftManagement = () => {
           filteredShifts = shiftsData.filter(shift =>
             managerBranchIds.includes(shift.branchId)
           );
+
+          // Set branch filter to manager's first branch (they can only manage one branch)
+          if (managerBranchIds.length > 0) {
+            setBranchFilter(managerBranchIds[0]);
+          }
         } else if (user?.role === 'CASHIER') {
           // CASHIER can only see shifts they are assigned to
           filteredShifts = shiftsData.filter(shift =>
@@ -135,8 +141,10 @@ const ShiftManagement = () => {
           );
         }
 
+        console.log('Filtered shifts for display:', filteredShifts);
         setShifts(filteredShifts);
       } else {
+        console.log('No shifts data or error in response:', shiftsResponse);
         // If no data or error, set empty array
         setShifts([]);
       }
@@ -162,8 +170,74 @@ const ShiftManagement = () => {
     }
   }, [toast]);
 
+  // Auto-set branch ID for managers when create dialog opens
+  useEffect(() => {
+    if (isCreateOpen && user?.role === 'MANAGER' && branches.length > 0) {
+      console.log('Setting branch for manager:', user.id);
+      console.log('Available branches:', branches);
+
+      // Try to find branch by managerId
+      let managerBranch = branches.find(b => b.managerId === user.id);
+
+      // If not found, try alternative field names
+      if (!managerBranch) {
+        managerBranch = branches.find(b => b.manager === user.id);
+      }
+      if (!managerBranch) {
+        managerBranch = branches.find(b => b.managerId === user.id);
+      }
+
+      // If still not found, use the first available branch
+      if (!managerBranch && branches.length > 0) {
+        managerBranch = branches[0];
+        console.log('Using first available branch:', managerBranch);
+      }
+
+      if (managerBranch && newShift.branchId !== managerBranch.id) {
+        console.log('Setting branch ID to:', managerBranch.id);
+        setNewShift(prev => ({ ...prev, branchId: managerBranch.id }));
+      }
+    }
+  }, [isCreateOpen, user?.role, user?.id, branches, newShift.branchId]);
+
   const handleCreateShift = async () => {
-    if (!newShift.name || !newShift.startTime || !newShift.endTime || !newShift.date || !newShift.branchId) {
+    // For managers, automatically set the branch ID
+    let shiftData = { ...newShift };
+    if (user?.role === 'MANAGER') {
+      console.log('User ID:', user.id);
+      console.log('Branches:', branches);
+
+      // Try to find branch by managerId
+      let managerBranch = branches.find(b => b.managerId === user.id);
+      console.log('Manager branch found by managerId:', managerBranch);
+
+      // If not found, try alternative field names
+      if (!managerBranch) {
+        managerBranch = branches.find(b => b.manager === user.id);
+      }
+
+      // If still not found, use the first available branch
+      if (!managerBranch && branches.length > 0) {
+        managerBranch = branches[0];
+        console.log('Using first available branch for manager:', managerBranch);
+      }
+
+      if (managerBranch) {
+        shiftData.branchId = managerBranch.id;
+        console.log('Set branch ID to:', managerBranch.id);
+      }
+    }
+
+    console.log('Shift data before validation:', shiftData);
+    console.log('Required fields check:', {
+      name: shiftData.name,
+      startTime: shiftData.startTime,
+      endTime: shiftData.endTime,
+      date: shiftData.date,
+      branchId: shiftData.branchId
+    });
+
+    if (!shiftData.name || !shiftData.startTime || !shiftData.endTime || !shiftData.date || !shiftData.branchId) {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
@@ -172,12 +246,36 @@ const ShiftManagement = () => {
       return;
     }
 
-    try {
-      const response = await apiService.createShift({
-        ...newShift,
-        maxUsers: 1,
-        assignedUserIds: []
+    // Validate that end time is after start time
+    const startTime = new Date(`2000-01-01T${shiftData.startTime}`);
+    const endTime = new Date(`2000-01-01T${shiftData.endTime}`);
+
+    if (endTime <= startTime) {
+      toast({
+        title: "Error",
+        description: "End time must be after start time",
+        variant: "destructive",
       });
+      return;
+    }
+
+    try {
+      const shiftPayload = {
+        name: shiftData.name,
+        startTime: shiftData.startTime,
+        endTime: shiftData.endTime,
+        date: shiftData.date,
+        branchId: shiftData.branchId,
+        notes: shiftData.notes || ""
+      };
+
+      console.log('Creating shift with payload:', shiftPayload);
+      console.log('API Service createShift method exists:', typeof apiService.createShift);
+
+      const response = await apiService.createShift(shiftPayload);
+
+      console.log('API Response:', response);
+
       if (response.success) {
         toast({
           title: "Success",
@@ -194,6 +292,7 @@ const ShiftManagement = () => {
         });
         loadData();
       } else {
+        console.error('API Error Response:', response);
         toast({
           title: "Error",
           description: response.message || "Failed to create shift",
@@ -215,6 +314,19 @@ const ShiftManagement = () => {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate that end time is after start time
+    const startTime = new Date(`2000-01-01T${editShift.startTime}`);
+    const endTime = new Date(`2000-01-01T${editShift.endTime}`);
+
+    if (endTime <= startTime) {
+      toast({
+        title: "Error",
+        description: "End time must be after start time",
         variant: "destructive",
       });
       return;
@@ -402,21 +514,42 @@ const ShiftManagement = () => {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="branch">Branch *</Label>
-                  <Select value={newShift.branchId} onValueChange={(value) => setNewShift({ ...newShift, branchId: value })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select branch" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {branches.map((branch) => (
-                        <SelectItem key={branch.id} value={branch.id}>
-                          {branch.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {/* Branch selection - only show for ADMIN and SUPERADMIN */}
+                {(user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') && (
+                  <div className="space-y-2">
+                    <Label htmlFor="branch">Branch *</Label>
+                    <Select value={newShift.branchId} onValueChange={(value) => setNewShift({ ...newShift, branchId: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select branch" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {branches.map((branch) => (
+                          <SelectItem key={branch.id} value={branch.id}>
+                            {branch.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* For MANAGER - show current branch info */}
+                {user?.role === 'MANAGER' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="branch">Branch</Label>
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                      <div className="flex items-center space-x-2">
+                        <MapPin className="w-4 h-4 text-blue-600" />
+                        <span className="text-sm font-medium text-blue-900">
+                          {branches.find(b => b.managerId === user.id)?.name || 'Your Branch'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-blue-600 mt-1">
+                        Shifts will be created for your assigned branch
+                      </p>
+                    </div>
+                  </div>
+                )}
 
 
                 <div className="space-y-2">
@@ -434,7 +567,7 @@ const ShiftManagement = () => {
                 <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleCreateShift}>
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all duration-200" onClick={handleCreateShift}>
                   Create Shift
                 </Button>
               </DialogFooter>
@@ -468,19 +601,22 @@ const ShiftManagement = () => {
             <SelectItem value="cancelled">Cancelled</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={branchFilter} onValueChange={setBranchFilter}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Filter by branch" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Branches</SelectItem>
-            {branches.map((branch) => (
-              <SelectItem key={branch.id} value={branch.id}>
-                {branch.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* Only show branch filter for ADMIN and SUPERADMIN */}
+        {(user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') && (
+          <Select value={branchFilter} onValueChange={setBranchFilter}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Filter by branch" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Branches</SelectItem>
+              {branches.map((branch) => (
+                <SelectItem key={branch.id} value={branch.id}>
+                  {branch.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {/* Shifts List */}
@@ -641,21 +777,42 @@ const ShiftManagement = () => {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="editBranch">Branch *</Label>
-              <Select value={editShift.branchId} onValueChange={(value) => setEditShift({ ...editShift, branchId: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select branch" />
-                </SelectTrigger>
-                <SelectContent>
-                  {branches.map((branch) => (
-                    <SelectItem key={branch.id} value={branch.id}>
-                      {branch.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Branch selection - only show for ADMIN and SUPERADMIN */}
+            {(user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') && (
+              <div className="space-y-2">
+                <Label htmlFor="editBranch">Branch *</Label>
+                <Select value={editShift.branchId} onValueChange={(value) => setEditShift({ ...editShift, branchId: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select branch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {branches.map((branch) => (
+                      <SelectItem key={branch.id} value={branch.id}>
+                        {branch.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* For MANAGER - show current branch info */}
+            {user?.role === 'MANAGER' && (
+              <div className="space-y-2">
+                <Label htmlFor="editBranch">Branch</Label>
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                  <div className="flex items-center space-x-2">
+                    <MapPin className="w-4 h-4 text-blue-600" />
+                    <span className="text-sm font-medium text-blue-900">
+                      {branches.find(b => b.managerId === user.id)?.name || 'Your Branch'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-blue-600 mt-1">
+                    This shift belongs to your assigned branch
+                  </p>
+                </div>
+              </div>
+            )}
 
 
             <div className="space-y-2">

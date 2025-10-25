@@ -395,18 +395,10 @@ const CompanyManagement = () => {
                   </p>
                 </div>
               </div>
-              {user?.role === 'ADMIN' && (
-                <div className="flex items-center space-x-2 bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  <p className="text-sm text-blue-700 font-medium">
-                    📋 You can only see companies you created
-                  </p>
-                </div>
-              )}
             </div>
-            <div className="flex flex-col items-end space-y-3">
-              <div className="text-right">
-                <p className="text-sm text-gray-500">Total Companies</p>
+            <div className="flex  items-end gap-[20px] space-y-3">
+              <div className="text-right flex  items-center gap-[10px] ">
+                <p className="text-sm text-gray-500">Total Companies :</p>
                 <p className="text-2xl font-bold text-gray-900">{companies.length}</p>
               </div>
               <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
@@ -511,7 +503,7 @@ const CompanyManagement = () => {
             <p className="text-gray-600 mb-4">Get started by creating your first company</p>
             <Button onClick={openCreateDialog} className="bg-blue-600 hover:bg-blue-700">
               <Plus className="w-4 h-4 mr-2" />
-              Create Your First Company
+              Create Your First Business
             </Button>
           </CardContent>
         </Card>
@@ -520,7 +512,7 @@ const CompanyManagement = () => {
           <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
             <CardTitle className="flex items-center space-x-2">
               <Building2 className="w-5 h-5 text-blue-600" />
-              <span>Companies Overview</span>
+              <span>Businesses Overview</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -528,12 +520,10 @@ const CompanyManagement = () => {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gray-50">
-                    <TableHead className="font-semibold text-gray-900">Company</TableHead>
+                    <TableHead className="font-semibold text-gray-900">Business</TableHead>
                     <TableHead className="font-semibold text-gray-900">Contact</TableHead>
                     <TableHead className="font-semibold text-gray-900">Branches</TableHead>
                     <TableHead className="font-semibold text-gray-900">Users</TableHead>
-                    <TableHead className="font-semibold text-gray-900">Products</TableHead>
-                    <TableHead className="font-semibold text-gray-900">Owner</TableHead>
                     <TableHead className="font-semibold text-gray-900">Created</TableHead>
                     <TableHead className="font-semibold text-gray-900 text-center">Actions</TableHead>
                   </TableRow>
@@ -588,22 +578,6 @@ const CompanyManagement = () => {
                         <div className="flex items-center space-x-2">
                           <Users className="w-4 h-4 text-blue-600" />
                           <span className="font-semibold text-blue-700">{company._count.users}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-4">
-                        <div className="flex items-center space-x-2">
-                          <Package className="w-4 h-4 text-purple-600" />
-                          <span className="font-semibold text-purple-700">{company._count.products}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-4">
-                        <div className="space-y-1">
-                          <p className="font-medium text-gray-900">
-                            {company.createdByUser?.name || 'Unknown Admin'}
-                          </p>
-                          {company.createdByUser && (
-                            <p className="text-xs text-gray-500">{company.createdByUser.role}</p>
-                          )}
                         </div>
                       </TableCell>
                       <TableCell className="py-4">

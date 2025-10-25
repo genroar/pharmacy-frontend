@@ -737,15 +737,6 @@ const Settings = () => {
               )}
             </div>
 
-            <div className="space-y-3">
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={handleUpdateProfilePicture}
-              >
-                Update Profile Picture
-              </Button>
-            </div>
           </CardContent>
         </Card>
       </div>
@@ -904,7 +895,7 @@ const Settings = () => {
         </Card>
 
         {/* Security & Notifications */}
-        <Card className="shadow-soft border-0">
+        {/* <Card className="shadow-soft border-0">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <Shield className="w-5 h-5 text-[#0C2C8A]" />
@@ -913,18 +904,6 @@ const Settings = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="require-pin">Require PIN for transactions</Label>
-                  <p className="text-xs text-muted-foreground">Extra security for sales</p>
-                </div>
-                <Switch
-                  id="require-pin"
-                  checked={settings.security.requirePin}
-                  onCheckedChange={(checked) => handleSettingChange('security', 'requirePin', checked)}
-                />
-              </div>
-
               <div className="flex items-center justify-between">
                 <div>
                   <Label htmlFor="encrypt-data">Encrypt local data</Label>
@@ -971,7 +950,7 @@ const Settings = () => {
               </div>
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
       </div>
 
 

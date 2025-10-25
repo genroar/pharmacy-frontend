@@ -26,7 +26,11 @@ import {
   Plus,
   RefreshCw,
   Undo2,
-  Receipt
+  Receipt,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  Target
 } from "lucide-react";
 import { apiService } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -63,6 +67,7 @@ const ManagerDashboard = () => {
   const [nearExpiryBatches, setNearExpiryBatches] = useState<any[]>([]);
   const [expiredBatches, setExpiredBatches] = useState<any[]>([]);
   const [showAllExpiryAlerts, setShowAllExpiryAlerts] = useState(false);
+  const [isExpiryAlertsExpanded, setIsExpiryAlertsExpanded] = useState(false);
 
   // Load dashboard data
   const loadDashboardData = useCallback(async () => {
@@ -301,204 +306,257 @@ const ManagerDashboard = () => {
 
   return (
     <div>
-    <div className="min-h-screen bg-[#f8f9fa] p-6">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Manager Dashboard</h1>
-          <p className="text-muted-foreground text-sm mt-[5px]">
-            Welcome back, {user?.name || 'Manager'} • {selectedBranch?.name || 'Branch Management'}
-          </p>
-        </div>
+      <div className="min- bg-[#f8f9fa] p-6">
+        {/* Header */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Manager Dashboard</h1>
+            <p className="text-muted-foreground text-sm mt-[5px]">
+              Welcome back, {user?.name || 'Manager'} • {selectedBranch?.name || 'Branch Management'}
+            </p>
+          </div>
 
-        {/* Date and Time Display with Digital Clock */}
-        <div className="flex items-center space-x-4">
-          {/* Date and Time Text */}
+          {/* Date and Time Display with Digital Clock */}
+          <div className="flex items-center space-x-4">
+            {/* Date and Time Text */}
 
 
-          {/* Digital Time Display */}
-          <div className="text-center">
-            <div className="text-2xl font-bold text-[#0c2c8a]">
-              {currentDateTime.toLocaleTimeString('en-US', {
-                hour12: true,
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit'
-              })}
-            </div>
-            <div className="text-sm text-gray-600">
-              {currentDateTime.toLocaleDateString('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              })}
+            {/* Digital Time Display */}
+            <div className="text-center">
+              <div className="text-2xl font-bold text-[#0c2c8a]">
+                {currentDateTime.toLocaleTimeString('en-US', {
+                  hour12: true,
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit'
+                })}
+              </div>
+              <div className="text-sm text-gray-600">
+                {currentDateTime.toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                })}
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Branch Overview */}
-      <Card className="mb-6 shadow-soft border-0">
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Building2 className="w-5 h-5 text-[#0c2c8a]" />
-              <span>Branch Overview</span>
-            </div>
-            <Badge variant="outline" className="text-xs">
-              {selectedBranch?.name || 'No Branch Assigned'}
-            </Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            {[
-              { title: "Total Revenue", value: formatCurrency(realRevenue), icon: DollarSign, trendValue: "+12.5%" },
-              { title: "Total Sales", value: realSalesData.length.toString(), icon: ShoppingCart, trendValue: "+8.2%" },
-              { title: "Total Products", value: realProductsCount.toString(), icon: Package, trendValue: "+5.1%" },
-              { title: "Total Users", value: realUsersCount.toString(), icon: Users, trendValue: "+15.3%" },
-              { title: "Total Refunds", value: realRefundsCount.toString(), icon: Undo2, trendValue: "+2.0%" }
-            ].map((stat, index) => {
-              const IconComponent = stat.icon;
-              const isActive = activeStatTab === index;
+        {/* Branch Overview */}
+        <Card className="mb-6 shadow-soft border-0">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Building2 className="w-5 h-5 text-[#0c2c8a]" />
+                <span>Branch Overview</span>
+              </div>
+              <Badge variant="outline" className="text-xs">
+                {selectedBranch?.name || 'No Branch Assigned'}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              {[
+                { title: "Total Revenue", value: formatCurrency(realRevenue), icon: DollarSign, trendValue: "+12.5%" },
+                { title: "Total Sales", value: realSalesData.length.toString(), icon: ShoppingCart, trendValue: "+8.2%" },
+                { title: "Total Products", value: realProductsCount.toString(), icon: Package, trendValue: "+5.1%" },
+                { title: "Total Refunds", value: realRefundsCount.toString(), icon: Undo2, trendValue: "+2.0%" }
+              ].map((stat, index) => {
+                const IconComponent = stat.icon;
+                const isActive = activeStatTab === index;
 
-              return (
-                <Card
-                  key={index}
-                  className="bg-white border border-[#0c2c8a] shadow-md"
-                  onClick={() => {}} // No click action - only first card stays active
-                >
-                  <CardContent className="p-6">
-                    <div>
-                      <h3 className="text-sm font-medium mb-2 text-gray-600">
-                        {stat.title}
-                      </h3>
-                      <p className="text-2xl font-bold mb-3 text-gray-900">
-                        {stat.value}
-                      </p>
+                return (
+                  <Card
+                    key={index}
+                    className="bg-white border border-[#0c2c8a] shadow-md"
+                    onClick={() => { }} // No click action - only first card stays active
+                  >
+                    <CardContent className="p-6">
+                      <div>
+                        <h3 className="text-sm font-medium mb-2 text-gray-600">
+                          {stat.title}
+                        </h3>
+                        <p className="text-2xl font-bold mb-3 text-gray-900">
+                          {stat.value}
+                        </p>
 
-                      <div className="flex items-center space-x-2">
-                        <TrendingUp className="w-4 h-4 text-[#0c2c8a]" />
-                        <span className="text-sm font-medium text-[#0c2c8a]">
-                          {stat.trendValue}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          vs last month
-                        </span>
+                        <div className="flex items-center space-x-2">
+                          <TrendingUp className="w-4 h-4 text-[#0c2c8a]" />
+                          <span className="text-sm font-medium text-[#0c2c8a]">
+                            {stat.trendValue}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            vs last month
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Expiry Alerts Section */}
-      <div className="mb-6 space-y-4">
-        <div className="flex items-center justify-between">
+        {/* Expiry Alerts Section */}
+        <div className="mb-6 space-y-4">
+          <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-red-500" />
               Expiry Alerts
+              {(expiredBatches.length > 0 || nearExpiryBatches.length > 0) && (
+                <Badge variant="destructive" className="ml-2 bg-red-500 bg-opacity-15 border-[1px] border-red-500 text-red-500">
+                  <span className="text-red-500">
+                    {expiredBatches.length + nearExpiryBatches.length}
+                  </span>
+                </Badge>
+              )}
             </h2>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowAllExpiryAlerts(!showAllExpiryAlerts)}
-              className="text-sm"
-            >
-              {showAllExpiryAlerts ? 'Show Less' : 'Show All'}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsExpiryAlertsExpanded(!isExpiryAlertsExpanded)}
+                className="text-sm flex items-center gap-1"
+              >
+                {isExpiryAlertsExpanded ? (
+                  <>
+                    <ChevronUp className="w-4 h-4" />
+                    Collapse
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-4 h-4" />
+                    Expand
+                  </>
+                )}
+              </Button>
+              {isExpiryAlertsExpanded && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAllExpiryAlerts(!showAllExpiryAlerts)}
+                  className="text-sm"
+                >
+                  {showAllExpiryAlerts ? 'Show Less' : 'Show All'}
+                </Button>
+              )}
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Expired Items */}
-            {expiredBatches.length > 0 && (
-              <Card className="border-red-200 bg-red-50">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-red-700 flex items-center gap-2">
-                    <X className="w-4 h-4" />
-                    Expired Items ({expiredBatches.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {(showAllExpiryAlerts ? expiredBatches : expiredBatches.slice(0, 3)).map((batch: any, index: number) => (
-                    <div key={index} className="p-3 bg-red-100 rounded-lg border border-red-200">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-red-800">{batch.product?.name || 'Unknown Product'}</p>
-                          <p className="text-sm text-red-600">Batch: {batch.batchNo}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-medium text-red-800">
-                            Expired {Math.ceil((new Date().getTime() - new Date(batch.expireDate).getTime()) / (1000 * 60 * 60 * 24))} days ago
-                          </p>
-                          <p className="text-xs text-red-600">
-                            {new Date(batch.expireDate).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {expiredBatches.length > 3 && !showAllExpiryAlerts && (
-                    <p className="text-sm text-red-600 text-center">
-                      +{expiredBatches.length - 3} more expired items
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Near Expiry Items */}
-            {nearExpiryBatches.length > 0 && (
-              <Card className="border-orange-200 bg-orange-50">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-orange-700 flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    Near Expiry ({nearExpiryBatches.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {(showAllExpiryAlerts ? nearExpiryBatches : nearExpiryBatches.slice(0, 3)).map((batch: any, index: number) => {
-                    const daysUntilExpiry = Math.ceil((new Date(batch.expireDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-                    return (
-                      <div key={index} className="p-3 bg-orange-100 rounded-lg border border-orange-200">
+          {isExpiryAlertsExpanded && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Expired Items */}
+              {expiredBatches.length > 0 && (
+                <Card className="border-red-200 bg-red-50">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-red-700 flex items-center gap-2">
+                      <X className="w-4 h-4" />
+                      Expired Items ({expiredBatches.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {(showAllExpiryAlerts ? expiredBatches : expiredBatches.slice(0, 3)).map((batch: any, index: number) => (
+                      <div key={index} className="p-3 bg-red-100 rounded-lg border border-red-200">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="font-medium text-orange-800">{batch.product?.name || 'Unknown Product'}</p>
-                            <p className="text-sm text-orange-600">Batch: {batch.batchNo}</p>
+                            <p className="font-medium text-red-800">{batch.product?.name || 'Unknown Product'}</p>
+                            <p className="text-sm text-red-600">Batch: {batch.batchNo}</p>
                           </div>
                           <div className="text-right">
-                            <p className="text-sm font-medium text-orange-800">
-                              {daysUntilExpiry > 0 ? `${daysUntilExpiry} days left` : 'Expires today'}
+                            <p className="text-sm font-medium text-red-800">
+                              Expired {Math.ceil((new Date().getTime() - new Date(batch.expireDate).getTime()) / (1000 * 60 * 60 * 24))} days ago
                             </p>
-                            <p className="text-xs text-orange-600">
+                            <p className="text-xs text-red-600">
                               {new Date(batch.expireDate).toLocaleDateString()}
                             </p>
                           </div>
                         </div>
                       </div>
-                    );
-                  })}
-                  {nearExpiryBatches.length > 3 && !showAllExpiryAlerts && (
-                    <p className="text-sm text-orange-600 text-center">
-                      +{nearExpiryBatches.length - 3} more near expiry items
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-          </div>
+                    ))}
+                    {expiredBatches.length > 3 && !showAllExpiryAlerts && (
+                      <p className="text-sm text-red-600 text-center">
+                        +{expiredBatches.length - 3} more expired items
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Near Expiry Items */}
+              {nearExpiryBatches.length > 0 && (
+                <Card className="border-orange-200 bg-orange-50">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-orange-700 flex items-center gap-2">
+                      <Clock className="w-4 h-4" />
+                      Near Expiry ({nearExpiryBatches.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {(showAllExpiryAlerts ? nearExpiryBatches : nearExpiryBatches.slice(0, 3)).map((batch: any, index: number) => {
+                      const daysUntilExpiry = Math.ceil((new Date(batch.expireDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                      return (
+                        <div key={index} className="p-3 bg-orange-100 rounded-lg border border-orange-200">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium text-orange-800">{batch.product?.name || 'Unknown Product'}</p>
+                              <p className="text-sm text-orange-600">Batch: {batch.batchNo}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-medium text-orange-800">
+                                {daysUntilExpiry > 0 ? `${daysUntilExpiry} days left` : 'Expires today'}
+                              </p>
+                              <p className="text-xs text-orange-600">
+                                {new Date(batch.expireDate).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {nearExpiryBatches.length > 3 && !showAllExpiryAlerts && (
+                      <p className="text-sm text-orange-600 text-center">
+                        +{nearExpiryBatches.length - 3} more near expiry items
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
 
           {/* No Alerts Message */}
-          {expiredBatches.length === 0 && nearExpiryBatches.length === 0 && (
+          {isExpiryAlertsExpanded && expiredBatches.length === 0 && nearExpiryBatches.length === 0 && (
             <div className="text-center py-4">
               <div className="flex flex-col items-center space-y-1">
                 <CheckCircle className="w-8 h-8 text-green-500" />
                 <p className="text-base font-medium text-gray-700">No Expiry Alerts</p>
                 <p className="text-xs text-gray-500">All products are within their expiry dates</p>
+              </div>
+            </div>
+          )}
+
+          {/* Collapsed Summary */}
+          {!isExpiryAlertsExpanded && (expiredBatches.length > 0 || nearExpiryBatches.length > 0) && (
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  {expiredBatches.length > 0 && (
+                    <div className="flex items-center gap-2 text-red-600">
+                      <X className="w-4 h-4" />
+                      <span className="font-medium">{expiredBatches.length} Expired</span>
+                    </div>
+                  )}
+                  {nearExpiryBatches.length > 0 && (
+                    <div className="flex items-center gap-2 text-orange-600">
+                      <Clock className="w-4 h-4" />
+                      <span className="font-medium">{nearExpiryBatches.length} Near Expiry</span>
+                    </div>
+                  )}
+                </div>
+                <p className="text-sm text-gray-500">Click Expand to view details</p>
               </div>
             </div>
           )}

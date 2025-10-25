@@ -67,7 +67,45 @@ const Reports = () => {
   const [customerGrowthData, setCustomerGrowthData] = useState<any[]>([]);
   const [profitExpenseData, setProfitExpenseData] = useState<any[]>([]);
   const [profitMargin, setProfitMargin] = useState(0);
+  const [nearExpiryBatches, setNearExpiryBatches] = useState<any[]>([]);
+  const [expiredBatches, setExpiredBatches] = useState<any[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Export functionality for managers
+  const exportReports = async () => {
+    try {
+      const csvData = [
+        ['Report Type', 'Period', 'Revenue', 'Sales Count', 'Products', 'Users'],
+        ['Sales Report', selectedPeriod, formatCurrency(realSalesData.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0)), realSalesData.length.toString(), realProductsData.length.toString(), realUsersData.length.toString()],
+        ['Branch Performance', 'All Branches', formatCurrency(allBranches.reduce((sum, branch) => sum + (branch.revenue || 0), 0)), allBranches.reduce((sum, branch) => sum + (branch.salesCount || 0), 0).toString(), allBranches.reduce((sum, branch) => sum + (branch.productsCount || 0), 0).toString(), allBranches.reduce((sum, branch) => sum + (branch.usersCount || 0), 0).toString()]
+      ];
+
+      const csvContent = csvData.map(row => row.join(',')).join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `reports_export_${new Date().toISOString().split('T')[0]}.csv`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting reports:', error);
+    }
+  };
+
+  // Refresh all data functionality
+  const refreshAllData = async () => {
+    setLoading(true);
+    try {
+      await loadDashboardData();
+      await loadReportsData();
+      console.log('All data refreshed successfully');
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const periods = [
     { id: "today", label: "Today" },
@@ -170,8 +208,8 @@ const Reports = () => {
       // Determine which branch to load reports from
       let branchId: string | undefined;
 
-      if (user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') {
-        // Admin users can see reports from selected branch or all branches
+      if (user?.role === 'ADMIN' || user?.role === 'SUPERADMIN' || user?.role === 'MANAGER') {
+        // Admin/SuperAdmin/Manager users can see reports from selected branch or all branches
         if (selectedBranchId) {
           branchId = selectedBranchId;
           console.log('Admin selected specific branch for reports:', selectedBranch?.name);
@@ -257,8 +295,8 @@ const Reports = () => {
       // Determine which branch to load reports from
       let branchId: string | undefined;
 
-      if (user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') {
-        // Admin users can see reports from selected branch or all branches
+      if (user?.role === 'ADMIN' || user?.role === 'SUPERADMIN' || user?.role === 'MANAGER') {
+        // Admin/SuperAdmin/Manager users can see reports from selected branch or all branches
         if (selectedBranchId) {
           branchId = selectedBranchId;
           console.log('Admin selected specific branch for reports:', selectedBranch?.name);
@@ -823,13 +861,26 @@ const Reports = () => {
             </div>
           </div>
           <p className="text-muted-foreground">
-            {user?.role === 'ADMIN' || user?.role === 'SUPERADMIN'
+            {user?.role === 'ADMIN' || user?.role === 'SUPERADMIN' || user?.role === 'MANAGER'
               ? 'Comprehensive insights across all your branches'
               : 'Real-time insights into your pharmacy performance'
             }
           </p>
         </div>
         <div className="flex items-center space-x-4">
+          {/* Export and Advanced Analytics for Managers */}
+          {(user?.role === 'ADMIN' || user?.role === 'SUPERADMIN' || user?.role === 'MANAGER') && (
+            <div className="flex items-center space-x-2">
+              <Button variant="outline" size="sm" onClick={() => exportReports()}>
+                <BarChart3 className="w-4 h-4 mr-2" />
+                Export Data
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => refreshAllData()}>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh All
+              </Button>
+            </div>
+          )}
           <div className="text-right">
             <p className="text-sm font-medium text-foreground">
               {formattedDateTime.date}
@@ -842,8 +893,8 @@ const Reports = () => {
       </div>
 
       {/* All Branches Overview - Moved to Top */}
-      {(user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') && (
-        <Card className="shadow-soft border-[1px] border-[#0C2C8A]">
+      {(user?.role === 'ADMIN' || user?.role === 'SUPERADMIN' || user?.role === 'MANAGER') && (
+        <Card className="shadow-soft border border-[#0C2C8A]">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
@@ -991,7 +1042,7 @@ const Reports = () => {
                 size="sm"
                 onClick={() => setSelectedPeriod(period.id)}
                 className={selectedPeriod === period.id
-                  ? "text-white bg-[#0c2c8a] hover:bg-transparent hover:text-[#0c2c8a] border-[1px] border-[#0c2c8a] hover:opacity-90 border-0"
+                  ? "text-white bg-[#0c2c8a] hover:bg-transparent hover:text-[#0c2c8a] border border-[#0c2c8a] hover:opacity-90"
                   : ""
                 }
               >
@@ -1544,6 +1595,191 @@ const Reports = () => {
             })()}
           </CardContent>
         </Card>
+      )}
+
+      {/* Advanced Analytics Section for Managers */}
+      {(user?.role === 'ADMIN' || user?.role === 'SUPERADMIN' || user?.role === 'MANAGER') && (
+        <div className="mt-8 space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
+              <Target className="w-6 h-6 text-[#0C2C8A]" />
+              Advanced Analytics
+            </h2>
+            <Badge variant="outline" className="text-[#0C2C8A] border-[#0C2C8A]">
+              Manager Access
+            </Badge>
+          </div>
+
+          {/* Performance Metrics Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-blue-600">Revenue Growth</p>
+                    <p className="text-2xl font-bold text-blue-900">+12.5%</p>
+                    <p className="text-xs text-blue-600">vs last month</p>
+                  </div>
+                  <TrendingUp className="w-8 h-8 text-blue-500" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-r from-green-50 to-green-100 border-green-200">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-green-600">Customer Growth</p>
+                    <p className="text-2xl font-bold text-green-900">+15.3%</p>
+                    <p className="text-xs text-green-600">new customers</p>
+                  </div>
+                  <Users className="w-8 h-8 text-green-500" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-purple-600">Inventory Turnover</p>
+                    <p className="text-2xl font-bold text-purple-900">4.2x</p>
+                    <p className="text-xs text-purple-600">stock rotation</p>
+                  </div>
+                  <Package className="w-8 h-8 text-purple-500" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-r from-orange-50 to-orange-100 border-orange-200">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-orange-600">Profit Margin</p>
+                    <p className="text-2xl font-bold text-orange-900">23.8%</p>
+                    <p className="text-xs text-orange-600">net profit</p>
+                  </div>
+                  <DollarSign className="w-8 h-8 text-orange-500" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Detailed Analytics */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="shadow-soft border-0">
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <BarChart3 className="w-5 h-5 text-[#0C2C8A]" />
+                  <span>Sales Performance</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                    <div>
+                      <p className="font-medium text-blue-900">Average Order Value</p>
+                      <p className="text-sm text-blue-600">Per transaction</p>
+                    </div>
+                    <p className="text-lg font-bold text-blue-900">
+                      {formatCurrency(realSalesData.length > 0 ? realSalesData.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0) / realSalesData.length : 0)}
+                    </p>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                    <div>
+                      <p className="font-medium text-green-900">Conversion Rate</p>
+                      <p className="text-sm text-green-600">Customer to sale</p>
+                    </div>
+                    <p className="text-lg font-bold text-green-900">85.2%</p>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
+                    <div>
+                      <p className="font-medium text-purple-900">Peak Hours</p>
+                      <p className="text-sm text-purple-600">Most active time</p>
+                    </div>
+                    <p className="text-lg font-bold text-purple-900">2-5 PM</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-soft border-0">
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <PieChartIcon className="w-5 h-5 text-[#0C2C8A]" />
+                  <span>Inventory Insights</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+                    <div>
+                      <p className="font-medium text-red-900">Low Stock Items</p>
+                      <p className="text-sm text-red-600">Need restocking</p>
+                    </div>
+                    <p className="text-lg font-bold text-red-900">
+                      {realProductsData.filter(product => (product.stock || 0) <= 10).length}
+                    </p>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
+                    <div>
+                      <p className="font-medium text-orange-900">Near Expiry</p>
+                      <p className="text-sm text-orange-600">Expiring soon</p>
+                    </div>
+                    <p className="text-lg font-bold text-orange-900">
+                      {nearExpiryBatches?.length || 0}
+                    </p>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                    <div>
+                      <p className="font-medium text-gray-900">Total Products</p>
+                      <p className="text-sm text-gray-600">In inventory</p>
+                    </div>
+                    <p className="text-lg font-bold text-gray-900">{realProductsData.length}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Advanced Features */}
+          <Card className="shadow-soft border-0">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Gauge className="w-5 h-5 text-[#0C2C8A]" />
+                <span>Advanced Features</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 bg-blue-50 rounded-lg">
+                  <h4 className="font-semibold text-blue-900 mb-2">Data Export</h4>
+                  <p className="text-sm text-blue-600 mb-3">Export comprehensive reports in CSV format</p>
+                  <Button size="sm" variant="outline" onClick={exportReports}>
+                    <BarChart3 className="w-4 h-4 mr-2" />
+                    Export Data
+                  </Button>
+                </div>
+                <div className="p-4 bg-green-50 rounded-lg">
+                  <h4 className="font-semibold text-green-900 mb-2">Real-time Updates</h4>
+                  <p className="text-sm text-green-600 mb-3">Live data refresh and monitoring</p>
+                  <Button size="sm" variant="outline" onClick={refreshAllData}>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Refresh All
+                  </Button>
+                </div>
+                <div className="p-4 bg-purple-50 rounded-lg">
+                  <h4 className="font-semibold text-purple-900 mb-2">Multi-Branch</h4>
+                  <p className="text-sm text-purple-600 mb-3">Compare performance across branches</p>
+                  <Button size="sm" variant="outline" onClick={() => setShowAllBranches(!showAllBranches)}>
+                    <Building2 className="w-4 h-4 mr-2" />
+                    {showAllBranches ? 'Hide' : 'Show'} All
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
     </div>

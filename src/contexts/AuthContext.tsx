@@ -194,7 +194,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         customers: ['manage'],
         commissions: ['read'],
         settings: ['read'],
-        invoices: ['read', 'create', 'update']
+        invoices: ['read', 'create', 'update'],
+        shifts: ['manage'],
+        scheduledShifts: ['manage'],
+        attendance: ['manage']
       },
       CASHIER: {
         sales: ['create', 'read'],
