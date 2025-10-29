@@ -494,118 +494,6 @@ const Dashboard = () => {
           );
         })}
       </div>
-
-      {/* Expiry Alerts Section */}
-      <div className="mb-6 space-y-4">
-        <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-red-500" />
-              Expiry Alerts
-            </h2>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowAllExpiryAlerts(!showAllExpiryAlerts)}
-              className="text-sm"
-            >
-              {showAllExpiryAlerts ? 'Show Less' : 'Show All'}
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Expired Items */}
-            {expiredBatches.length > 0 && (
-              <Card className="border-red-200 bg-red-50">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-red-700 flex items-center gap-2">
-                    <X className="w-4 h-4" />
-                    Expired Items ({expiredBatches.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {(showAllExpiryAlerts ? expiredBatches : expiredBatches.slice(0, 3)).map((batch: any, index: number) => (
-                    <div key={index} className="p-3 bg-red-100 rounded-lg border border-red-200">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-red-800">{batch.product?.name || 'Unknown Product'}</p>
-                          <p className="text-sm text-red-600">Batch: {batch.batchNo}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-medium text-red-800">
-                            Expired {Math.ceil((new Date().getTime() - new Date(batch.expireDate).getTime()) / (1000 * 60 * 60 * 24))} days ago
-                          </p>
-                          <p className="text-xs text-red-600">
-                            {new Date(batch.expireDate).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {expiredBatches.length > 3 && !showAllExpiryAlerts && (
-                    <p className="text-sm text-red-600 text-center">
-                      +{expiredBatches.length - 3} more expired items
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Near Expiry Items */}
-            {nearExpiryBatches.length > 0 && (
-              <Card className="border-orange-200 bg-orange-50">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-orange-700 flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    Near Expiry ({nearExpiryBatches.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {(showAllExpiryAlerts ? nearExpiryBatches : nearExpiryBatches.slice(0, 3)).map((batch: any, index: number) => {
-                    const daysUntilExpiry = Math.ceil((new Date(batch.expireDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-                    return (
-                      <div key={index} className="p-3 bg-orange-100 rounded-lg border border-orange-200">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium text-orange-800">{batch.product?.name || 'Unknown Product'}</p>
-                            <p className="text-sm text-orange-600">Batch: {batch.batchNo}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm font-medium text-orange-800">
-                              {daysUntilExpiry > 0 ? `${daysUntilExpiry} days left` : 'Expires today'}
-                            </p>
-                            <p className="text-xs text-orange-600">
-                              {new Date(batch.expireDate).toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {nearExpiryBatches.length > 3 && !showAllExpiryAlerts && (
-                    <p className="text-sm text-orange-600 text-center">
-                      +{nearExpiryBatches.length - 3} more near expiry items
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* No Alerts Message */}
-          {expiredBatches.length === 0 && nearExpiryBatches.length === 0 && (
-            <div className="text-center py-4">
-              <div className="flex flex-col items-center space-y-1">
-                <CheckCircle className="w-8 h-8 text-green-500" />
-                <p className="text-base font-medium text-gray-700">No Expiry Alerts</p>
-                <p className="text-xs text-gray-500">All products are within their expiry dates</p>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-
-      {/* Cashier: Recent Sales and Quick Actions */}
       {user?.role === 'CASHIER' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Recent Sales */}
@@ -616,13 +504,7 @@ const Dashboard = () => {
                   <Clock className="w-5 h-5 text-blue-600" />
                   <span>Recent Sales</span>
                 </CardTitle>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleViewAllSales}
-                >
-                  View All
-                </Button>
+
               </div>
             </CardHeader>
             <CardContent>
@@ -701,6 +583,10 @@ const Dashboard = () => {
           </Card>
         </div>
       )}
+
+      {/* Expiry Alerts Section */}
+      </div>
+      {/* Cashier: Recent Sales and Quick Actions */}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Admin/Manager: Recent Sales */}
@@ -833,175 +719,177 @@ const Dashboard = () => {
         </Card>
       </div>
 
-      {/* Branches and Users Sections */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* All Branches */}
-        <Card className="shadow-soft border-0">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Building2 className="w-5 h-5 text-primary" />
-                <span>All Branches ({allBranches.length})</span>
+      {/* Branches and Users Sections - Only for Admin/Manager */}
+      {(user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* All Branches */}
+          <Card className="shadow-soft border-0">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Building2 className="w-5 h-5 text-primary" />
+                  <span>All Branches ({allBranches.length})</span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAllBranches(!showAllBranches)}
+                >
+                  {showAllBranches ? 'Show Less' : 'Show All'}
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {(showAllBranches ? allBranches : allBranches.slice(0, 4)).map((branch: any, index: number) => {
+                  const salesData = branchSales[branch.id] || { totalSales: 0, totalAmount: 0 };
+                  return (
+                    <div
+                      key={index}
+                      className="p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                      onClick={() => handleBranchClick(branch)}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
+                            <Building2 className="w-4 h-4 text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground text-sm">{branch.name}</p>
+                            <p className="text-xs text-muted-foreground">{branch.address}</p>
+                          </div>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className={branch.isActive ? "bg-success/10 text-success border-success/20" : "bg-muted/50 text-muted-foreground border-border"}
+                        >
+                          {branch.isActive ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </div>
+                      <div className="text-xs text-muted-foreground flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-4">
+                          <span>📞 {branch.phone}</span>
+                          <span>📧 {branch.email}</span>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-primary font-medium">{salesData.totalSales} sales</p>
+                          <p className="text-primary font-medium">{formatCurrency(salesData.totalAmount)}</p>
+                        </div>
+                      </div>
+                      <div className="text-xs text-primary text-center">
+                        Click for details →
+                      </div>
+                    </div>
+                  );
+                })}
+                {allBranches.length === 0 && (
+                  <p className="text-muted-foreground text-center py-4">No branches found</p>
+                )}
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  size="sm"
+                  onClick={() => window.location.href = '/admin/branches'}
+                >
+                  <Building2 className="w-4 h-4 mr-2" />
+                  Manage Branches
+                </Button>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowAllBranches(!showAllBranches)}
-              >
-                {showAllBranches ? 'Show Less' : 'Show All'}
-              </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {(showAllBranches ? allBranches : allBranches.slice(0, 4)).map((branch: any, index: number) => {
-                const salesData = branchSales[branch.id] || { totalSales: 0, totalAmount: 0 };
-                return (
-                  <div
-                    key={index}
-                    className="p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                    onClick={() => handleBranchClick(branch)}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
-                          <Building2 className="w-4 h-4 text-primary" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-foreground text-sm">{branch.name}</p>
-                          <p className="text-xs text-muted-foreground">{branch.address}</p>
-                        </div>
-                      </div>
-                      <Badge
-                        variant="outline"
-                        className={branch.isActive ? "bg-success/10 text-success border-success/20" : "bg-muted/50 text-muted-foreground border-border"}
-                      >
-                        {branch.isActive ? 'Active' : 'Inactive'}
-                      </Badge>
-                    </div>
-                    <div className="text-xs text-muted-foreground flex items-center justify-between mb-2">
-                      <div className="flex items-center space-x-4">
-                        <span>📞 {branch.phone}</span>
-                        <span>📧 {branch.email}</span>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-primary font-medium">{salesData.totalSales} sales</p>
-                        <p className="text-primary font-medium">{formatCurrency(salesData.totalAmount)}</p>
-                      </div>
-                    </div>
-                    <div className="text-xs text-primary text-center">
-                      Click for details →
-                    </div>
-                  </div>
-                );
-              })}
-              {allBranches.length === 0 && (
-                <p className="text-muted-foreground text-center py-4">No branches found</p>
-              )}
-              <Button
-                variant="outline"
-                className="w-full"
-                size="sm"
-                onClick={() => window.location.href = '/admin/branches'}
-              >
-                <Building2 className="w-4 h-4 mr-2" />
-                Manage Branches
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        {/* All Users */}
-        <Card className="shadow-soft border-0">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Users className="w-5 h-5 text-primary" />
-                <span>All Users ({allUsers.length})</span>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowAllUsers(!showAllUsers)}
-              >
-                {showAllUsers ? 'Show Less' : 'Show All'}
-              </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {(showAllUsers ? allUsers : allUsers.slice(0, 4)).map((user: any, index: number) => {
-                const salesData = userSales[user.id] || { totalSales: 0, totalAmount: 0 };
-                return (
-                  <div
-                    key={index}
-                    className="p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                    onClick={() => handleUserClick(user)}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                          <span className="text-xs font-medium text-primary">
-                            {user.name.split(' ').map((n: string) => n[0]).join('')}
-                          </span>
+          {/* All Users */}
+          <Card className="shadow-soft border-0">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Users className="w-5 h-5 text-primary" />
+                  <span>All Users ({allUsers.length})</span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAllUsers(!showAllUsers)}
+                >
+                  {showAllUsers ? 'Show Less' : 'Show All'}
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {(showAllUsers ? allUsers : allUsers.slice(0, 4)).map((user: any, index: number) => {
+                  const salesData = userSales[user.id] || { totalSales: 0, totalAmount: 0 };
+                  return (
+                    <div
+                      key={index}
+                      className="p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                      onClick={() => handleUserClick(user)}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                            <span className="text-xs font-medium text-primary">
+                              {user.name.split(' ').map((n: string) => n[0]).join('')}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground text-sm">{user.name}</p>
+                            <p className="text-xs text-muted-foreground">@{user.username}</p>
+                          </div>
                         </div>
+                        <div className="flex items-center space-x-2">
+                          <Badge
+                            variant="outline"
+                            className={
+                              user.role === 'SUPERADMIN' ? "bg-red-100 text-red-800 border-red-200" :
+                              user.role === 'ADMIN' ? "bg-orange-100 text-orange-800 border-orange-200" :
+                              user.role === 'MANAGER' ? "bg-blue-100 text-blue-800 border-blue-200" :
+                              "bg-gray-100 text-gray-800 border-gray-200"
+                            }
+                          >
+                            {user.role}
+                          </Badge>
+                          <Badge
+                            variant="outline"
+                            className={user.isActive ? "bg-success/10 text-success border-success/20" : "bg-muted/50 text-muted-foreground border-border"}
+                          >
+                            {user.isActive ? 'Active' : 'Inactive'}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="text-xs text-muted-foreground flex items-center justify-between mb-2">
                         <div>
-                          <p className="font-medium text-foreground text-sm">{user.name}</p>
-                          <p className="text-xs text-muted-foreground">@{user.username}</p>
+                          <p>📧 {user.email}</p>
+                          <p>🏢 {user.branch?.name || 'No Branch'}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-primary font-medium">{salesData.totalSales} sales</p>
+                          <p className="text-primary font-medium">{formatCurrency(salesData.totalAmount)}</p>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <Badge
-                          variant="outline"
-                          className={
-                            user.role === 'SUPERADMIN' ? "bg-red-100 text-red-800 border-red-200" :
-                            user.role === 'ADMIN' ? "bg-orange-100 text-orange-800 border-orange-200" :
-                            user.role === 'MANAGER' ? "bg-blue-100 text-blue-800 border-blue-200" :
-                            "bg-gray-100 text-gray-800 border-gray-200"
-                          }
-                        >
-                          {user.role}
-                        </Badge>
-                        <Badge
-                          variant="outline"
-                          className={user.isActive ? "bg-success/10 text-success border-success/20" : "bg-muted/50 text-muted-foreground border-border"}
-                        >
-                          {user.isActive ? 'Active' : 'Inactive'}
-                        </Badge>
+                      <div className="text-xs text-primary text-center">
+                        Click for details →
                       </div>
                     </div>
-                    <div className="text-xs text-muted-foreground flex items-center justify-between mb-2">
-                      <div>
-                        <p>📧 {user.email}</p>
-                        <p>🏢 {user.branch?.name || 'No Branch'}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-primary font-medium">{salesData.totalSales} sales</p>
-                        <p className="text-primary font-medium">{formatCurrency(salesData.totalAmount)}</p>
-                      </div>
-                    </div>
-                    <div className="text-xs text-primary text-center">
-                      Click for details →
-                    </div>
-                  </div>
-                );
-              })}
-              {allUsers.length === 0 && (
-                <p className="text-muted-foreground text-center py-4">No users found</p>
-              )}
-              <Button
-                variant="outline"
-                className="w-full"
-                size="sm"
-                onClick={() => window.location.href = '/admin/users'}
-              >
-                <UserPlus className="w-4 h-4 mr-2" />
-                Manage Users
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                  );
+                })}
+                {allUsers.length === 0 && (
+                  <p className="text-muted-foreground text-center py-4">No users found</p>
+                )}
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  size="sm"
+                  onClick={() => window.location.href = '/admin/users'}
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Manage Users
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Loading State */}
       {loading && (
