@@ -23,6 +23,10 @@ interface Manufacturer {
   _count: {
     suppliers: number;
   };
+  suppliers?: {
+    id: string;
+    name: string;
+  }[];
 }
 
 const Manufacturers: React.FC = () => {
@@ -34,6 +38,9 @@ const Manufacturers: React.FC = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [viewingManufacturer, setViewingManufacturer] = useState<Manufacturer | null>(null);
+  const [viewManufacturerSuppliers, setViewManufacturerSuppliers] = useState<{ id: string; name: string }[]>([]);
   const [editingManufacturer, setEditingManufacturer] = useState<Manufacturer | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -173,6 +180,25 @@ const Manufacturers: React.FC = () => {
     setIsEditDialogOpen(true);
   };
 
+  const openViewDialog = async (manufacturer: Manufacturer) => {
+    setViewingManufacturer(manufacturer);
+    setIsViewDialogOpen(true);
+
+    // Fetch suppliers for this manufacturer
+    try {
+      const suppliersResponse = await apiService.getSuppliers({ manufacturerId: manufacturer.id });
+      if (suppliersResponse.success && suppliersResponse.data) {
+        const suppliers = Array.isArray(suppliersResponse.data)
+          ? suppliersResponse.data
+          : (suppliersResponse.data.suppliers || []);
+        setViewManufacturerSuppliers(suppliers.map(s => ({ id: s.id, name: s.name })));
+      }
+    } catch (error) {
+      console.error('Error fetching suppliers:', error);
+      setViewManufacturerSuppliers([]);
+    }
+  };
+
   const resetForm = () => {
     setFormData({ name: '', description: '' });
     setEditingManufacturer(null);
@@ -282,43 +308,26 @@ const Manufacturers: React.FC = () => {
         </div>
       </td>
       <td className="px-6 py-4">
-        {manufacturer.country && (
-          <div className="flex items-center space-x-2 text-sm text-gray-600">
-            <MapPin className="h-4 w-4" />
-            <span>{manufacturer.country}</span>
-          </div>
-        )}
-      </td>
-      <td className="px-6 py-4">
-        {manufacturer.website && (
-          <a
-            href={manufacturer.website}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 hover:underline text-sm flex items-center space-x-1"
-          >
-            <Globe className="h-4 w-4" />
-            <span>Website</span>
-          </a>
-        )}
-      </td>
-      <td className="px-6 py-4">
         <div className="flex items-center space-x-2">
           <Users className="h-4 w-4 text-gray-400" />
           <span className="text-sm">{manufacturer._count.suppliers}</span>
         </div>
       </td>
       <td className="px-6 py-4">
-        <Badge variant={manufacturer.isActive ? 'default' : 'secondary'}>
-          {manufacturer.isActive ? 'Active' : 'Inactive'}
-        </Badge>
-      </td>
-      <td className="px-6 py-4">
         <div className="flex space-x-2">
           <Button
             variant="outline"
             size="sm"
+            onClick={() => openViewDialog(manufacturer)}
+            title="View Details"
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => openEditDialog(manufacturer)}
+            title="Edit"
           >
             <Edit className="h-4 w-4" />
           </Button>
@@ -327,6 +336,7 @@ const Manufacturers: React.FC = () => {
             size="sm"
             onClick={() => handleDeleteManufacturer(manufacturer)}
             disabled={manufacturer._count.suppliers > 0 || isDeleting === manufacturer.id}
+            title="Delete"
           >
             {isDeleting === manufacturer.id ? (
               <div className="w-4 h-4 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
@@ -474,16 +484,7 @@ const Manufacturers: React.FC = () => {
                     Manufacturer
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Country
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Website
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Suppliers
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
@@ -533,6 +534,131 @@ const Manufacturers: React.FC = () => {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={(open) => {
+        setIsViewDialogOpen(open);
+        if (!open) {
+          setViewingManufacturer(null);
+          setViewManufacturerSuppliers([]);
+        }
+      }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <Building2 className="h-5 w-5 text-blue-600" />
+              <span>Manufacturer Details</span>
+            </DialogTitle>
+          </DialogHeader>
+
+          {viewingManufacturer && (
+            <div className="space-y-4">
+              {/* Name */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-gray-700 flex items-center space-x-2">
+                  <Building2 className="h-4 w-4" />
+                  <span>Manufacturer Name</span>
+                </Label>
+                <p className="text-sm text-gray-900 bg-gray-50 px-3 py-2 rounded-md border">
+                  {viewingManufacturer.name}
+                </p>
+              </div>
+
+              {/* Description */}
+              {viewingManufacturer.description && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold text-gray-700">Description</Label>
+                  <p className="text-sm text-gray-900 bg-gray-50 px-3 py-2 rounded-md border">
+                    {viewingManufacturer.description}
+                  </p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                {/* Country */}
+                {viewingManufacturer.country && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold text-gray-700 flex items-center space-x-2">
+                      <MapPin className="h-3 w-3" />
+                      <span>Country</span>
+                    </Label>
+                    <p className="text-sm text-gray-900 bg-gray-50 px-3 py-2 rounded-md border">
+                      {viewingManufacturer.country}
+                    </p>
+                  </div>
+                )}
+
+                {/* Website */}
+                {viewingManufacturer.website && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold text-gray-700 flex items-center space-x-2">
+                      <Globe className="h-3 w-3" />
+                      <span>Website</span>
+                    </Label>
+                    <a
+                      href={viewingManufacturer.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-600 hover:underline bg-gray-50 px-3 py-2 rounded-md border block truncate"
+                    >
+                      {viewingManufacturer.website}
+                    </a>
+                  </div>
+                )}
+              </div>
+
+              {/* Suppliers */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-gray-700 flex items-center space-x-2">
+                  <Users className="h-4 w-4" />
+                  <span>Suppliers ({viewingManufacturer._count.suppliers})</span>
+                </Label>
+                {viewManufacturerSuppliers.length > 0 ? (
+                  <div className="bg-gray-50 px-3 py-2 rounded-md border">
+                    <div className="space-y-1">
+                      {viewManufacturerSuppliers.map((supplier) => (
+                        <div key={supplier.id} className="flex items-center space-x-2 text-sm text-gray-900">
+                          <span className="w-1.5 h-1.5 bg-blue-600 rounded-full"></span>
+                          <span>{supplier.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 bg-gray-50 px-3 py-2 rounded-md border">
+                    No suppliers found
+                  </p>
+                )}
+              </div>
+
+              {/* Dates */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold text-gray-700">Created At</Label>
+                  <p className="text-sm text-gray-900 bg-gray-50 px-3 py-2 rounded-md border">
+                    {new Date(viewingManufacturer.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold text-gray-700">Last Updated</Label>
+                  <p className="text-sm text-gray-900 bg-gray-50 px-3 py-2 rounded-md border">
+                    {new Date(viewingManufacturer.updatedAt).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-2 border-t">
+                <Button
+                  onClick={() => setIsViewDialogOpen(false)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

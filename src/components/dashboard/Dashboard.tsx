@@ -18,7 +18,9 @@ import {
   Download,
   Eye,
   RefreshCw,
+  RotateCcw,
   UserPlus,
+  Receipt,
   X,
   CheckCircle
 } from "lucide-react";
@@ -295,7 +297,7 @@ const Dashboard = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Role-based stats - Admin sees all, Cashier sees limited
+  // Role-based stats - Admin sees all, Cashier sees expanded view
   const getStatsForRole = () => {
     if (!dashboardData) return [];
 
@@ -306,7 +308,8 @@ const Dashboard = () => {
         value: `${dashboardData.totalProducts || 0}`,
         change: "Active products",
         icon: Package,
-        trend: "neutral"
+        trend: "neutral",
+        color: "bg-blue-500"
       },
       {
         id: "stock",
@@ -314,7 +317,8 @@ const Dashboard = () => {
         value: `${dashboardData.lowStockCount || 0}`,
         change: "Need restocking",
         icon: AlertTriangle,
-        trend: (dashboardData.lowStockCount || 0) > 0 ? "warning" : "neutral"
+        trend: (dashboardData.lowStockCount || 0) > 0 ? "warning" : "neutral",
+        color: "bg-orange-500"
       }
     ];
 
@@ -327,7 +331,8 @@ const Dashboard = () => {
           value: `PKR ${dashboardData.today?.revenue?.toLocaleString() || '0'}`,
           change: `${dashboardData.today?.transactions || 0} sales`,
           icon: DollarSign,
-          trend: "up"
+          trend: "up",
+          color: "bg-green-500"
         },
         {
           id: "profit",
@@ -335,14 +340,35 @@ const Dashboard = () => {
           value: `PKR ${dashboardData.today?.profit?.toLocaleString() || '0'}`,
           change: `${dashboardData.today?.growth || 0}% growth`,
           icon: TrendingUp,
-          trend: "up"
+          trend: "up",
+          color: "bg-purple-500"
         },
         ...baseStats
       ];
     }
 
-    // Cashier sees only basic stats (Total Products + Low Stock)
-    return baseStats;
+    // Cashier sees expanded stats including sales
+    return [
+      {
+        id: "sales",
+        title: "Today's Sales",
+        value: `PKR ${(dashboardData.today?.revenue || 0).toLocaleString()}`,
+        change: `${dashboardData.today?.transactions || 0} transactions`,
+        icon: DollarSign,
+        trend: "up",
+        color: "bg-gradient-to-br from-green-500 to-emerald-600"
+      },
+      {
+        id: "transactions",
+        title: "Transactions",
+        value: `${dashboardData.today?.transactions || 0}`,
+        change: "Today",
+        icon: ShoppingCart,
+        trend: "up",
+        color: "bg-gradient-to-br from-blue-500 to-cyan-600"
+      },
+      ...baseStats
+    ];
   };
 
   const stats = getStatsForRole();
@@ -411,35 +437,56 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Stats Grid - Tab-like Behavior */}
+      {/* Stats Grid - Enhanced with gradients for cashiers */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, index) => {
           const IconComponent = stat.icon;
           const isActive = activeStat === stat.id;
 
+          // Enhanced styling for cashier dashboard
+          const isCashier = user?.role === 'CASHIER';
+          const hasGradient = stat.color?.includes('gradient');
+
           return (
             <Card
               key={index}
-              className="bg-white border border-[#0c2c8a] shadow-md"
+              className={`${
+                hasGradient && isCashier
+                  ? `border-0 shadow-lg overflow-hidden ${stat.color} text-white`
+                  : 'bg-white border border-gray-200 shadow-md hover:shadow-lg transition-shadow'
+              }`}
               onClick={() => handleStatClick(stat.id)}
             >
-              <CardContent className="p-6">
-                <div>
-                  <h3 className="text-sm font-medium mb-2 text-gray-600">
-                    {stat.title}
-                  </h3>
-                  <p className="text-2xl font-bold mb-3 text-gray-900">
-                    {stat.value}
-                  </p>
+              <CardContent className={`p-6 ${hasGradient && isCashier ? 'text-white' : ''}`}>
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h3 className={`text-sm font-medium mb-2 ${hasGradient && isCashier ? 'text-white/90' : 'text-gray-600'}`}>
+                      {stat.title}
+                    </h3>
+                    <p className={`text-3xl font-bold mb-3 ${hasGradient && isCashier ? 'text-white' : 'text-gray-900'}`}>
+                      {stat.value}
+                    </p>
 
-                  <div className="flex items-center space-x-2">
-                    <TrendingUp className="w-4 h-4 text-[#0c2c8a]" />
-                    <span className="text-sm font-medium text-[#0c2c8a]">
-                      {stat.trend === 'up' ? '+12.5%' : stat.trend === 'warning' ? '+5.1%' : '+8.2%'}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      vs last month
-                    </span>
+                    <div className="flex items-center space-x-2 mt-4">
+                      {!hasGradient ? (
+                        <>
+                          <TrendingUp className={`w-4 h-4 ${hasGradient && isCashier ? 'text-white' : 'text-[#0c2c8a]'}`} />
+                          <span className={`text-sm font-medium ${hasGradient && isCashier ? 'text-white' : 'text-[#0c2c8a]'}`}>
+                            {stat.trend === 'up' ? '+12.5%' : stat.trend === 'warning' ? '+5.1%' : '+8.2%'}
+                          </span>
+                          <span className={`text-xs ${hasGradient && isCashier ? 'text-white/80' : 'text-gray-500'}`}>
+                            vs last month
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-sm font-medium text-white/90">
+                          {stat.change}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className={`${hasGradient && isCashier ? 'bg-white/20' : 'bg-gray-100'} p-3 rounded-lg`}>
+                    <IconComponent className={`w-6 h-6 ${hasGradient && isCashier ? 'text-white' : 'text-gray-600'}`} />
                   </div>
                 </div>
               </CardContent>
@@ -558,6 +605,103 @@ const Dashboard = () => {
       </div>
 
 
+      {/* Cashier: Recent Sales and Quick Actions */}
+      {user?.role === 'CASHIER' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Recent Sales */}
+          <Card className="lg:col-span-2 shadow-lg border-0 bg-white">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center space-x-2">
+                  <Clock className="w-5 h-5 text-blue-600" />
+                  <span>Recent Sales</span>
+                </CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleViewAllSales}
+                >
+                  View All
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {recentSales.length > 0 ? (
+                  recentSales.slice(0, 5).map((sale, index) => (
+                    <div key={index} className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100 hover:shadow-md transition-all">
+                      <div className="flex items-center space-x-4">
+                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center shadow-sm">
+                          <ShoppingCart className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-900">{sale.customer}</p>
+                          <p className="text-sm text-gray-600">{sale.time}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-lg text-blue-600">{sale.amount}</p>
+                        <Badge variant="outline" className="text-xs bg-white">
+                          {sale.items} items
+                        </Badge>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8">
+                    <ShoppingCart className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                    <p className="text-gray-500">No recent sales</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Quick Actions */}
+          <Card className="shadow-lg border-0 bg-white">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center space-x-2">
+                <UserPlus className="w-5 h-5 text-green-600" />
+                <span>Quick Actions</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Button
+                onClick={() => navigate('/create-invoice')}
+                className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-md h-12 text-base font-semibold"
+              >
+                <ShoppingCart className="w-5 h-5 mr-2" />
+                New Sale
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate('/customers')}
+                className="w-full border-2 border-blue-200 hover:bg-blue-50 h-12 text-base font-medium"
+              >
+                <Users className="w-5 h-5 mr-2" />
+                View Customers
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate('/invoices')}
+                className="w-full border-2 border-purple-200 hover:bg-purple-50 h-12 text-base font-medium"
+              >
+                <Receipt className="w-5 h-5 mr-2" />
+                All Invoices
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate('/refunds')}
+                className="w-full border-2 border-orange-200 hover:bg-orange-50 h-12 text-base font-medium"
+              >
+                <RotateCcw className="w-5 h-5 mr-2" />
+                Process Refund
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Admin/Manager: Recent Sales */}
         {(user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
@@ -600,50 +744,90 @@ const Dashboard = () => {
         )}
 
         {/* Low Stock Alert - All Roles */}
-        <Card className={`shadow-soft border-0 ${(user?.role === 'ADMIN' || user?.role === 'MANAGER') ? '' : 'lg:col-span-3'}`}>
-          <CardHeader>
+        <Card className={`shadow-lg border-0 ${(user?.role === 'ADMIN' || user?.role === 'MANAGER') ? '' : 'lg:col-span-3'}`}>
+          <CardHeader className={`${user?.role === 'CASHIER' ? 'bg-gradient-to-r from-orange-50 to-red-50 border-b border-orange-200' : ''}`}>
             <CardTitle className="flex items-center space-x-2">
-              <AlertTriangle className="w-5 h-5 text-warning" />
+              <AlertTriangle className={`w-5 h-5 ${user?.role === 'CASHIER' ? 'text-orange-600' : 'text-warning'}`} />
               <span>Low Stock Alert</span>
+              {user?.role === 'CASHIER' && lowStockItems.length > 0 && (
+                <Badge variant="destructive" className="ml-2">
+                  {lowStockItems.length}
+                </Badge>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               {lowStockItems.length > 0 ? (
                 lowStockItems.map((item, index) => (
-                  <div key={index} className="p-3 bg-warning/5 border border-warning/20 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="font-medium text-foreground text-sm">{item.name}</p>
-                      <Pill className="w-4 h-4 text-warning" />
+                  <div key={index} className={`p-4 rounded-lg border transition-all hover:shadow-md ${
+                    user?.role === 'CASHIER'
+                      ? 'bg-gradient-to-r from-orange-50 to-red-50 border-orange-200'
+                      : 'bg-warning/5 border-warning/20'
+                  }`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-3">
+                        <div className={`p-2 rounded-lg ${
+                          user?.role === 'CASHIER'
+                            ? 'bg-orange-100'
+                            : 'bg-warning/10'
+                        }`}>
+                          <Package className={`w-5 h-5 ${
+                            user?.role === 'CASHIER'
+                              ? 'text-orange-600'
+                              : 'text-warning'
+                          }`} />
+                        </div>
+                        <p className="font-semibold text-foreground">{item.name}</p>
+                      </div>
+                      <Badge variant="outline" className={user?.role === 'CASHIER' ? 'bg-orange-100 border-orange-300 text-orange-800' : ''}>
+                        Low Stock
+                      </Badge>
                     </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Stock: {item.stock}/{item.minStock}</span>
-                      <span className="text-muted-foreground">
-                        {item.expiryDate ? new Date(item.expiryDate).toLocaleDateString() : 'N/A'}
-                      </span>
+                    <div className="flex items-center justify-between text-sm mb-2">
+                      <span className="text-muted-foreground font-medium">Current Stock: <span className="text-orange-600 font-bold">{item.stock}</span></span>
+                      <span className="text-muted-foreground">Min Required: <span className="font-semibold">{item.minStock}</span></span>
                     </div>
-                    <div className="w-full bg-muted rounded-full h-1.5 mt-2">
+                    <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2 overflow-hidden">
                       <div
-                        className="bg-warning h-1.5 rounded-full"
-                        style={{ width: `${Math.min((item.stock / item.minStock) * 100, 100)}%` }}
+                        className={`h-2.5 rounded-full transition-all ${
+                          user?.role === 'CASHIER'
+                            ? 'bg-gradient-to-r from-orange-500 to-red-500'
+                            : 'bg-warning'
+                        }`}
+                        style={{ width: `${Math.min((item.stock / (item.minStock || 10)) * 100, 100)}%` }}
                       ></div>
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Pill className="w-8 h-8 mx-auto mb-2 text-green-500" />
-                  <p>All products are well stocked!</p>
+                <div className="text-center py-12">
+                  <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${
+                    user?.role === 'CASHIER'
+                      ? 'bg-green-100'
+                      : 'bg-muted'
+                  }`}>
+                    <CheckCircle className={`w-8 h-8 ${
+                      user?.role === 'CASHIER'
+                        ? 'text-green-600'
+                        : 'text-green-500'
+                    }`} />
+                  </div>
+                  <p className="font-semibold text-lg text-foreground mb-1">All Stocked Up!</p>
+                  <p className="text-sm text-muted-foreground">All products are well stocked</p>
                 </div>
               )}
-              <Button
-                variant="outline"
-                className="w-full"
-                size="sm"
-                onClick={handleManageInventory}
-              >
-                Manage Inventory
-              </Button>
+              {lowStockItems.length > 0 && (
+                <Button
+                  variant="outline"
+                  className={`w-full ${user?.role === 'CASHIER' ? 'border-orange-200 hover:bg-orange-50' : ''}`}
+                  size="sm"
+                  onClick={handleManageInventory}
+                >
+                  <Package className="w-4 h-4 mr-2" />
+                  Manage Inventory
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>

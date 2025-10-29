@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { AlertCircle, LogIn } from 'lucide-react';
+import { Navigate } from 'react-router-dom';
 
 interface AuthStatusProps {
   children: React.ReactNode;
@@ -18,6 +19,12 @@ export const AuthStatus: React.FC<AuthStatusProps> = ({ children, fallback }) =>
   console.log('🔍 AuthStatus: isAuthenticated:', isAuthenticated);
   console.log('🔍 AuthStatus: isProperlyAuthenticated:', isProperlyAuthenticated);
   console.log('🔍 AuthStatus: user:', user);
+
+  // Check if user account is disabled - allow access to Zapeera screen
+  if (user && user.isActive === false) {
+    console.log('🔍 AuthStatus: User account is disabled, allowing access to Zapeera screen');
+    // Don't redirect - let the ZapeeraDashboard handle the disabled account display
+  }
 
   // Show loading state during initialization
   if (!isAuthenticated && !user) {

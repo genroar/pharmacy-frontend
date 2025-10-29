@@ -17,7 +17,8 @@ import {
   Printer,
   Download,
   Phone,
-  Mail
+  Mail,
+  AlertCircle
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/AdminContext";
@@ -85,6 +86,11 @@ const CreateInvoice = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false);
   const [currentReceipt, setCurrentReceipt] = useState<Receipt | null>(null);
+  const [isRefundDialogOpen, setIsRefundDialogOpen] = useState(false);
+  const [refundReceiptNumber, setRefundReceiptNumber] = useState("");
+  const [refundReason, setRefundReason] = useState("");
+  const [foundInvoice, setFoundInvoice] = useState<any>(null);
+  const [invoiceLookupLoading, setInvoiceLookupLoading] = useState(false);
 
   // Load products on component mount
   useEffect(() => {
@@ -821,6 +827,216 @@ const CreateInvoice = () => {
     `;
   };
 
+  // Invoice lookup functionality
+  const lookupInvoice = async () => {
+    if (!refundReceiptNumber.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a receipt number",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setInvoiceLookupLoading(true);
+
+      // Make API call to get sales data
+      const response = await apiService.getSales({
+        limit: 1000,
+        startDate: undefined,
+        endDate: undefined,
+        branchId: undefined
+      });
+
+      if (response.success && response.data?.sales) {
+        // Find invoice by receipt number
+        const foundInvoice = response.data.sales.find((sale: any) =>
+          sale.receipts?.some((receipt: any) =>
+            receipt.receiptNumber.toLowerCase() === refundReceiptNumber.toLowerCase()
+          )
+        );
+
+        if (foundInvoice) {
+          // Transform the sale data to match the expected format
+          const transformedInvoice = {
+            id: foundInvoice.id,
+            invoiceNumber: foundInvoice.id,
+            customerId: foundInvoice.customerId,
+            userId: foundInvoice.userId,
+            branchId: foundInvoice.branchId,
+            subtotal: foundInvoice.subtotal,
+            taxAmount: foundInvoice.taxAmount,
+            discountAmount: foundInvoice.discountAmount,
+            totalAmount: foundInvoice.totalAmount,
+            paymentMethod: foundInvoice.paymentMethod,
+            paymentStatus: foundInvoice.paymentStatus,
+            status: foundInvoice.status,
+            createdAt: foundInvoice.createdAt,
+            updatedAt: foundInvoice.createdAt,
+            customer: foundInvoice.customer,
+            user: foundInvoice.user,
+            branch: foundInvoice.branch,
+            items: foundInvoice.items.map((item: any) => ({
+              id: item.id,
+              productId: item.productId,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              totalPrice: item.totalPrice,
+              batchNumber: item.batchNumber,
+              expiryDate: item.expiryDate,
+              product: item.product
+            })),
+            receipts: [],
+            receiptNumber: foundInvoice.id
+          };
+
+          setFoundInvoice(transformedInvoice);
+        } else {
+          toast({
+            title: "Invoice Not Found",
+            description: `Invoice with receipt number "${refundReceiptNumber}" not found.`,
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to load invoices. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error('Error looking up invoice:', error);
+      toast({
+        title: "Error",
+        description: 'Error looking up invoice. Please try again.',
+        variant: "destructive",
+      });
+    } finally {
+      setInvoiceLookupLoading(false);
+    }
+  };
+
+  // Refund and return functionality
+  const processRefund = async () => {
+    if (!refundReceiptNumber.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a receipt number",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!refundReason.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a refund reason",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      console.log('🔍 DEBUG - Starting refund process for receipt:', refundReceiptNumber);
+
+      // Find the original sale by receipt number
+      const salesResponse = await apiService.getSales({
+        limit: 1000
+      });
+
+      console.log('🔍 DEBUG - Sales search response:', salesResponse);
+
+      if (!salesResponse.success || !salesResponse.data?.sales?.length) {
+        toast({
+          title: "Error",
+          description: "Sale not found with the given receipt number",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Find the specific sale by receipt number
+      const sales = salesResponse.data.sales;
+      const originalSale = sales.find((sale: any) =>
+        sale.receipts?.some((receipt: any) =>
+          receipt.receiptNumber === refundReceiptNumber
+        )
+      );
+
+      if (!originalSale) {
+        toast({
+          title: "Error",
+          description: `Receipt number ${refundReceiptNumber} not found`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log('🔍 DEBUG - Found original sale:', originalSale);
+
+      // Automatically use all items from the original sale for refund
+      const itemsToRefund = originalSale.items.map((item: any) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        reason: refundReason || "Customer requested refund"
+      }));
+
+      const totalRefundAmount = originalSale.totalAmount;
+
+      // Prepare refund data
+      const refundData = {
+        originalSaleId: originalSale.id,
+        refundReason: refundReason || "Customer requested refund",
+        items: itemsToRefund,
+        refundedBy: user?.id || ""
+      };
+
+      console.log('🔍 DEBUG - Prepared refund data:', refundData);
+
+      // Call the refund API
+      const refundResponse = await apiService.createRefund(refundData);
+
+      console.log('🔍 DEBUG - Refund API response:', refundResponse);
+
+      if (refundResponse.success) {
+        toast({
+          title: "Refund Processed Successfully",
+          description: `Receipt Number: ${refundReceiptNumber}\nRefund Amount: PKR ${totalRefundAmount.toFixed(2)}\nReason: ${refundReason}\n\nStock has been updated and items are back in inventory.`,
+        });
+
+        // Reset refund form
+        setRefundReceiptNumber("");
+        setRefundReason("");
+        setFoundInvoice(null);
+        setIsRefundDialogOpen(false);
+
+        // Refresh products to show updated stock
+        loadProducts();
+
+        // Trigger refresh of refunds list by dispatching a custom event
+        window.dispatchEvent(new CustomEvent('refundCreated', {
+          detail: { refund: refundResponse.data.refund }
+        }));
+      } else {
+        toast({
+          title: "Error",
+          description: refundResponse.message || "Failed to process refund. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error processing refund:', error);
+      toast({
+        title: "Error",
+        description: 'Error processing refund. Please try again.',
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -830,11 +1046,11 @@ const CreateInvoice = () => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigate('/pos')}
+              onClick={() => navigate('/')}
               className="flex items-center space-x-2"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>Back to POS</span>
+              <span>Back to Dashboard</span>
             </Button>
             <div className="flex items-center space-x-3">
               <Receipt className="w-6 h-6 text-blue-600" />
@@ -842,6 +1058,14 @@ const CreateInvoice = () => {
             </div>
           </div>
           <div className="flex items-center space-x-4">
+            <Button
+              onClick={() => setIsRefundDialogOpen(true)}
+              variant="outline"
+              className="text-red-600 border-red-600 hover:bg-red-50"
+            >
+              <AlertCircle className="w-4 h-4 mr-2" />
+              Refunds & Returns
+            </Button>
             <div className="text-sm text-gray-600">
               Items: {invoiceItems.length} | Total: PKR {invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0).toFixed(2)}
             </div>
@@ -1270,6 +1494,179 @@ const CreateInvoice = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Refunds & Returns Dialog */}
+      <Dialog open={isRefundDialogOpen} onOpenChange={setIsRefundDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <AlertCircle className="w-5 h-5 text-red-600" />
+              <span>Refunds & Returns</span>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            {/* Invoice Lookup Form */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Invoice Lookup</h3>
+              <div className="flex space-x-2">
+                <Input
+                  placeholder="Enter invoice/receipt number"
+                  value={refundReceiptNumber}
+                  onChange={(e) => setRefundReceiptNumber(e.target.value)}
+                  className="flex-1"
+                />
+                <Button
+                  onClick={lookupInvoice}
+                  variant="outline"
+                  disabled={invoiceLookupLoading}
+                >
+                  {invoiceLookupLoading ? 'Loading...' : 'Show Invoice'}
+                </Button>
+              </div>
+            </div>
+
+            {/* Found Invoice Display */}
+            {foundInvoice && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Found Invoice</h3>
+                <Card className="border-green-200 bg-green-50">
+                  <CardContent className="p-4">
+                    <div className="space-y-3">
+                      {/* Invoice Header */}
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h4 className="font-semibold text-lg">Receipt: {foundInvoice.receipts[0]?.receiptNumber || 'N/A'}</h4>
+                          <p className="text-sm text-muted-foreground">
+                            Date: {new Date(foundInvoice.createdAt).toLocaleDateString()} {new Date(foundInvoice.createdAt).toLocaleTimeString()}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Cashier: {foundInvoice.user.name}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-green-600">
+                            PKR {foundInvoice.totalAmount.toFixed(2)}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {foundInvoice.paymentMethod} • {foundInvoice.paymentStatus}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Customer Info */}
+                      {foundInvoice.customer && (
+                        <div className="border-t pt-3">
+                          <h5 className="font-medium text-sm mb-2">Customer Information</h5>
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                            <p><strong>Name:</strong> {foundInvoice.customer.name}</p>
+                            <p><strong>Phone:</strong> {foundInvoice.customer.phone}</p>
+                            {foundInvoice.customer.email && (
+                              <p><strong>Email:</strong> {foundInvoice.customer.email}</p>
+                            )}
+                            {foundInvoice.customer.address && (
+                              <p><strong>Address:</strong> {foundInvoice.customer.address}</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Items List */}
+                      <div className="border-t pt-3">
+                        <h5 className="font-medium text-sm mb-2">Items in Invoice</h5>
+                        <div className="space-y-2">
+                          {foundInvoice.items.map((item: any, index: number) => (
+                            <div key={index} className="flex justify-between items-center p-2 bg-white rounded border">
+                              <div className="flex-1">
+                                <p className="font-medium text-sm">{item.product.name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {item.quantity} {item.product.unitType} × PKR {item.unitPrice.toFixed(2)}
+                                  {item.batchNumber && ` • Batch: ${item.batchNumber}`}
+                                  {item.expiryDate && ` • Exp: ${new Date(item.expiryDate).toLocaleDateString()}`}
+                                </p>
+                              </div>
+                              <p className="font-semibold text-sm">PKR {item.totalPrice.toFixed(2)}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Invoice Summary */}
+                      <div className="border-t pt-3">
+                        <div className="space-y-1 text-sm">
+                          <div className="flex justify-between">
+                            <span>Subtotal:</span>
+                            <span>PKR {foundInvoice.subtotal.toFixed(2)}</span>
+                          </div>
+                          {foundInvoice.discountAmount > 0 && (
+                            <div className="flex justify-between text-green-600">
+                              <span>Discount:</span>
+                              <span>-PKR {foundInvoice.discountAmount.toFixed(2)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between font-bold text-lg border-t pt-1">
+                            <span>Total:</span>
+                            <span>PKR {foundInvoice.totalAmount.toFixed(2)}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action Button */}
+                      <div className="border-t pt-3">
+                        <Button
+                          onClick={processRefund}
+                          className="w-full text-white bg-red-600 hover:bg-red-700"
+                        >
+                          <AlertCircle className="w-4 h-4 mr-2" />
+                          Process Full Refund & Return Items to Stock
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Refund Reason */}
+            {foundInvoice && (
+              <div className="space-y-2">
+                <Label htmlFor="refundReason">Refund Reason *</Label>
+                <Input
+                  id="refundReason"
+                  placeholder="Enter reason for refund"
+                  value={refundReason}
+                  onChange={(e) => setRefundReason(e.target.value)}
+                />
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex justify-end space-x-3 pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsRefundDialogOpen(false);
+                  setRefundReceiptNumber("");
+                  setRefundReason("");
+                  setFoundInvoice(null);
+                }}
+              >
+                Cancel
+              </Button>
+              {foundInvoice && (
+                <Button
+                  onClick={processRefund}
+                  className="text-white bg-red-600 hover:bg-red-700"
+                  disabled={!refundReason.trim()}
+                >
+                  <AlertCircle className="w-4 h-4 mr-2" />
+                  Process Refund
+                </Button>
+              )}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

@@ -18,20 +18,20 @@ const RoleBasedRoot = () => {
     return <Navigate to="/dashboard" replace />;
   }
 
-  // ADMIN logic: Show Zapeera dashboard only when needed
+  // ADMIN logic: Show Zapeera dashboard first, then main dashboard after company selection
   if (user.role === 'ADMIN') {
     if (isLoading) {
       // Still loading
       return <div>Loading...</div>;
     }
 
-    // Show Zapeera dashboard only if:
+    // Show Zapeera dashboard if:
     // 1. No company is selected, OR
     // 2. User is explicitly navigating to /zapeera route
     if (!selectedCompanyId || location.pathname === '/zapeera') {
       return <ZapeeraDashboard />;
     } else {
-      // Company is selected and not on zapeera route - show normal dashboard
+      // Company is selected and not on zapeera route - show main dashboard
       return <RoleBasedDashboard />;
     }
   }

@@ -208,14 +208,23 @@ const Reports = () => {
       // Determine which branch to load reports from
       let branchId: string | undefined;
 
-      if (user?.role === 'ADMIN' || user?.role === 'SUPERADMIN' || user?.role === 'MANAGER') {
-        // Admin/SuperAdmin/Manager users can see reports from selected branch or all branches
+      if (user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') {
+        // Admin/SuperAdmin users can see reports from selected branch or all branches
         if (selectedBranchId) {
           branchId = selectedBranchId;
           console.log('Admin selected specific branch for reports:', selectedBranch?.name);
         } else {
           console.log('Admin viewing all branches - loading all reports');
         }
+      } else if (user?.role === 'MANAGER') {
+        // Manager users can only see reports from their assigned branch
+        branchId = user?.branchId;
+        if (!branchId) {
+          console.error('❌ Manager has no assigned branch');
+          setError('No branch assigned to this manager');
+          return;
+        }
+        console.log('Manager viewing their assigned branch for reports:', branchId);
       } else {
         // Regular users see only their branch reports
         branchId = user?.branchId;
@@ -239,7 +248,15 @@ const Reports = () => {
       // Process branches data
       if (branchesResponse.success && branchesResponse.data) {
         const branchesData = Array.isArray(branchesResponse.data) ? branchesResponse.data : branchesResponse.data.branches;
-        setAllBranches(branchesData);
+
+        // For managers, only show their assigned branch
+        if (user?.role === 'MANAGER' && user?.branchId) {
+          const managerBranch = branchesData.find((branch: any) => branch.id === user.branchId);
+          setAllBranches(managerBranch ? [managerBranch] : []);
+          console.log('🏢 Manager can only see their assigned branch:', managerBranch?.name);
+        } else {
+          setAllBranches(branchesData);
+        }
       }
 
       // Process real sales data
@@ -295,14 +312,23 @@ const Reports = () => {
       // Determine which branch to load reports from
       let branchId: string | undefined;
 
-      if (user?.role === 'ADMIN' || user?.role === 'SUPERADMIN' || user?.role === 'MANAGER') {
-        // Admin/SuperAdmin/Manager users can see reports from selected branch or all branches
+      if (user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') {
+        // Admin/SuperAdmin users can see reports from selected branch or all branches
         if (selectedBranchId) {
           branchId = selectedBranchId;
           console.log('Admin selected specific branch for reports:', selectedBranch?.name);
         } else {
           console.log('Admin viewing all branches - loading all reports');
         }
+      } else if (user?.role === 'MANAGER') {
+        // Manager users can only see reports from their assigned branch
+        branchId = user?.branchId;
+        if (!branchId) {
+          console.error('❌ Manager has no assigned branch');
+          setError('No branch assigned to this manager');
+          return;
+        }
+        console.log('Manager viewing their assigned branch for reports:', branchId);
       } else {
         // Regular users see only their branch reports
         branchId = user?.branchId;
@@ -893,7 +919,7 @@ const Reports = () => {
       </div>
 
       {/* All Branches Overview - Moved to Top */}
-      {(user?.role === 'ADMIN' || user?.role === 'SUPERADMIN' || user?.role === 'MANAGER') && (
+      {(user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') && (
         <Card className="shadow-soft border border-[#0C2C8A]">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
@@ -1016,6 +1042,126 @@ const Reports = () => {
                           </div>
                         </div>
                       </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Manager Branch Overview - Only for Managers */}
+      {user?.role === 'MANAGER' && allBranches.length > 0 && (
+        <Card className="shadow-soft border border-[#0C2C8A]">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Building2 className="w-5 h-5 text-[#0c2c8a]" />
+                <span>My Branch Overview</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Badge variant="outline" className="text-xs">
+                  {allBranches.length} Branch
+                </Badge>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAllBranches(!showAllBranches)}
+                  className="text-xs"
+                >
+                  {showAllBranches ? 'Hide Details' : 'Show Details'}
+                </Button>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {/* Manager's Branch Summary */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-blue-600">Total Revenue</p>
+                      <p className="text-2xl font-bold text-blue-900">
+                        {formatCurrency(realSalesData.reduce((sum: number, sale: any) => sum + (sale.totalAmount || 0), 0))}
+                      </p>
+                    </div>
+                    <DollarSign className="w-8 h-8 text-blue-500" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-green-600">Total Sales</p>
+                      <p className="text-2xl font-bold text-green-900">{realSalesData.length}</p>
+                    </div>
+                    <ShoppingCart className="w-8 h-8 text-green-500" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-purple-600">Total Products</p>
+                      <p className="text-2xl font-bold text-purple-900">{realProductsData.length}</p>
+                    </div>
+                    <Package className="w-8 h-8 text-purple-500" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-orange-600">Total Users</p>
+                      <p className="text-2xl font-bold text-orange-900">{realUsersData.length}</p>
+                    </div>
+                    <Users className="w-8 h-8 text-orange-500" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Manager's Branch Details */}
+            {showAllBranches && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-foreground">Branch Performance Details</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {allBranches.map((branch: any, index: number) => {
+                    const branchSales = realSalesData.filter((sale: any) => sale.branchId === branch.id);
+                    const branchProducts = realProductsData.filter((product: any) => product.branchId === branch.id);
+                    const branchUsers = realUsersData.filter((user: any) => user.branchId === branch.id);
+                    const branchRevenue = branchSales.reduce((sum: number, sale: any) => sum + (sale.totalAmount || 0), 0);
+
+                    return (
+                      <Card key={branch.id} className="border border-gray-200 hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <h4 className="font-semibold text-foreground">{branch.name}</h4>
+                              <Badge variant={branch.isActive ? "default" : "secondary"} className="text-xs">
+                                {branch.isActive ? 'Active' : 'Inactive'}
+                              </Badge>
+                            </div>
+
+                            <div className="space-y-2 text-sm">
+                              <div><span className="text-muted-foreground">Address:</span> <span className="text-foreground">{branch.address || 'Not specified'}</span></div>
+                              <div><span className="text-muted-foreground">Phone:</span> <span className="text-foreground">{branch.phone}</span></div>
+                              <div><span className="text-muted-foreground">Revenue:</span> <span className="text-foreground font-semibold">{formatCurrency(branchRevenue)}</span></div>
+                              <div><span className="text-muted-foreground">Sales:</span> <span className="text-foreground">{branchSales.length}</span></div>
+                              <div><span className="text-muted-foreground">Products:</span> <span className="text-foreground">{branchProducts.length}</span></div>
+                              <div><span className="text-muted-foreground">Users:</span> <span className="text-foreground">{branchUsers.length}</span></div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
                     );
                   })}
                 </div>

@@ -41,11 +41,47 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
   const [step, setStep] = useState<1 | 2>(1);
   const [usernameError, setUsernameError] = useState("");
   const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordStrength, setPasswordStrength] = useState({
+    hasUpperCase: false,
+    hasLowerCase: false,
+    hasNumber: false,
+    hasSpecialChar: false,
+    minLength: false
+  });
 
   // Test toast on component mount
   useEffect(() => {
     console.log("AdminSignupForm mounted - toast system should be working");
   }, []);
+
+  // Password validation function
+  const validatePassword = (password: string) => {
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumber = /\d/.test(password);
+    const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+    const minLength = password.length >= 8;
+
+    setPasswordStrength({
+      hasUpperCase,
+      hasLowerCase,
+      hasNumber,
+      hasSpecialChar,
+      minLength
+    });
+
+    return hasUpperCase && hasLowerCase && hasNumber && hasSpecialChar && minLength;
+  };
+
+  // Check if password meets all requirements
+  const isPasswordValid = () => {
+    return passwordStrength.hasUpperCase && 
+           passwordStrength.hasLowerCase && 
+           passwordStrength.hasNumber && 
+           passwordStrength.hasSpecialChar && 
+           passwordStrength.minLength;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,12 +104,15 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
     }
 
     if (step === 2) {
-      if (formData.password.length < 6) {
-        setError("Password must be at least 6 characters long");
+      // Validate password strength
+      if (!validatePassword(formData.password)) {
+        setPasswordError("Password does not meet requirements");
+        setError("Password does not meet the required criteria");
         toast({
           title: "Weak password",
-          description: "Password must be at least 6 characters.",
-          duration: 2000,
+          description: "Password must contain at least one uppercase letter, one lowercase letter, one number, one special character, and be at least 8 characters long.",
+          duration: 5000,
+          variant: "destructive",
         });
         return;
       }
@@ -96,32 +135,38 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
         email: formData.email,
         password: formData.password,
         name: formData.name,
-        role: 'ADMIN'
+        role: 'ADMIN',
+        branchId: ""
         // No branchId or branchData needed - admin will create companies from dashboard
       });
 
       if (response.success && response.data) {
         const { user, token } = response.data;
 
-        // Automatically log in the user
+        // Automatically log in the user (even though they're disabled)
         login({
           id: user.id,
           name: user.name,
           role: user.role as 'SUPERADMIN' | 'ADMIN' | 'MANAGER' | 'CASHIER',
-          branchId: user.branchId
+          branchId: user.branchId,
+          isActive: (user as any).isActive || false,
+          username: user.username,
+          email: (user as any).email
         });
 
-        setSuccess("Admin account created successfully! Welcome to your dashboard.");
+        setSuccess("Admin account created successfully! Your account is pending activation.");
 
-        // Redirect to dashboard after successful registration and login
+        // Redirect to Zapeera screen where they'll see the disabled account message
+        console.log('🔍 AdminSignupForm: Redirecting to /zapeera with user:', user);
         setTimeout(() => {
-          navigate('/');
+          console.log('🔍 AdminSignupForm: Navigating to /zapeera');
+          navigate('/zapeera');
         }, 1500);
       } else {
         setError(response.message || "Registration failed");
 
         // Show specific toast based on the error field
-        if (response.field === 'username') {
+        if ((response as any).field === 'username') {
           setUsernameError("Username already exists");
           toast({
             title: "Username already exists",
@@ -129,7 +174,7 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
             variant: "destructive",
             duration: 3000,
           });
-        } else if (response.field === 'email') {
+        } else if ((response as any).field === 'email') {
           setEmailError("Email already exists");
           toast({
             title: "Email already exists",
@@ -197,6 +242,9 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
       setUsernameError("");
     } else if (field === 'email') {
       setEmailError("");
+    } else if (field === 'password') {
+      setPasswordError("");
+      validatePassword(value);
     }
   };
 
@@ -233,7 +281,7 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
         <div className="flex justify-center w-[100%] items-center text-white p-8 relative z-10">
           <div className="text-center w-[100%] flex flex-col items-center justify-center space-y-6">
             <div className="text-center flex flex-col items-center ">
-              <div className="w-[70px] h-[70px] text-[50px] flex items-center justify-center bg-white text-blue-900 rounded-full font-bold">Z</div>
+              <div className="w-[70px] h-[70px] text-[50px] flex items-center justify-center bg-white text-blue-900 rounded-full font-bold"><img src=" /images/favicon.png" alt="logo" className="w-10 object-cover" /></div>
                <h1 className="text-2xl font-bold text-white/90 mb-2">Zapeera</h1>
                <div className="w-16 h-0.5 bg-white/30 mx-auto"></div>
              </div>
@@ -365,6 +413,34 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
                           {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                       </div>
+                      {/* Password Strength Indicator */}
+                      {formData.password && (
+                        <div className="mt-2 space-y-2">
+                          <div className="text-xs text-gray-600">Password Requirements:</div>
+                          <div className="space-y-1">
+                            <div className={`flex items-center text-xs ${passwordStrength.minLength ? 'text-green-600' : 'text-gray-500'}`}>
+                              <div className={`w-2 h-2 rounded-full mr-2 ${passwordStrength.minLength ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                              At least 8 characters
+                            </div>
+                            <div className={`flex items-center text-xs ${passwordStrength.hasUpperCase ? 'text-green-600' : 'text-gray-500'}`}>
+                              <div className={`w-2 h-2 rounded-full mr-2 ${passwordStrength.hasUpperCase ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                              One uppercase letter (A-Z)
+                            </div>
+                            <div className={`flex items-center text-xs ${passwordStrength.hasLowerCase ? 'text-green-600' : 'text-gray-500'}`}>
+                              <div className={`w-2 h-2 rounded-full mr-2 ${passwordStrength.hasLowerCase ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                              One lowercase letter (a-z)
+                            </div>
+                            <div className={`flex items-center text-xs ${passwordStrength.hasNumber ? 'text-green-600' : 'text-gray-500'}`}>
+                              <div className={`w-2 h-2 rounded-full mr-2 ${passwordStrength.hasNumber ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                              One number (0-9)
+                            </div>
+                            <div className={`flex items-center text-xs ${passwordStrength.hasSpecialChar ? 'text-green-600' : 'text-gray-500'}`}>
+                              <div className={`w-2 h-2 rounded-full mr-2 ${passwordStrength.hasSpecialChar ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                              One special character (!@#$%^&*)
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="space-y-1">
@@ -395,63 +471,6 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
                 </div>
                 )}
 
-                {step === 3 && (
-                <div className="space-y-3">
-                  <h3 className="text-base font-semibold text-gray-800 border-b border-gray-200 pb-1">
-                    Pharmacy Information
-                  </h3>
-
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <Label htmlFor="signup-branchName" className="text-sm font-medium text-gray-700">
-                        Pharmacy Name *
-                      </Label>
-                      <div className="relative">
-                        <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <Input
-                          id="signup-branchName"
-                          type="text"
-                          placeholder="Enter your pharmacy name"
-                          value={formData.branchName}
-                          onChange={(e) => handleInputChange("branchName", e.target.value)}
-                          className="pl-10 h-10 border-gray-300 focus:border-green-500 focus:ring-green-500"
-
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label htmlFor="signup-branchAddress" className="text-sm font-medium text-gray-700">
-                        Pharmacy Address *
-                      </Label>
-                      <Input
-                        id="signup-branchAddress"
-                        type="text"
-                        placeholder="Enter your pharmacy address"
-                        value={formData.branchAddress}
-                        onChange={(e) => handleInputChange("branchAddress", e.target.value)}
-                        className="h-10 border-gray-300 focus:border-green-500 focus:ring-green-500"
-
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label htmlFor="signup-branchPhone" className="text-sm font-medium text-gray-700">
-                        Pharmacy Phone *
-                      </Label>
-                      <Input
-                        id="signup-branchPhone"
-                        type="tel"
-                        placeholder="Enter your pharmacy phone number"
-                        value={formData.branchPhone}
-                        onChange={(e) => handleInputChange("branchPhone", e.target.value)}
-                        className="h-10 border-gray-300 focus:border-green-500 focus:ring-green-500"
-
-                      />
-                    </div>
-                  </div>
-                </div>
-                )}
 
                 {/* Error/Success Messages */}
                 {error && (
@@ -468,7 +487,7 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
 
                 <div className="flex items-center justify-between">
                   {step > 1 ? (
-                    <Button type="button" variant="outline" onClick={() => setStep((s) => (s > 1 ? ((s - 1) as 1 | 2 | 3) : s))}>
+                    <Button type="button" variant="outline" onClick={() => setStep((s) => (s > 1 ? (s - 1) as 1 | 2 : s))}>
                       Previous
                     </Button>
                   ) : <div />}

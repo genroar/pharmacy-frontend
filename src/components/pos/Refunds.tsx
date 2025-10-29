@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import DateRangeFilter from "@/components/ui/DateRangeFilter";
 import { apiService } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -198,7 +199,7 @@ const Refunds = () => {
           // Transform API data to match frontend format
           const transformedRefunds = response.data.refunds.map((refund: any) => {
             try {
-              console.log('🔍 Processing refund:', refund.id, 'refundAmount:', refund.refundAmount, 'type:', typeof refund.refundAmount);
+              console.log('🔍 Processing refund:', refund.id);
 
             // Handle Prisma Decimal type for refundAmount
             console.log('🔍 Raw refund amount:', refund.refundAmount, 'Type:', typeof refund.refundAmount, 'Constructor:', refund.refundAmount?.constructor?.name);
@@ -321,7 +322,7 @@ const Refunds = () => {
     } finally {
       setLoading(false);
     }
-  }, [startDate, endDate]);
+  }, [user, selectedBranchId, selectedBranch, startDate, endDate]);
 
   useEffect(() => {
     filterRefunds();
@@ -486,109 +487,79 @@ const Refunds = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {paginatedRefunds.length === 0 ? (
+            {loading ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <RefreshCw className="w-12 h-12 mx-auto mb-2 animate-spin opacity-50" />
+                <p>Loading refunds...</p>
+              </div>
+            ) : paginatedRefunds.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <RotateCcw className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>No refunds found</p>
+                <p className="font-semibold">No refunds found</p>
                 <p className="text-xs">Refunded invoices will appear here</p>
               </div>
             ) : (
-              <div className="space-y-4">
-                {paginatedRefunds.map((refund) => (
-                  <div key={refund.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-3">
-                        <div>
-                          <h3 className="font-semibold text-lg">{refund.receiptNumber}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            Original Invoice: {refund.originalInvoiceNumber}
-                          </p>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Receipt #</TableHead>
+                    <TableHead>Original Invoice</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Refunded By</TableHead>
+                    <TableHead>Items</TableHead>
+                    <TableHead>Refund Amount</TableHead>
+                    <TableHead>Reason</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginatedRefunds.map((refund) => (
+                    <TableRow key={refund.id}>
+                      <TableCell className="font-medium">{refund.receiptNumber}</TableCell>
+                      <TableCell>{refund.originalInvoiceNumber}</TableCell>
+                      <TableCell>{formatDate(refund.refundedAt)}</TableCell>
+                      <TableCell>{refund.customer?.name || 'Walk-in Customer'}</TableCell>
+                      <TableCell>{refund.refundedBy}</TableCell>
+                      <TableCell>{refund.items.length} item(s)</TableCell>
+                      <TableCell className="font-semibold text-red-600">
+                        -PKR {isNaN(refund.refundAmount) ? '0.00' : refund.refundAmount.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="max-w-xs truncate" title={refund.refundReason}>
+                        {refund.refundReason}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex space-x-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => viewRefund(refund)}
+                            title="View Details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => printRefund(refund)}
+                            title="Print"
+                          >
+                            <Printer className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => downloadRefund(refund)}
+                            title="Download"
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
                         </div>
-                        <Badge className="bg-red-100 text-red-800">Refunded</Badge>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-lg font-bold text-red-600">
-                          -PKR {isNaN(refund.refundAmount) ? '0.00' : refund.refundAmount.toFixed(2)}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {formatDate(refund.refundedAt)}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-3">
-                      <div className="flex items-center space-x-2 text-sm">
-                        <User className="w-4 h-4 text-muted-foreground" />
-                        <span>{refund.customer?.name || 'Walk-in Customer'}</span>
-                      </div>
-                      <div className="flex items-center space-x-2 text-sm">
-                        <User className="w-4 h-4 text-muted-foreground" />
-                        <span>Refunded by: {refund.refundedBy}</span>
-                      </div>
-                      <div className="flex items-center space-x-2 text-sm">
-                        <Package className="w-4 h-4 text-muted-foreground" />
-                        <span>{refund.items.length} item(s)</span>
-                      </div>
-                      <div className="flex items-center space-x-2 text-sm">
-                        <AlertCircle className="w-4 h-4 text-muted-foreground" />
-                        <span className="truncate">{refund.refundReason}</span>
-                      </div>
-                    </div>
-
-                    {/* Items Preview */}
-                    <div className="mb-3">
-                      <p className="text-sm font-medium mb-2">Refunded Items:</p>
-                      <div className="space-y-1">
-                        {refund.items.slice(0, 2).map((item, index) => (
-                          <div key={index} className="flex items-center justify-between text-sm">
-                            <div className="flex items-center space-x-2">
-                              {getUnitIcon(item.unitType)}
-                              <span>{item.productName}</span>
-                              <span className="text-muted-foreground">
-                                ({item.quantity} {item.unitType})
-                              </span>
-                            </div>
-                            <span className="font-medium text-red-600">-PKR {isNaN(item.totalPrice) ? '0.00' : item.totalPrice.toFixed(2)}</span>
-                          </div>
-                        ))}
-                        {refund.items.length > 2 && (
-                          <p className="text-xs text-muted-foreground">
-                            +{refund.items.length - 2} more item(s)
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex space-x-2 pt-3 border-t">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => viewRefund(refund)}
-                      >
-                        <Eye className="w-4 h-4 mr-2" />
-                        View Details
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => printRefund(refund)}
-                      >
-                        <Printer className="w-4 h-4 mr-2" />
-                        Print
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => downloadRefund(refund)}
-                      >
-                        <Download className="w-4 h-4 mr-2" />
-                        Download
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
 
             {/* Pagination */}

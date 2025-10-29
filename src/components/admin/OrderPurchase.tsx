@@ -19,33 +19,53 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
   ShoppingCart,
   Download,
   Search,
   Package,
   AlertTriangle,
   RefreshCw,
-  Filter
+  Filter,
+  Plus,
+  RotateCcw
 } from "lucide-react";
 import { apiService } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 
-interface Product {
+interface Batch {
   id: string;
-  name: string;
-  sku: string;
-  currentStock: number;
-  minStock: number;
-  maxStock: number;
-  unitPrice: number;
+  batchNo: string;
+  productId: string;
+  productName: string;
+  productSku: string;
   category: string;
+  supplier: string;
   branch: {
     id: string;
     name: string;
   };
-  supplier?: string;
-  lastRestocked?: string;
-  orderQuantity?: number; // Add editable order quantity
+  currentStock: number;
+  totalProductStock: number;
+  minStock: number;
+  maxStock: number;
+  unitPrice: number;
+  expireDate?: string;
+  productionDate?: string;
+  orderQuantity: number;
+  isLowStock: boolean;
+  isCritical: boolean;
+  isNearExpiry: boolean;
+  isExpired: boolean;
+  reason: string;
 }
 
 interface Branch {
@@ -55,13 +75,17 @@ interface Branch {
 
 const OrderPurchase = () => {
   const { user: currentUser } = useAuth();
-  const [products, setProducts] = useState<Product[]>([]);
+  const [batches, setBatches] = useState<Batch[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedBranch, setSelectedBranch] = useState("all");
-  const [stockFilter, setStockFilter] = useState("low"); // low, critical, all
+  const [stockFilter, setStockFilter] = useState("all"); // all, low, critical, nearExpiry, expired
+  const [showRestockDialog, setShowRestockDialog] = useState(false);
+  const [showNewBatchDialog, setShowNewBatchDialog] = useState(false);
+  const [selectedBatchForRestock, setSelectedBatchForRestock] = useState<Batch | null>(null);
+  const [restockQuantity, setRestockQuantity] = useState(0);
 
   // Set default branch for managers and cashiers
   useEffect(() => {
@@ -74,19 +98,19 @@ const OrderPurchase = () => {
 
   // Load data on component mount and when filters change
   useEffect(() => {
-    loadProducts();
+    loadBatches();
     loadBranches();
   }, [selectedBranch, stockFilter]);
 
-  // Load products when search term changes (with debounce)
+  // Load batches when search term changes (with debounce)
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      loadProducts();
+      loadBatches();
     }, 300);
     return () => clearTimeout(timeoutId);
   }, [searchTerm]);
 
-  const loadProducts = async () => {
+  const loadBatches = async () => {
     try {
       setIsLoading(true);
       setError("");
@@ -103,79 +127,50 @@ const OrderPurchase = () => {
       }
       // SuperAdmin and Admin can see all branches when "All Branches" is selected
 
-      console.log('Loading products with params:', {
+      console.log('Loading low stock batches with params:', {
         page: 1,
         limit: 1000,
         branchId: branchIdToUse,
-        stockFilter,
+        search: searchTerm,
         userRole: currentUser?.role,
         userBranchId: currentUser?.branchId
       });
 
-      const response = await apiService.getProducts({
+      const response = await apiService.getLowStockBatches({
         page: 1,
         limit: 1000,
-        branchId: branchIdToUse
+        branchId: branchIdToUse,
+        search: searchTerm
       });
 
       console.log('API response:', response);
 
-      if (response.success && response.data?.products) {
-        // Map API response to component format
-        let productsData = response.data.products.map((product: any) => {
-          const maxStock = product.maxStock || product.minStock * 10;
-          const suggestedOrderQty = Math.max(0, maxStock - product.stock);
+      if (response.success && response.data?.batches) {
+        let batchesData = response.data.batches;
 
-          return {
-            id: product.id,
-            name: product.name,
-            sku: product.barcode || product.id,
-            currentStock: product.stock,
-            minStock: product.minStock,
-            maxStock: maxStock,
-            unitPrice: product.price || 0, // Price now comes from batch data
-            category: product.category?.name || 'Uncategorized',
-            branch: {
-              id: product.branch?.id || '',
-              name: product.branch?.name || 'Unknown Branch'
-            },
-            supplier: product.supplier?.name,
-            lastRestocked: product.updatedAt,
-            orderQuantity: suggestedOrderQty // Set initial order quantity
-          };
-        });
+        console.log('Mapped batches data:', batchesData);
 
-        console.log('Mapped products data:', productsData);
-
-        // Filter products based on stock level
+        // Filter batches based on stock level
         if (stockFilter === "low") {
-          productsData = productsData.filter((product: Product) =>
-            product.currentStock <= product.minStock
-          );
+          batchesData = batchesData.filter((batch: Batch) => batch.isLowStock);
         } else if (stockFilter === "critical") {
-          productsData = productsData.filter((product: Product) =>
-            product.currentStock <= (product.minStock * 0.5)
-          );
+          batchesData = batchesData.filter((batch: Batch) => batch.isCritical);
+        } else if (stockFilter === "nearExpiry") {
+          batchesData = batchesData.filter((batch: Batch) => batch.isNearExpiry);
+        } else if (stockFilter === "expired") {
+          batchesData = batchesData.filter((batch: Batch) => batch.isExpired);
         }
+        // "all" shows all batches requiring attention
 
-        console.log('Filtered products data:', productsData);
+        console.log('Filtered batches data:', batchesData);
 
-        // Apply search filter
-        if (searchTerm) {
-          productsData = productsData.filter((product: Product) =>
-            product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            product.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            product.category.toLowerCase().includes(searchTerm.toLowerCase())
-          );
-        }
-
-        setProducts(productsData);
+        setBatches(batchesData);
       } else {
-        setError("Failed to load products");
+        setError("Failed to load batches");
       }
     } catch (err) {
-      console.error("Error loading products:", err);
-      setError("Failed to load products");
+      console.error("Error loading batches:", err);
+      setError("Failed to load batches");
     } finally {
       setIsLoading(false);
     }
@@ -214,45 +209,99 @@ const OrderPurchase = () => {
     // Filter changes are handled by useEffect
   };
 
-  const handleOrderQuantityChange = (productId: string, newQuantity: number) => {
-    setProducts(prevProducts =>
-      prevProducts.map(product =>
-        product.id === productId
-          ? { ...product, orderQuantity: Math.max(0, newQuantity) }
-          : product
+  const handleOrderQuantityChange = (batchId: string, newQuantity: number) => {
+    setBatches(prevBatches =>
+      prevBatches.map(batch =>
+        batch.id === batchId
+          ? { ...batch, orderQuantity: Math.max(0, newQuantity) }
+          : batch
       )
     );
   };
 
-  const getStockStatus = (product: Product) => {
-    if (product.currentStock <= (product.minStock * 0.5)) {
+  const handleRestockBatch = (batch: Batch) => {
+    setSelectedBatchForRestock(batch);
+    setRestockQuantity(0);
+    setShowRestockDialog(true);
+  };
+
+  const confirmRestock = async () => {
+    if (!selectedBatchForRestock || restockQuantity <= 0) return;
+
+    try {
+      setIsLoading(true);
+      const response = await apiService.restockBatch(selectedBatchForRestock.id, {
+        quantity: restockQuantity,
+        notes: `Restocked ${restockQuantity} units for batch ${selectedBatchForRestock.batchNo}`
+      });
+
+      if (response.success) {
+        // Update the batch in the local state
+        setBatches(prevBatches =>
+          prevBatches.map(batch =>
+            batch.id === selectedBatchForRestock.id
+              ? { ...batch, currentStock: batch.currentStock + restockQuantity }
+              : batch
+          )
+        );
+        setShowRestockDialog(false);
+        setSelectedBatchForRestock(null);
+        setRestockQuantity(0);
+        // Reload batches to get updated data
+        await loadBatches();
+      } else {
+        setError(response.message || 'Failed to restock batch');
+      }
+    } catch (err) {
+      console.error('Error restocking batch:', err);
+      setError('Failed to restock batch');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAddNewBatch = () => {
+    setShowNewBatchDialog(true);
+  };
+
+  const getStockStatus = (batch: Batch) => {
+    if (batch.isExpired) {
+      return { status: "Expired", color: "destructive" };
+    } else if (batch.isCritical) {
       return { status: "Critical", color: "destructive" };
-    } else if (product.currentStock <= product.minStock) {
-      return { status: "Low", color: "destructive" };
+    } else if (batch.isNearExpiry) {
+      return { status: "Near Expiry", color: "secondary" };
+    } else if (batch.isLowStock) {
+      return { status: "Low Stock", color: "destructive" };
     } else {
       return { status: "Normal", color: "default" };
     }
   };
 
-  const calculateOrderQuantity = (product: Product) => {
-    // Use the orderQuantity from the product if set, otherwise calculate suggested quantity
-    return product.orderQuantity || 0;
+  const calculateOrderQuantity = (batch: Batch) => {
+    // Use the orderQuantity from the batch if set, otherwise calculate suggested quantity
+    return batch.orderQuantity || 0;
   };
 
   const downloadOrderList = () => {
-    const orderData = products.map(product => ({
-      "Product Name": product.name,
-      "SKU": product.sku,
-      "Current Stock": product.currentStock,
-      "Min Stock": product.minStock,
-      "Max Stock": product.maxStock,
-      "Unit Price": product.unitPrice,
-      "Suggested Order Qty": calculateOrderQuantity(product),
-      "Total Value": (calculateOrderQuantity(product) * product.unitPrice).toFixed(2),
-      "Category": product.category,
-      "Branch": product.branch.name,
-      "Supplier": product.supplier || "N/A",
-      "Last Restocked": product.lastRestocked || "N/A"
+    const orderData = batches.map(batch => ({
+      "Batch No": batch.batchNo,
+      "Product Name": batch.productName,
+      "SKU": batch.productSku,
+      "Current Stock": batch.currentStock,
+      "Total Product Stock": batch.totalProductStock,
+      "Min Stock": batch.minStock,
+      "Max Stock": batch.maxStock,
+      "Unit Price": batch.unitPrice,
+      "Suggested Order Qty": calculateOrderQuantity(batch),
+      "Total Value": (calculateOrderQuantity(batch) * batch.unitPrice).toFixed(2),
+      "Category": batch.category,
+      "Branch": batch.branch.name,
+      "Supplier": batch.supplier,
+      "Expiry Date": batch.expireDate || "N/A",
+      "Production Date": batch.productionDate || "N/A",
+      "Issue Reason": batch.reason,
+      "Status": getStockStatus(batch).status
     }));
 
     // Convert to CSV
@@ -269,19 +318,19 @@ const OrderPurchase = () => {
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", `order_purchase_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute("download", `batch_order_purchase_${new Date().toISOString().split('T')[0]}.csv`);
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  const totalOrderValue = products.reduce((sum, product) =>
-    sum + ((product.orderQuantity || 0) * product.unitPrice), 0
+  const totalOrderValue = batches.reduce((sum, batch) =>
+    sum + ((batch.orderQuantity || 0) * batch.unitPrice), 0
   );
 
-  const totalOrderItems = products.reduce((sum, product) =>
-    sum + (product.orderQuantity || 0), 0
+  const totalOrderItems = batches.reduce((sum, batch) =>
+    sum + (batch.orderQuantity || 0), 0
   );
 
   return (
@@ -295,9 +344,9 @@ const OrderPurchase = () => {
                 <ShoppingCart className="h-8 w-8 text-blue-600" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Order Purchase</h1>
+                <h1 className="text-3xl font-bold text-gray-900">Batch Order Purchase</h1>
                 <p className="text-gray-600 mt-1">
-                  Manage low stock products and create purchase orders
+                  Manage batches requiring attention: low stock, near expiry, and expired items
                   {currentUser?.role === 'MANAGER' || currentUser?.role === 'CASHIER' ? (
                     <span className="ml-2 text-blue-600 font-medium">
                       • {branches.find(b => b.id === selectedBranch)?.name || 'Your Branch'}
@@ -308,15 +357,22 @@ const OrderPurchase = () => {
             </div>
             <div className="flex items-center space-x-3">
               <Button
+                onClick={handleAddNewBatch}
+                className="bg-green-600 hover:bg-green-700 text-white font-medium shadow-md hover:shadow-lg transition-all duration-200"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add New Batch
+              </Button>
+              <Button
                 onClick={downloadOrderList}
-                disabled={products.length === 0}
+                disabled={batches.length === 0}
                 className="bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-md hover:shadow-lg transition-all duration-200"
               >
                 <Download className="h-4 w-4 mr-2" />
                 Download CSV
               </Button>
               <Button
-                onClick={loadProducts}
+                onClick={loadBatches}
                 disabled={isLoading}
                 variant="outline"
                 className="border-gray-300 text-gray-700 hover:bg-gray-50"
@@ -331,12 +387,12 @@ const OrderPurchase = () => {
 
       <div className="px-6 py-6">
         {/* Compact Summary Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
           <div className="bg-white rounded-lg p-4 shadow-sm border">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Products</p>
-                <p className="text-2xl font-bold text-gray-900">{products.length}</p>
+                <p className="text-sm font-medium text-gray-600">Total Issues</p>
+                <p className="text-2xl font-bold text-gray-900">{batches.length}</p>
               </div>
               <Package className="h-8 w-8 text-blue-500" />
             </div>
@@ -346,7 +402,7 @@ const OrderPurchase = () => {
               <div>
                 <p className="text-sm font-medium text-gray-600">Low Stock</p>
                 <p className="text-2xl font-bold text-red-600">
-                  {products.filter(p => p.currentStock <= p.minStock).length}
+                  {batches.filter(b => b.isLowStock).length}
                 </p>
               </div>
               <AlertTriangle className="h-8 w-8 text-red-500" />
@@ -355,10 +411,23 @@ const OrderPurchase = () => {
           <div className="bg-white rounded-lg p-4 shadow-sm border">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Order Items</p>
-                <p className="text-2xl font-bold text-green-600">{totalOrderItems}</p>
+                <p className="text-sm font-medium text-gray-600">Near Expiry</p>
+                <p className="text-2xl font-bold text-orange-600">
+                  {batches.filter(b => b.isNearExpiry).length}
+                </p>
               </div>
-              <ShoppingCart className="h-8 w-8 text-green-500" />
+              <AlertTriangle className="h-8 w-8 text-orange-500" />
+            </div>
+          </div>
+          <div className="bg-white rounded-lg p-4 shadow-sm border">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Expired</p>
+                <p className="text-2xl font-bold text-red-800">
+                  {batches.filter(b => b.isExpired).length}
+                </p>
+              </div>
+              <AlertTriangle className="h-8 w-8 text-red-800" />
             </div>
           </div>
           <div className="bg-white rounded-lg p-4 shadow-sm border">
@@ -379,7 +448,7 @@ const OrderPurchase = () => {
           <div className="flex flex-col lg:flex-row gap-4">
             <div className="flex-1">
               <Input
-                placeholder="Search products by name, SKU, or category..."
+                placeholder="Search batches by product name, SKU, batch number, or category..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full"
@@ -406,9 +475,11 @@ const OrderPurchase = () => {
                   <SelectValue placeholder="Stock" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="all">All Issues</SelectItem>
                   <SelectItem value="low">Low Stock</SelectItem>
                   <SelectItem value="critical">Critical</SelectItem>
+                  <SelectItem value="nearExpiry">Near Expiry</SelectItem>
+                  <SelectItem value="expired">Expired</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -420,52 +491,55 @@ const OrderPurchase = () => {
           <div className="px-6 py-4 border-b bg-gray-50">
             <h3 className="text-lg font-semibold text-gray-900 flex items-center">
               <Package className="h-5 w-5 mr-2 text-blue-600" />
-              Products Requiring Reorder ({products.length})
+              Batches Requiring Reorder ({batches.length})
             </h3>
           </div>
 
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <RefreshCw className="h-6 w-6 animate-spin mr-2" />
-              <span className="text-gray-600">Loading products...</span>
+              <span className="text-gray-600">Loading batches...</span>
             </div>
           ) : error ? (
             <div className="text-center py-12 text-red-600">
               <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
               <p>{error}</p>
             </div>
-          ) : products.length === 0 ? (
+          ) : batches.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
               <Package className="h-8 w-8 mx-auto mb-2" />
-              <p>No products found matching your criteria</p>
+              <p>No batches found matching your criteria</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gray-50">
-                    <TableHead className="font-semibold">Product</TableHead>
+                    <TableHead className="font-semibold">Batch & Product</TableHead>
                     <TableHead className="font-semibold">Stock Info</TableHead>
                     <TableHead className="font-semibold">Pricing</TableHead>
                     <TableHead className="font-semibold text-center">Order Qty</TableHead>
                     <TableHead className="font-semibold text-right">Total Value</TableHead>
                     <TableHead className="font-semibold">Status</TableHead>
                     <TableHead className="font-semibold">Branch</TableHead>
+                    <TableHead className="font-semibold text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {products.map((product) => {
-                    const stockStatus = getStockStatus(product);
-                    const orderQuantity = calculateOrderQuantity(product);
-                    const totalValue = orderQuantity * product.unitPrice;
+                  {batches.map((batch) => {
+                    const stockStatus = getStockStatus(batch);
+                    const orderQuantity = calculateOrderQuantity(batch);
+                    const totalValue = orderQuantity * batch.unitPrice;
 
                     return (
-                      <TableRow key={product.id} className="hover:bg-gray-50">
+                      <TableRow key={batch.id} className="hover:bg-gray-50">
                         <TableCell>
                           <div>
-                            <div className="font-medium text-gray-900">{product.name}</div>
-                            <div className="text-sm text-gray-500">SKU: {product.sku}</div>
-                            <div className="text-sm text-gray-500">{product.category}</div>
+                            <div className="font-medium text-gray-900">{batch.productName}</div>
+                            <div className="text-sm text-gray-500">SKU: {batch.productSku}</div>
+                            <div className="text-sm text-gray-500">Batch: {batch.batchNo}</div>
+                            <div className="text-sm text-gray-500">{batch.category}</div>
+                            <div className="text-xs text-blue-600 font-medium">{batch.reason}</div>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -473,22 +547,26 @@ const OrderPurchase = () => {
                             <div className="flex items-center space-x-4">
                               <div>
                                 <span className="text-gray-600">Current:</span>
-                                <span className="ml-1 font-medium">{product.currentStock}</span>
+                                <span className="ml-1 font-medium">{batch.currentStock}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-600">Total Product:</span>
+                                <span className="ml-1">{batch.totalProductStock}</span>
                               </div>
                               <div>
                                 <span className="text-gray-600">Min:</span>
-                                <span className="ml-1">{product.minStock}</span>
+                                <span className="ml-1">{batch.minStock}</span>
                               </div>
                               <div>
                                 <span className="text-gray-600">Max:</span>
-                                <span className="ml-1">{product.maxStock}</span>
+                                <span className="ml-1">{batch.maxStock}</span>
                               </div>
                             </div>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="text-sm">
-                            <div className="font-medium">${product.unitPrice.toFixed(2)}</div>
+                            <div className="font-medium">${batch.unitPrice.toFixed(2)}</div>
                             <div className="text-gray-500">per unit</div>
                           </div>
                         </TableCell>
@@ -497,7 +575,7 @@ const OrderPurchase = () => {
                             type="number"
                             min="0"
                             value={orderQuantity}
-                            onChange={(e) => handleOrderQuantityChange(product.id, parseInt(e.target.value) || 0)}
+                            onChange={(e) => handleOrderQuantityChange(batch.id, parseInt(e.target.value) || 0)}
                             className="w-20 text-center font-medium"
                           />
                         </TableCell>
@@ -515,7 +593,17 @@ const OrderPurchase = () => {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-sm text-gray-600">
-                          {product.branch.name}
+                          {batch.branch.name}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Button
+                            onClick={() => handleRestockBatch(batch)}
+                            size="sm"
+                            className="bg-orange-600 hover:bg-orange-700 text-white"
+                          >
+                            <RotateCcw className="h-4 w-4 mr-1" />
+                            Restock
+                          </Button>
                         </TableCell>
                       </TableRow>
                     );
@@ -526,6 +614,93 @@ const OrderPurchase = () => {
           )}
         </div>
       </div>
+
+      {/* Restock Dialog */}
+      <Dialog open={showRestockDialog} onOpenChange={setShowRestockDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Restock Batch</DialogTitle>
+            <DialogDescription>
+              Add more units to this batch inventory.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedBatchForRestock && (
+            <div className="space-y-4 py-4">
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                  <RotateCcw className="w-6 h-6 text-orange-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">{selectedBatchForRestock.productName}</h3>
+                  <p className="text-sm text-gray-500">Batch: {selectedBatchForRestock.batchNo}</p>
+                  <p className="text-sm text-gray-500">Current Stock: {selectedBatchForRestock.currentStock}</p>
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="restock-quantity">Quantity to Add</Label>
+                <Input
+                  id="restock-quantity"
+                  type="number"
+                  min="1"
+                  value={restockQuantity}
+                  onChange={(e) => setRestockQuantity(parseInt(e.target.value) || 0)}
+                  placeholder="Enter quantity to add"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRestockDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmRestock}
+              disabled={restockQuantity <= 0 || isLoading}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              {isLoading ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <RotateCcw className="w-4 h-4 mr-2" />}
+              Restock Batch
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add New Batch Dialog */}
+      <Dialog open={showNewBatchDialog} onOpenChange={setShowNewBatchDialog}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Add New Batch</DialogTitle>
+            <DialogDescription>
+              Create a new batch for inventory management.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="text-center py-8">
+              <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">New Batch Creation</h3>
+              <p className="text-gray-500 mb-4">
+                This feature will redirect you to the batch management page where you can create a new batch.
+              </p>
+              <Button
+                onClick={() => {
+                  setShowNewBatchDialog(false);
+                  // Navigate to batch management page
+                  window.location.href = '/batches';
+                }}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Go to Batch Management
+              </Button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNewBatchDialog(false)}>
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

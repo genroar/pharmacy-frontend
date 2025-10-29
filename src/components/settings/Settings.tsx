@@ -227,6 +227,13 @@ const Settings = () => {
         }
       }
 
+      // Load user profile
+      const userResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/profile`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
       if (userResponse.ok) {
         const userData = await userResponse.json();
         if (userData.success && userData.data) {
@@ -463,13 +470,24 @@ const Settings = () => {
         },
         body: JSON.stringify({
           name: settings.user.name,
-          email: settings.user.email
+          email: settings.user.email,
+          profileImage: user?.profileImage
         })
       });
 
       if (response.ok) {
-        alert('Profile updated successfully!');
-        setIsEditingProfile(false);
+        const result = await response.json();
+        if (result.success) {
+          // Update local storage
+          const currentUser = JSON.parse(localStorage.getItem('medibill_user') || '{}');
+          const updatedUser = { ...currentUser, ...result.data };
+          localStorage.setItem('medibill_user', JSON.stringify(updatedUser));
+
+          alert('Profile updated successfully!');
+          setIsEditingProfile(false);
+          // Reload to reflect changes
+          window.location.reload();
+        }
       } else {
         const error = await response.json();
         alert(`Failed to update profile: ${error.message}`);
@@ -502,18 +520,42 @@ const Settings = () => {
       }
 
       try {
-        // Here you would typically upload the image to your server
-        // For now, we'll just show a success message
-        alert('Profile picture updated successfully!');
+        // Convert file to base64
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = async () => {
+          const base64String = reader.result as string;
 
-        // You could also update the user's profile picture in the state
-        // setSettings(prev => ({
-        //   ...prev,
-        //   user: {
-        //     ...prev.user,
-        //     profilePicture: URL.createObjectURL(file)
-        //   }
-        // }));
+          // Update profile with image
+          const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/update-profile`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify({
+              profileImage: base64String
+            })
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            if (result.success) {
+              // Update local user state
+              const currentUser = JSON.parse(localStorage.getItem('medibill_user') || '{}');
+              const updatedUser = { ...currentUser, profileImage: base64String };
+              localStorage.setItem('medibill_user', JSON.stringify(updatedUser));
+
+              // Reload to reflect changes
+              window.location.reload();
+              alert('Profile picture updated successfully!');
+            } else {
+              alert('Failed to update profile picture.');
+            }
+          } else {
+            alert('Failed to update profile picture.');
+          }
+        };
       } catch (error) {
         console.error('Profile picture update error:', error);
         alert('Failed to update profile picture. Please try again.');
@@ -630,10 +672,28 @@ const Settings = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center space-x-4">
-              <div className="w-16 h-16 bg-[#0C2C8A]/10 rounded-full flex items-center justify-center">
-                <span className="text-xl font-semibold text-[#0C2C8A]">
-                  {settings.user.name.charAt(0).toUpperCase()}
-                </span>
+              <div className="relative">
+                <div className="w-20 h-20 bg-[#0C2C8A]/10 rounded-full flex items-center justify-center overflow-hidden border-2 border-blue-600">
+                  {user?.profileImage ? (
+                    <img
+                      src={user.profileImage}
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-2xl font-semibold text-[#0C2C8A]">
+                      {settings.user.name.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <Button
+                  size="sm"
+                  className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full p-0 bg-blue-600 hover:bg-blue-700 text-white shadow-md"
+                  onClick={handleUpdateProfilePicture}
+                  title="Change Profile Photo"
+                >
+                  <Upload className="w-3 h-3" />
+                </Button>
               </div>
               <div>
                 <h3 className="font-semibold text-foreground">{settings.user.name}</h3>

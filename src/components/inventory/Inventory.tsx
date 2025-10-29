@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +48,7 @@ interface Product {
   category: {
     id: string;
     name: string;
+    type?: string; // Category type (MEDICAL, NON_MEDICAL, GENERAL)
   };
   supplier: {
     id: string;
@@ -62,6 +63,7 @@ interface Product {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  batches?: any[]; // Batches for manufacturer filtering
   // Batch-derived fields
   price?: number;
   stock?: number;
@@ -71,6 +73,7 @@ interface Category {
   id: string;
   name: string;
   description?: string;
+  type?: string; // Category type (MEDICAL, NON_MEDICAL, GENERAL)
 }
 
 interface Supplier {
@@ -80,6 +83,11 @@ interface Supplier {
   phone?: string;
   email?: string;
   address?: string;
+  manufacturerId?: string;
+  manufacturer?: {
+    id: string;
+    name: string;
+  };
   isActive: boolean;
 }
 
@@ -89,6 +97,9 @@ const Inventory = () => {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedProductType, setSelectedProductType] = useState("all");
+  const [selectedManufacturer, setSelectedManufacturer] = useState("all");
+  const [selectedSupplier, setSelectedSupplier] = useState("all");
   const [showAllProducts, setShowAllProducts] = useState(true); // Show all products by default
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
@@ -100,8 +111,10 @@ const Inventory = () => {
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [manufacturers, setManufacturers] = useState<any[]>([]);
+  const [allProducts, setAllProducts] = useState<any[]>([]); // Store all products for filtering
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -138,13 +151,19 @@ const Inventory = () => {
     loadData();
   }, [selectedBranchId]); // Re-run when selected branch changes
 
-  // Reload data when search or showAllProducts changes
+  // Apply filters when filter states or search query changes
   useEffect(() => {
-    if (searchQuery || showAllProducts !== false) {
-      console.log('Search or showAllProducts changed, reloading data...');
+    console.log('🔄 Filters or search query changed, applying filters...');
+    applyFilters();
+  }, [selectedCategory, selectedProductType, selectedManufacturer, selectedSupplier, allProducts, searchQuery]);
+
+  // Reload data when showAllProducts changes
+  useEffect(() => {
+    if (showAllProducts !== false) {
+      console.log('ShowAllProducts changed, reloading data...');
       loadData();
     }
-  }, [searchQuery, showAllProducts]);
+  }, [showAllProducts]);
 
   // Debug: Log products state changes
   useEffect(() => {
@@ -279,7 +298,8 @@ const Inventory = () => {
           return {
             ...product,
             price: product.price || 0, // Price now comes from batch data
-            stock: product.stock || 0  // Stock now comes from batch data
+            stock: product.stock || 0,  // Stock now comes from batch data
+            batches: product.batches || [] // Include batches for manufacturer filtering
           };
         });
 
@@ -311,6 +331,8 @@ const Inventory = () => {
           filteredProductsData: filteredProducts
         });
 
+        // Store all products for filtering
+        setAllProducts(productsWithBatchData);
         setProducts(debugProducts); // TEMPORARY: Use debug products
         setPagination({
           page: 1,
@@ -382,13 +404,58 @@ const Inventory = () => {
       const suppliersResponse = await apiService.getSuppliers({
         branchId: supplierBranchId
       });
+      console.log('🔍 Suppliers API response:', suppliersResponse);
       if (suppliersResponse.success && suppliersResponse.data) {
-        // Show all suppliers for the current branch (not filtered by products)
-        setSuppliers(suppliersResponse.data.suppliers);
+        // Handle different response formats
+        let suppliersData: Supplier[] = [];
+
+        // Check if data is an array directly
+        if (Array.isArray(suppliersResponse.data)) {
+          suppliersData = suppliersResponse.data as Supplier[];
+        }
+        // Check if data has suppliers property
+        else if ('suppliers' in suppliersResponse.data && Array.isArray(suppliersResponse.data.suppliers)) {
+          suppliersData = suppliersResponse.data.suppliers as Supplier[];
+        }
+
+        // Map supplier data to include manufacturer info
+        const mappedSuppliers = suppliersData.map((supplier: any) => ({
+          id: supplier.id,
+          name: supplier.name,
+          contactPerson: supplier.contactPerson,
+          phone: supplier.phone,
+          email: supplier.email,
+          address: supplier.address,
+          manufacturerId: supplier.manufacturerId,
+          manufacturer: supplier.manufacturer ? {
+            id: supplier.manufacturer.id,
+            name: supplier.manufacturer.name
+          } : undefined,
+          isActive: supplier.isActive
+        }));
+
+        console.log('🔍 Setting suppliers to state:', mappedSuppliers);
+        setSuppliers(mappedSuppliers);
       } else {
         console.error('Failed to load suppliers:', suppliersResponse.message);
         // Set empty array if no suppliers found
         setSuppliers([]);
+      }
+
+      // Load manufacturers from database
+      const manufacturersResponse = await apiService.getManufacturers({
+        page: 1,
+        limit: 1000,
+        active: true
+      });
+      console.log('🔍 Manufacturers API response:', manufacturersResponse);
+      if (manufacturersResponse.success && manufacturersResponse.data) {
+        const manufacturersData = manufacturersResponse.data.manufacturers || [];
+        console.log('🔍 Setting manufacturers to state:', manufacturersData);
+        setManufacturers(manufacturersData);
+      } else {
+        console.error('Failed to load manufacturers:', manufacturersResponse.message);
+        setManufacturers([]);
       }
 
     } catch (err) {
@@ -413,15 +480,117 @@ const Inventory = () => {
         setSuppliers([
           { id: 'sup_001', name: 'Default Supplier', contactPerson: 'John Doe', phone: '+92 300 1234567', email: 'contact@supplier.com', address: '123 Supplier St', isActive: true }
         ]);
+        setManufacturers([]);
       }
     } finally {
       setLoading(false);
     }
   };
 
+  // Get unique manufacturers from API
+  const getUniqueManufacturers = () => {
+    // Return manufacturers from state loaded from API
+    return manufacturers.map(m => ({
+      id: m.id,
+      name: m.name
+    }));
+  };
+
+  // Get unique suppliers from products
+  const getUniqueSuppliers = () => {
+    const supplierNames = new Set<string>();
+
+    // First, add suppliers from the loaded suppliers list
+    console.log('🔍 Current suppliers state:', suppliers);
+    suppliers.forEach(supplier => {
+      if (supplier.name) {
+        supplierNames.add(supplier.name);
+      }
+    });
+
+    // Also add suppliers from products
+    console.log('🔍 Current allProducts:', allProducts);
+    allProducts.forEach(product => {
+      if (product.supplier && product.supplier.name) {
+        supplierNames.add(product.supplier.name);
+      }
+    });
+
+    const uniqueSuppliers = Array.from(supplierNames).sort();
+    console.log('🔍 Unique suppliers to display:', uniqueSuppliers);
+
+    return uniqueSuppliers;
+  };
+
+  // Apply filters based on selected criteria
+  const applyFilters = () => {
+    let filtered = [...allProducts];
+
+    // Filter by search query
+    if (searchQuery) {
+      filtered = filtered.filter(product =>
+        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        product.barcode?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // Filter by category
+    if (selectedCategory !== "all") {
+      filtered = filtered.filter(product => product.category.id === selectedCategory);
+    }
+
+    // Filter by product type (from category type)
+    if (selectedProductType !== "all") {
+      filtered = filtered.filter(product => {
+        // Check both product.category.type and categories array
+        const categoryType = product.category?.type || categories.find(cat => cat.id === product.category?.id)?.type;
+        return categoryType === selectedProductType.toUpperCase();
+      });
+    }
+
+    // Filter by manufacturer (via supplier)
+    if (selectedManufacturer !== "all") {
+      filtered = filtered.filter(product => {
+        // Get the supplier for this product
+        const supplier = suppliers.find(s => s.id === product.supplier?.id);
+        if (supplier && supplier.manufacturerId) {
+          return supplier.manufacturerId === selectedManufacturer;
+        }
+        return false;
+      });
+    }
+
+    // Filter by supplier
+    if (selectedSupplier !== "all") {
+      filtered = filtered.filter(product => product.supplier?.name === selectedSupplier);
+    }
+
+    setProducts(filtered);
+    setPagination(prev => ({
+      ...prev,
+      total: filtered.length,
+      pages: Math.ceil(filtered.length / prev.limit)
+    }));
+  };
+
   const lowStockCount = 0; // Stock is now managed via batches
   const totalProducts = pagination.total;
-  const totalValue = 0; // Value is now calculated from batches
+
+  // Calculate total value from all batches across all products
+  // Total value = sum of (quantity * purchasePrice) for each batch
+  const totalValue = useMemo(() => {
+    let total = 0;
+    allProducts.forEach((product: any) => {
+      if (product.batches && Array.isArray(product.batches)) {
+        product.batches.forEach((batch: any) => {
+          const quantity = batch.quantity || 0;
+          const purchasePrice = batch.purchasePrice || 0;
+          total += quantity * purchasePrice;
+        });
+      }
+    });
+    return total;
+  }, [allProducts]);
 
   const getStockStatus = (stock: number, minStock: number) => {
     if (stock === 0) return { status: "out", color: "destructive" };
@@ -449,11 +618,17 @@ const Inventory = () => {
     try {
       setLoading(true);
 
+      // Determine branchId: use selectedBranchId for admin, or user's branchId for others
+      const branchId = (user?.role === 'ADMIN' || user?.role === 'SUPERADMIN')
+        ? (selectedBranchId || user?.branchId || '')
+        : (user?.branchId || '');
+
       const categoryData = {
         name: formData.name,
         description: formData.description || "",
         type: formData.type, // Already converted to uppercase in CategoryForm
-        color: formData.color
+        color: formData.color,
+        branchId: branchId // Always include branchId
       };
 
       // Create category via API
@@ -556,7 +731,6 @@ const Inventory = () => {
         categoryId: newMedicine.categoryId,
         supplierId: supplierId,
         branchId: branchId,
-        unitType: "tablets", // Default unit type
         barcode: newMedicine.barcode || null,
         requiresPrescription: false,
         isActive: true,
@@ -1777,54 +1951,7 @@ const Inventory = () => {
           <h1 className="text-3xl font-bold text-foreground">Inventory Management</h1>
           <p className="text-muted-foreground text-sm mt-[5px]">Manage your pharmacy inventory</p>
         </div>
-
-        {/* Date and Time Display */}
-        <div className="text-center">
-          <p className="text-sm font-medium text-foreground">
-            {new Date().toLocaleDateString('en-US', {
-              weekday: 'long',
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric'
-            })}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {new Date().toLocaleTimeString('en-US', {
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit',
-              hour12: true
-            })}
-          </p>
-        </div>
         <div className="flex items-center space-x-3">
-          {/* Branch selector for admins */}
-          {(user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') && (
-            <div className="flex items-center gap-2">
-              <Label className="text-sm text-gray-600">Branch</Label>
-              <Select
-                value={selectedBranchId || ''}
-                onValueChange={(v) => setSelectedBranchId(v)}
-              >
-                <SelectTrigger className="w-64">
-                  <SelectValue placeholder={selectedBranch?.name || 'Select branch'} />
-                </SelectTrigger>
-                <SelectContent>
-                  {allBranches?.map((b) => (
-                    <SelectItem
-                      key={b.id}
-                      value={b.id}
-                      className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
-                    >
-                      {b.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-
           {/* Export/Import Buttons */}
           <div className="flex items-center space-x-2">
             <Button
@@ -1835,7 +1962,6 @@ const Inventory = () => {
               <Upload className="w-4 h-4 mr-2" />
               Export
             </Button>
-
             <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
               <DialogTrigger asChild>
                 <Button
@@ -2389,11 +2515,12 @@ const Inventory = () => {
         </Card>
       </div>
 
-      {/* Search and Filters */}
+      {/* All Filters in One Line */}
       <Card className="shadow-soft border-0">
-        <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
+        <CardContent className="p-4">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Search */}
+            <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Search by name or barcode..."
@@ -2403,17 +2530,98 @@ const Inventory = () => {
               />
             </div>
 
-            <div className="flex items-center gap-2">
+            {/* View Categories Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsCategoryManagementOpen(true)}
+              className="flex items-center gap-2 whitespace-nowrap"
+            >
+              <FolderOpen className="w-4 h-4" />
+              View Categories
+            </Button>
+
+            {/* Category Filter */}
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <SelectTrigger id="category-filter" className="w-[150px]">
+                <SelectValue placeholder="All Categories" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                {categories.map((category) => (
+                  <SelectItem key={category.id} value={category.id}>
+                    {category.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Product Type Filter */}
+            <Select value={selectedProductType} onValueChange={setSelectedProductType}>
+              <SelectTrigger id="type-filter" className="w-[140px]">
+                <SelectValue placeholder="All Types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="MEDICAL">Medical</SelectItem>
+                <SelectItem value="NON_MEDICAL">Non-Medical</SelectItem>
+                <SelectItem value="GENERAL">General</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Manufacturer Filter */}
+            <Select value={selectedManufacturer} onValueChange={setSelectedManufacturer}>
+              <SelectTrigger id="manufacturer-filter" className="w-[160px]">
+                <SelectValue placeholder="All Manufacturers" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Manufacturers</SelectItem>
+                {getUniqueManufacturers().map((manufacturer) => (
+                  <SelectItem key={manufacturer.id} value={manufacturer.id}>
+                    {manufacturer.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Supplier Filter */}
+            <Select value={selectedSupplier} onValueChange={setSelectedSupplier}>
+              <SelectTrigger id="supplier-filter" className="w-[150px]">
+                <SelectValue placeholder="All Suppliers" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Suppliers</SelectItem>
+                {getUniqueSuppliers().length > 0 ? (
+                  getUniqueSuppliers().map((supplier) => (
+                    <SelectItem key={supplier} value={supplier}>
+                      {supplier}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value="no-suppliers" disabled>
+                    No suppliers available
+                  </SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+
+            {/* Clear Filters Button */}
+            {(selectedCategory !== "all" || selectedProductType !== "all" || selectedManufacturer !== "all" || selectedSupplier !== "all") && (
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
-                onClick={() => setIsCategoryManagementOpen(true)}
-                className="flex items-center gap-2"
+                onClick={() => {
+                  setSelectedCategory("all");
+                  setSelectedProductType("all");
+                  setSelectedManufacturer("all");
+                  setSelectedSupplier("all");
+                }}
+                className="flex items-center gap-2 h-8 w-8 p-0"
+                title="Clear Filters"
               >
-                <FolderOpen className="w-4 h-4" />
-                View Categories
+                <X className="w-4 h-4" />
               </Button>
-            </div>
+            )}
           </div>
         </CardContent>
       </Card>

@@ -38,51 +38,59 @@ const navigationItems: NavItem[] = [
   // Dashboard - Available to all roles
   { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
 
-  // Sales Dropdown - Available to all roles
+  // Point of Sale - Only for Cashiers (standalone, not in dropdown)
+  { name: 'Point of Sale', href: '/create-invoice', icon: ShoppingCart, roles: ['CASHIER'] },
+
+  // Invoices - Only for Cashiers (standalone)
+  { name: 'Invoices', href: '/invoices', icon: FileText, roles: ['CASHIER'] },
+
+  // Refunds - Only for Cashiers (standalone)
+  { name: 'Refunds', href: '/refunds', icon: Receipt, roles: ['CASHIER'] },
+
+  // Customers - Available to all roles
+  { name: 'Customers', href: '/customers', icon: Users, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
+
+  // Sales Dropdown - Available to Manager, Admin, SuperAdmin (removed CASHIER)
   {
     name: 'Sales',
     icon: ShoppingCart,
-    roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'],
+    roles: ['MANAGER', 'ADMIN', 'SUPERADMIN'],
     children: [
-      { name: 'Point of Sale', href: '/pos', icon: ShoppingCart, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
-      { name: 'Invoices', href: '/invoices', icon: FileText, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
-      { name: 'Refunds', href: '/refunds', icon: Receipt, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] }
+      { name: 'Point of Sale', href: '/create-invoice', icon: ShoppingCart, roles: ['MANAGER', 'ADMIN', 'SUPERADMIN'] },
+      { name: 'Invoices', href: '/invoices', icon: FileText, roles: ['MANAGER', 'ADMIN', 'SUPERADMIN'] },
+      { name: 'Refunds', href: '/refunds', icon: Receipt, roles: ['MANAGER', 'ADMIN', 'SUPERADMIN'] }
     ]
   },
 
-  // Inventory Dropdown - Available to all roles
+  // Inventory Dropdown - Available to Manager, Admin, SuperAdmin (removed CASHIER)
   {
     name: 'Inventory',
     icon: Package,
-    roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'],
+    roles: ['MANAGER', 'ADMIN', 'SUPERADMIN'],
     children: [
-      { name: 'All Products', href: '/inventory', icon: Package, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
-      { name: 'Categories', href: '/inventory/categories', icon: Package, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
-      { name: 'Manufacturers', href: '/manufacturers', icon: Building2, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
-      { name: 'Suppliers', href: '/suppliers', icon: Building2, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
-      { name: 'Shelves', href: '/shelves', icon: Package, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
-      { name: 'Batches', href: '/batches', icon: Package, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
-      { name: 'Order Purchase', href: '/order-purchase', icon: ShoppingCart, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] }
+      { name: 'All Products', href: '/inventory', icon: Package, roles: ['MANAGER', 'ADMIN', 'SUPERADMIN'] },
+      { name: 'Categories', href: '/inventory/categories', icon: Package, roles: ['MANAGER', 'ADMIN', 'SUPERADMIN'] },
+      { name: 'Manufacturers', href: '/manufacturers', icon: Building2, roles: ['MANAGER', 'ADMIN', 'SUPERADMIN'] },
+      { name: 'Suppliers', href: '/suppliers', icon: Building2, roles: ['MANAGER', 'ADMIN', 'SUPERADMIN'] },
+      { name: 'Shelves', href: '/shelves', icon: Package, roles: ['MANAGER', 'ADMIN', 'SUPERADMIN'] },
+      { name: 'Batches', href: '/batches', icon: Package, roles: ['MANAGER', 'ADMIN', 'SUPERADMIN'] },
+      { name: 'Order Purchase', href: '/order-purchase', icon: ShoppingCart, roles: ['MANAGER', 'ADMIN', 'SUPERADMIN'] }
     ]
   },
 
   // Management Dropdown - Available to Admin, SuperAdmin
   {
-    name: 'Management',
+    name: 'Business Management',
     icon: UserCog,
     roles: ['ADMIN', 'SUPERADMIN'],
     children: [
-      { name: 'User Management', href: '/admin/users', icon: UserCog, roles: ['ADMIN', 'SUPERADMIN'] },
-      { name: 'Branch Management', href: '/admin/branches', icon: Building2, roles: ['ADMIN', 'SUPERADMIN'] },
+      { name: 'Staff', href: '/admin/users', icon: UserCog, roles: ['ADMIN', 'SUPERADMIN'] },
+      { name: 'Branch', href: '/admin/branches', icon: Building2, roles: ['ADMIN', 'SUPERADMIN'] },
     ]
   },
 
-  { name: 'Customers', href: '/customers', icon: Users, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
-
    // Reports - Available to Manager, Admin, SuperAdmin
    { name: 'Reports', href: '/reports', icon: BarChart3, roles: ['MANAGER', 'ADMIN', 'SUPERADMIN'] },
-
-
 
 ];
 
@@ -240,7 +248,7 @@ export const RoleBasedSidebar: React.FC = () => {
       </div>
 
       {/* Navigation */}
-      <nav className={`flex-1 ${isCollapsed ? 'px-2' : 'px-4'} space-y-2 overflow-y-auto`}>
+      <nav className={`flex-1 ${isCollapsed ? 'px-2' : ''} space-y-2 overflow-y-auto`}>
         {navigationItems.map((item) => (
           <NavItem key={`${item.name}-${isCollapsed}`} item={item} isCollapsed={isCollapsed} />
         ))}

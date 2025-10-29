@@ -432,8 +432,10 @@ const AdminDashboard = () => {
     },
     {
       title: currentUser?.role === 'ADMIN' ? "All My Branches" : "Total Branches",
-      value: allBranches.length.toString(),
-      change: "Real Data",
+      value: selectedCompanyId
+        ? allBranches.filter(branch => branch.companyId === selectedCompanyId).length.toString()
+        : allBranches.length.toString(),
+      change: selectedCompanyId ? "Company Data" : "All Data",
       icon: Building2,
       trend: "up",
       trendValue: "+2.0%",
@@ -448,7 +450,7 @@ const AdminDashboard = () => {
       trendValue: "+15.3%",
       description: "vs last month"
     }
-  ], [filteredData.revenue, filteredData.totalSales, filteredData.products.length, filteredData.users.length, allBranches.length, allUsers.length, currentUser?.role, selectedBranchId, globalSelectedBranch?.name, formatCurrency]);
+  ], [filteredData.revenue, filteredData.totalSales, filteredData.products.length, filteredData.users.length, allBranches, allUsers, currentUser?.role, selectedBranchId, selectedCompanyId, globalSelectedBranch?.name, formatCurrency]);
 
   // Memoize date/time formatting to prevent unnecessary re-renders
   const formattedDateTime = useMemo(() => ({
@@ -559,11 +561,19 @@ const AdminDashboard = () => {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">
-            {currentUser?.role === 'ADMIN' ? 'Admin Dashboard' : 'Super Admin Dashboard'}
+            {selectedCompany
+              ? `${selectedCompany.name} Dashboard`
+              : selectedBranchId
+              ? `${globalSelectedBranch?.name} Dashboard`
+              : currentUser?.role === 'ADMIN'
+              ? 'Admin Dashboard'
+              : 'Super Admin Dashboard'}
           </h1>
           <p className="text-muted-foreground text-sm mt-[5pxf]">
             {selectedBranchId
               ? `Overview of ${globalSelectedBranch?.name} branch operations`
+              : selectedCompany
+              ? `Overview of ${selectedCompany.name}'s branches, revenue, users, and products`
               : currentUser?.role === 'ADMIN'
                 ? 'Overview of all your branches, revenue, users, and products'
                 : 'Complete overview of all pharmacy operations'
@@ -622,58 +632,6 @@ const AdminDashboard = () => {
             </Command>
           </PopoverContent>
         </Popover> */}
-
-        {/* Branch Selector */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              role="combobox"
-              aria-expanded={false}
-              className="w-48 justify-between bg-white border border-gray-300 hover:bg-gray-50"
-            >
-              <div className="flex items-center space-x-2">
-                <Filter className="w-4 h-4" />
-                <span className="truncate">
-                  {selectedBranchId
-                    ? globalSelectedBranch?.name
-                    : "All Branches"
-                  }
-                </span>
-              </div>
-              <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-80 p-0 bg-white border border-gray-200 shadow-lg">
-            <Command>
-              <CommandInput placeholder="Search branches..." />
-              <CommandList>
-                <CommandEmpty>No branches found.</CommandEmpty>
-                <CommandGroup>
-                  <CommandItem
-                    value="all-branches"
-                    onSelect={() => handleBranchSelect(null)}
-                  >
-                    <Building2 className="mr-2 h-4 w-4" />
-                    <span>All Branches</span>
-                    {!selectedBranchId && <CheckCircle className="ml-auto h-4 w-4" />}
-                  </CommandItem>
-                  {filteredBranches.map((branch) => (
-                    <CommandItem
-                      key={branch.id}
-                      value={branch.name}
-                      onSelect={() => handleBranchSelect(branch.id)}
-                    >
-                      <Building2 className="mr-2 h-4 w-4" />
-                      <span className="truncate">{branch.name}</span>
-                      {selectedBranchId === branch.id && <CheckCircle className="ml-auto h-4 w-4" />}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
 
         {/* Digital Time Display */}
         <div className="w-full sm:w-80">

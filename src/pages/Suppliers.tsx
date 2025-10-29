@@ -33,6 +33,8 @@ interface Supplier {
   name: string;
   contactPerson: string;
   phone: string;
+  email?: string;
+  address?: string;
   manufacturerId?: string;
   manufacturer?: {
     id: string;
@@ -73,6 +75,8 @@ const Suppliers = () => {
     name: '',
     contactPerson: '',
     phone: '',
+    email: '',
+    address: '',
     manufacturerId: ''
   });
 
@@ -275,6 +279,8 @@ const Suppliers = () => {
       name: supplier.name,
       contactPerson: supplier.contactPerson,
       phone: supplier.phone,
+      email: supplier.email || '',
+      address: supplier.address || '',
       manufacturerId: supplier.manufacturerId || ''
     });
   };
@@ -652,6 +658,27 @@ const Suppliers = () => {
                   placeholder="Enter phone number"
                 />
               </div>
+              <div>
+                <Label htmlFor="email">Email Address</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="Enter email address"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="address">Address</Label>
+              <Textarea
+                id="address"
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                placeholder="Enter supplier address"
+                rows={3}
+              />
             </div>
 
             <div>
@@ -675,7 +702,7 @@ const Suppliers = () => {
 
           <div className="flex justify-end space-x-2 pt-4">
             <Button
-          
+
               variant="outline"
               onClick={() => {
                 setShowAddDialog(false);

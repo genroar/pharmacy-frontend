@@ -4,9 +4,13 @@ import { apiService } from '../services/api';
 interface User {
   id: string;
   name: string;
+  username: string;
+  email?: string;
+  profileImage?: string;
   role: 'SUPERADMIN' | 'ADMIN' | 'MANAGER' | 'CASHIER';
   branchId?: string;
   adminId?: string;
+  isActive?: boolean;
   permissions?: string[];
 }
 
@@ -53,7 +57,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
           // Simple client-side validation - just check if token exists and user data is valid
           if (userData && userData.id && userData.role) {
-            setUser(userData);
+            // Ensure profileImage field exists
+            const userWithProfileImage = {
+              ...userData,
+              profileImage: userData.profileImage || undefined
+            };
+            setUser(userWithProfileImage);
             setIsAuthenticated(true);
             // Set token in ApiService
             apiService.setToken(savedToken);
@@ -95,6 +104,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const token = localStorage.getItem('token');
     if (token) {
       apiService.setToken(token);
+    }
+
+    // Clear admin company selection to force Zapeera screen on fresh login
+    if (userData.role === 'ADMIN') {
+      localStorage.removeItem(`selected_company_${userData.id}`);
+      localStorage.removeItem(`selected_branch_${userData.id}`);
+      // Set a flag to indicate this is a fresh login
+      localStorage.setItem(`fresh_admin_login_${userData.id}`, 'true');
     }
   }, []);
 

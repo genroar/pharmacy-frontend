@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
   Search,
@@ -41,6 +42,7 @@ interface Customer {
   lastVisit: string;
   loyaltyPoints: number;
   isVIP: boolean;
+  createdBy?: string;
 }
 
 interface PurchaseHistory {
@@ -59,6 +61,7 @@ const Customers = () => {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("all");
+  const [createdByFilter, setCreatedByFilter] = useState("all"); // New filter for created by
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -85,7 +88,7 @@ const Customers = () => {
   // Load customers on component mount
   useEffect(() => {
     loadCustomers();
-  }, [searchQuery, selectedFilter, selectedBranchId]);
+  }, [searchQuery, selectedFilter, createdByFilter, selectedBranchId]);
 
   // Refresh customers when component becomes visible (e.g., after returning from POS)
   useEffect(() => {
@@ -200,13 +203,20 @@ const Customers = () => {
         vip: selectedFilter === "vip" ? true : selectedFilter === "regular" ? false : undefined
       });
 
-      const response = await apiService.getCustomers({
+      const params: any = {
         page: pagination.page,
         limit: pagination.limit,
         search: searchQuery,
         branchId: branchId || "",
         vip: selectedFilter === "vip" ? true : selectedFilter === "regular" ? false : undefined
-      });
+      };
+
+      // Add createdByRole filter if not "all"
+      if (createdByFilter !== "all") {
+        params.createdByRole = createdByFilter;
+      }
+
+      const response = await apiService.getCustomers(params);
 
       console.log('Full API response:', response);
 
@@ -215,7 +225,7 @@ const Customers = () => {
         console.log('Number of customers in response:', response.data.customers?.length || 0);
 
         // Transform API data to match Customer interface
-        const transformedCustomers = response.data.customers.map(customer => {
+        const transformedCustomers = response.data.customers.map((customer: any) => {
           console.log('Individual customer data:', customer);
           return {
             id: customer.id,
@@ -226,7 +236,8 @@ const Customers = () => {
             totalPurchases: Number(customer.totalPurchases) || 0,
             lastVisit: customer.lastVisit ? new Date(customer.lastVisit).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
             loyaltyPoints: Number(customer.loyaltyPoints) || 0,
-            isVIP: Boolean(customer.isVIP) || false
+            isVIP: Boolean(customer.isVIP) || false,
+            createdBy: customer.createdBy || null
           };
         });
 
@@ -281,6 +292,15 @@ const Customers = () => {
     if (selectedFilter === "with-purchases") {
       matchesFilter = customer.totalPurchases > 0;
     }
+
+    // Apply created by filter (commented out until backend provides creator information)
+    // The backend currently doesn't return createdByUser information
+    // TODO: Implement this when backend is updated to return creator role
+    // let matchesCreatedBy = true;
+    // if (createdByFilter !== "all") {
+    //   const creatorRole = customer.createdByUser?.role?.toLowerCase();
+    //   matchesCreatedBy = creatorRole === createdByFilter.toLowerCase();
+    // }
 
     return matchesSearch && matchesFilter;
   });
@@ -411,7 +431,20 @@ const Customers = () => {
               />
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
+              {/* Created By Filter */}
+              <Select value={createdByFilter} onValueChange={setCreatedByFilter}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Created By" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Users</SelectItem>
+                  <SelectItem value="ADMIN">Admin</SelectItem>
+                  <SelectItem value="MANAGER">Manager</SelectItem>
+                  <SelectItem value="CASHIER">Cashier</SelectItem>
+                </SelectContent>
+              </Select>
+
               {filters.map((filter) => {
                 const filterLabels: { [key: string]: string } = {
                   "all": "All",

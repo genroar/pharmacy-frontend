@@ -3,7 +3,6 @@ import { useNavigate, useLocation } from "react-router-dom";
 import {
   Home,
   CheckSquare,
-  Building,
   Settings,
   MessageCircle,
   Calendar,
@@ -31,8 +30,6 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
       setActiveTab("pos");
     } else if (path.startsWith('/admin/companies') || path.startsWith('/zapeera/companies')) {
       setActiveTab("businesses");
-    } else if (path.startsWith('/admin/branches') || path.startsWith('/zapeera/branches')) {
-      setActiveTab("branches");
     } else if (path.startsWith('/settings')) {
       setActiveTab("settings");
     }
@@ -50,9 +47,6 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
         break;
       case "businesses":
         navigate('/zapeera/companies');
-        break;
-      case "branches":
-        navigate('/zapeera/branches');
         break;
       case "settings":
         navigate('/settings');
@@ -91,12 +85,9 @@ ${user?.name || 'User'}`;
       {/* Left Sidebar */}
       <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
         {/* Logo */}
-        <div className="p-6 border-b border-gray-200">
+        <div className="px-4 py-[1px] border-b border-gray-200">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
-              <span className="text-white font-bold text-sm">Z</span>
-            </div>
-            <span className="text-xl font-semibold text-gray-900">Zapeera</span>
+              <img src=" /images/logo.png" alt="logo" className="w-45 object-cover" />
           </div>
         </div>
 
@@ -126,17 +117,6 @@ ${user?.name || 'User'}`;
             <span className="font-medium" >My Businesses</span>
           </button>
 
-          <button
-            onClick={() => handleNavigation("branches")}
-            className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${
-              activeTab === "branches"
-                ? "bg-blue-50 text-blue-600"
-                : "text-gray-700 hover:bg-gray-50"
-            }`}
-          >
-            <Building className="w-5 h-5" />
-            <span className="font-medium">Branches</span>
-          </button>
 
           <button
             onClick={() => handleNavigation("settings")}
@@ -179,19 +159,9 @@ ${user?.name || 'User'}`;
         <header className="bg-white border-b border-gray-200 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
-                <span className="text-white font-bold text-sm">Z</span>
-              </div>
-              <span className="text-xl font-semibold text-gray-900">Zapeera</span>
+              <h2 className="text-xl font-bold">Smart. Seamless. Scalable. That’s Zapeera.</h2>
             </div>
             <div className="flex items-center space-x-4">
-              <button
-                onClick={() => navigate('/create-invoice')}
-                className="bg-[#0C2C8A] hover:bg-[#0a2470] text-white px-4 py-2 rounded-md font-medium text-sm shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-2 new-sale-button"
-              >
-                <ShoppingCart className="w-4 h-4" />
-                New Sale
-              </button>
               <button
                 className="p-2 text-gray-500 hover:text-gray-700 transition-colors"
                 aria-label="Notifications"

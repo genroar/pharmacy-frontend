@@ -2,14 +2,30 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   Briefcase,
   BarChart3,
   Star,
   Key,
   Building,
-  Plus
+  Plus,
+  MessageCircle,
+  Phone,
+  Mail,
+  LogOut,
+  X
 } from "lucide-react";
 import ZapeeraLayout from "@/components/layout/ZapeeraLayout";
 import OnboardingTour, { OnboardingStep } from "@/components/OnboardingTour";
@@ -21,10 +37,29 @@ import { toast } from "@/hooks/use-toast";
 
 const ZapeeraDashboard = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { setSelectedCompanyId, allCompanies } = useAdmin();
-  const [selectedCompany, setSelectedCompany] = useState<string>("");
-  const [showCompanySelection, setShowCompanySelection] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    address: '',
+    phone: '',
+    email: ''
+  });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Type assertion to ensure we're using the correct User interface
+  const currentUser = user as {
+    id: string;
+    name: string;
+    username?: string;
+    email?: string;
+    role: string;
+    isActive?: boolean;
+  } | null;
 
   // Onboarding tour steps for the dashboard
   const dashboardSteps: OnboardingStep[] = [
@@ -75,52 +110,71 @@ const ZapeeraDashboard = () => {
     }
   ];
 
-  // Check if user has companies and if any need business type
-  useEffect(() => {
-    if (allCompanies) {
-      const hasNoCompanies = allCompanies.length === 0;
-      const companyNeedingType = allCompanies.find((company: any) => !company.businessType);
-
-      if (hasNoCompanies || companyNeedingType) {
-        setShowCompanySelection(true);
-      }
-    }
-  }, [allCompanies]);
-
   const handleCreateBusiness = () => {
-    navigate('/admin/companies');
+    setIsCreateModalOpen(true);
   };
 
-  const handleCompanySelect = (companyId: string) => {
-    setSelectedCompany(companyId);
-  };
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setFormErrors({});
 
-  const handleContinueWithCompany = () => {
-    if (!selectedCompany) {
-      toast({
-        title: "Please select a company",
-        description: "Choose a company to continue.",
-        variant: "destructive",
-        duration: 3000,
-      });
+    // Basic validation
+    if (!formData.name.trim()) {
+      setFormErrors({ name: 'Company name is required' });
+      setIsSubmitting(false);
       return;
     }
 
-    // Set the selected company in AdminContext
-    setSelectedCompanyId(selectedCompany);
+    try {
+      const response = await apiService.createCompany(formData);
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: "Company created successfully!",
+        });
 
-    // Find the selected company details
-    const company = allCompanies.find(c => c.id === selectedCompany);
+        // Reset form
+        setFormData({
+          name: '',
+          description: '',
+          address: '',
+          phone: '',
+          email: ''
+        });
+        setIsCreateModalOpen(false);
 
-    // Show success message
-    toast({
-      title: "Company Selected",
-      description: `You are now viewing ${company?.name || 'the selected company'}'s dashboard.`,
-      duration: 3000,
+        // Navigate to My Businesses tab
+        navigate('/zapeera/companies');
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to create company",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error('Error creating company:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create company",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleFormCancel = () => {
+    setIsCreateModalOpen(false);
+    setFormData({
+      name: '',
+      description: '',
+      address: '',
+      phone: '',
+      email: ''
     });
-
-    // Navigate to the main dashboard with the selected company context
-    navigate('/dashboard');
+    setFormErrors({});
   };
 
   const handleChatSupport = () => {
@@ -152,6 +206,149 @@ ${user?.name || 'User'}`;
     console.log("Explore demo business clicked");
   };
 
+  const handleContactSupport = () => {
+    // Open WhatsApp with the support number
+    const phoneNumber = "+923107100663";
+    const message = `Hello! My account is disabled and I need it to be activated. My username: ${currentUser?.username || 'N/A'}. Please help me activate my account.`;
+    const whatsappUrl = `https://wa.me/${phoneNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
+  };
+
+  const handleEmailSupport = () => {
+    // Open email client to contact support
+    const subject = "Account Activation Request - Zapeera";
+    const body = `Hello,
+
+My account is currently disabled and I need it to be activated.
+
+Account Details:
+- Username: ${currentUser?.username || 'N/A'}
+- Email: ${currentUser?.email || 'N/A'}
+- Name: ${currentUser?.name || 'N/A'}
+
+Please help me activate my account so I can access the system.
+
+Best regards,
+${currentUser?.name || 'User'}`;
+
+    const emailUrl = `mailto:support@zapeera.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(emailUrl, '_blank');
+  };
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
+  // Check if user account is disabled
+  console.log('🔍 ZapeeraDashboard: Current user:', currentUser);
+  console.log('🔍 ZapeeraDashboard: User isActive:', currentUser?.isActive);
+
+  if (currentUser && currentUser.isActive === false) {
+    console.log('🔍 ZapeeraDashboard: User is disabled, showing disabled account message');
+    return (
+      <ZapeeraLayout>
+        <div className="p-6">
+          <div className="max-w-4xl mx-auto">
+            {/* Disabled Account Message */}
+            <Card className="shadow-xl border-0 mb-8">
+              <CardContent className="p-8">
+                {/* Header */}
+                <div className="text-center mb-8">
+                  <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <MessageCircle className="w-8 h-8 text-orange-600" />
+                  </div>
+                  <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                    Account Disabled
+                  </h1>
+                  <p className="text-lg text-gray-600">
+                    Your account is currently disabled and needs to be activated by an administrator.
+                  </p>
+                </div>
+
+                {/* Contact Information */}
+                <div className="bg-blue-50 rounded-lg p-6 mb-8">
+                  <h3 className="font-semibold text-blue-900 mb-3 text-lg">Contact Support</h3>
+                  <p className="text-blue-800 mb-4">
+                    Please contact our support team to activate your account:
+                  </p>
+                  <div className="flex items-center justify-center space-x-2 text-blue-700 text-lg">
+                    <Phone className="w-5 h-5" />
+                    <span className="font-medium">+923107100663</span>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                  <Button
+                    onClick={handleContactSupport}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white py-3"
+                    size="lg"
+                  >
+                    <MessageCircle className="w-5 h-5 mr-2" />
+                    Contact via WhatsApp
+                  </Button>
+
+                  <Button
+                    onClick={handleEmailSupport}
+                    variant="outline"
+                    className="w-full border-blue-600 text-blue-600 hover:bg-blue-50 py-3"
+                    size="lg"
+                  >
+                    <Mail className="w-5 h-5 mr-2" />
+                    Send Email
+                  </Button>
+                </div>
+
+                {/* User Info */}
+                <div className="bg-gray-50 rounded-lg p-6 mb-6">
+                  <h4 className="font-semibold text-gray-900 mb-3">Your Account Information</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium text-gray-700">Username:</span>
+                      <span className="ml-2 text-gray-600">{currentUser?.username || 'N/A'}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700">Name:</span>
+                      <span className="ml-2 text-gray-600">{currentUser?.name || 'N/A'}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700">Email:</span>
+                      <span className="ml-2 text-gray-600">{currentUser?.email || 'N/A'}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700">Role:</span>
+                      <span className="ml-2 text-gray-600">{currentUser?.role || 'N/A'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Logout Button */}
+                <div className="text-center">
+                  <Button
+                    onClick={handleLogout}
+                    variant="ghost"
+                    className="text-gray-500 hover:text-gray-700"
+                    disabled={isLoggingOut}
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    {isLoggingOut ? 'Logging out...' : 'Logout'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </ZapeeraLayout>
+    );
+  }
+
   return (
     <ZapeeraLayout>
       {/* Onboarding Tour */}
@@ -180,62 +377,14 @@ ${user?.name || 'User'}`;
                   Manage all your businesses, branches, sales, and teams — all in one place.
                 </p>
 
-                {/* Company Selection */}
-                {showCompanySelection ? (
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">
-                        Select Your Company
-                      </label>
-                      <Select value={selectedCompany} onValueChange={handleCompanySelect}>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Choose your company" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {allCompanies?.map((company: any) => (
-                            <SelectItem
-                              key={company.id}
-                              value={company.id}
-                              className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
-                            >
-                              <div className="flex items-center space-x-2">
-                                <Building className="w-4 h-4" />
-                                <span>{company.name}</span>
-                                {!company.businessType && (
-                                  <span className="text-xs text-orange-600">(Setup Required)</span>
-                                )}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex space-x-3">
-                      <Button
-                        onClick={handleContinueWithCompany}
-                        disabled={!selectedCompany}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2"
-                      >
-                        Continue
-                      </Button>
-                      <Button
-                        onClick={handleCreateBusiness}
-                        variant="outline"
-                        className="border-blue-600 text-blue-600 hover:bg-blue-50 px-6 py-2"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Create New Company
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <Button
-                    onClick={handleCreateBusiness}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg font-medium"
-                  >
-                    Create Your First Business
-                  </Button>
-                )}
+                {/* Create Company Button */}
+                <Button
+                  onClick={handleCreateBusiness}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg font-medium"
+                >
+                  <Plus className="w-5 h-5 mr-2" />
+                  Create Your Business
+                </Button>
               </div>
             </div>
 
@@ -343,6 +492,111 @@ ${user?.name || 'User'}`;
           </div>
         </div>
       </div>
+
+      {/* Create Company Modal */}
+      <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create New Company</DialogTitle>
+            <DialogDescription>
+              Fill in the details to create your new company.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleFormSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="name" className="text-sm font-medium text-gray-700">
+                Company Name *
+              </Label>
+              <Input
+                id="name"
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className={`mt-1 ${formErrors.name ? 'border-red-500' : ''}`}
+                placeholder="Enter company name"
+              />
+              {formErrors.name && (
+                <p className="text-red-500 text-xs mt-1">{formErrors.name}</p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="description" className="text-sm font-medium text-gray-700">
+                Description
+              </Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                className="mt-1"
+                placeholder="Enter company description"
+                rows={3}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="address" className="text-sm font-medium text-gray-700">
+                Address
+              </Label>
+              <Input
+                id="address"
+                type="text"
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                className="mt-1"
+                placeholder="Enter company address"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="phone" className="text-sm font-medium text-gray-700">
+                Phone
+              </Label>
+              <Input
+                id="phone"
+                type="tel"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                className="mt-1"
+                placeholder="Enter phone number"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+                Email
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="mt-1"
+                placeholder="Enter email address"
+              />
+            </div>
+
+            <DialogFooter className="flex space-x-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleFormCancel}
+                className="px-6 py-2"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2"
+              >
+                {isSubmitting ? 'Creating...' : 'Create Company'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </ZapeeraLayout>
   );
 };

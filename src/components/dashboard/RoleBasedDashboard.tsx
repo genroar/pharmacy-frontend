@@ -37,6 +37,12 @@ const RoleBasedDashboard = () => {
         </MainLayout>
       );
     case 'CASHIER':
+      // Cashiers get MainLayout with regular Dashboard
+      return (
+        <MainLayout>
+          <Dashboard />
+        </MainLayout>
+      );
     default:
       // Other roles get MainLayout with regular Dashboard
       return (

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAdmin } from "@/contexts/AdminContext";
 import {
   Dialog,
   DialogContent,
@@ -54,6 +55,7 @@ interface CategoryManagementProps {
 
 const CategoryManagement = ({ isOpen, onClose, onCategoryChange }: CategoryManagementProps) => {
   const { user } = useAuth();
+  const { selectedBranchId } = useAdmin();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -102,11 +104,18 @@ const CategoryManagement = ({ isOpen, onClose, onCategoryChange }: CategoryManag
   const handleCreateCategory = async (formData: any) => {
     try {
       setLoading(true);
+
+      // Determine branchId: use selectedBranchId for admin, or user's branchId for others
+      const branchId = (user?.role === 'ADMIN' || user?.role === 'SUPERADMIN')
+        ? (selectedBranchId || user?.branchId || '')
+        : (user?.branchId || '');
+
       const response = await apiService.createCategory({
         name: formData.name.trim(),
         description: formData.description.trim() || undefined,
         type: formData.type, // Already converted to uppercase in CategoryForm
-        color: formData.color
+        color: formData.color,
+        branchId: branchId // Always include branchId
       });
 
       if (response.success) {

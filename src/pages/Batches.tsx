@@ -15,6 +15,62 @@ import { apiService } from '../services/api';
 import { Search, Plus, Edit, Trash2, Package, Calendar, AlertTriangle, Filter, Download, RotateCcw, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 
+// Safe date helpers to avoid RangeError from date-fns/format when date is invalid
+const safeFormatDate = (dateLike: string | Date | number | undefined | null, pattern: string, fallback: string = 'N/A') => {
+  if (!dateLike) return fallback;
+
+  let d: Date;
+  if (dateLike instanceof Date) {
+    d = dateLike;
+  } else if (typeof dateLike === 'number') {
+    d = new Date(dateLike);
+  } else if (typeof dateLike === 'string') {
+    d = new Date(dateLike);
+  } else {
+    return fallback;
+  }
+
+  // Check if date is valid
+  if (!(d instanceof Date) || isNaN(d.getTime())) {
+    return fallback;
+  }
+
+  try {
+    return format(d, pattern);
+  } catch (error) {
+    console.warn('Error formatting date:', dateLike, error);
+    return fallback;
+  }
+};
+
+const safeFormatDateForInput = (dateLike: string | Date | number | undefined | null) => {
+  // For input[type=date] values: return "" if invalid
+  if (!dateLike) return '';
+
+  let d: Date;
+  if (dateLike instanceof Date) {
+    d = dateLike;
+  } else if (typeof dateLike === 'number') {
+    d = new Date(dateLike);
+  } else if (typeof dateLike === 'string') {
+    d = new Date(dateLike);
+  } else {
+    return '';
+  }
+
+  // Check if date is valid
+  if (!(d instanceof Date) || isNaN(d.getTime())) {
+    return '';
+  }
+
+  try {
+    return format(d, 'yyyy-MM-dd');
+  } catch (error) {
+    console.warn('Error formatting date for input:', dateLike, error);
+    return '';
+  }
+};
+
 interface Batch {
   id: string;
   batchNo: string;
@@ -68,6 +124,16 @@ interface Product {
 interface Supplier {
   id: string;
   name: string;
+  manufacturerId?: string;
+  manufacturer?: {
+    id: string;
+    name: string;
+  };
+}
+
+interface Manufacturer {
+  id: string;
+  name: string;
 }
 
 interface Shelf {
@@ -91,6 +157,7 @@ const Batches = () => {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [manufacturers, setManufacturers] = useState<Manufacturer[]>([]);
   const [shelves, setShelves] = useState<Shelf[]>([]);
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -105,6 +172,8 @@ const Batches = () => {
   const [nearExpiryBatches, setNearExpiryBatches] = useState<Batch[]>([]);
   const [filterType, setFilterType] = useState<string>('all');
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [selectedManufacturerFilter, setSelectedManufacturerFilter] = useState<string>('all');
+  const [selectedSupplierFilter, setSelectedSupplierFilter] = useState<string>('all');
 
   // Dialog states for Add New buttons
   const [isSupplierDialogOpen, setIsSupplierDialogOpen] = useState(false);
@@ -169,17 +238,33 @@ const Batches = () => {
 
       if (response.success) {
         console.log('🔍 Raw batches from API:', response.data.batches);
-        const mappedBatches = response.data.batches.map((batch: any) => ({
-          id: batch.id,
-          batchNo: batch.batchNo,
-          productId: batch.productId,
-          supplierId: batch.supplierId,
-          supplierName: batch.supplierName,
-          supplierOutstanding: batch.supplierOutstanding || 0,
-          supplierInvoiceNo: batch.supplierInvoiceNo,
-          expireDate: batch.expireDate,
-          productionDate: batch.productionDate,
-          shelfId: batch.shelfId,
+        // Debug: Log first batch's expireDate to see what format it's in
+        if (response.data.batches.length > 0) {
+          console.log('🔍 First batch expireDate raw:', response.data.batches[0].expireDate);
+          console.log('🔍 First batch expireDate type:', typeof response.data.batches[0].expireDate);
+          console.log('🔍 First batch all date fields:', {
+            expireDate: response.data.batches[0].expireDate,
+            expiryDate: (response.data.batches[0] as any).expiryDate,
+            expirationDate: (response.data.batches[0] as any).expirationDate,
+            productionDate: response.data.batches[0].productionDate,
+          });
+        }
+        const mappedBatches = response.data.batches.map((batch: any) => {
+          // Try multiple possible field names for expiry date (some databases might use different names)
+          const expireDateValue = batch.expireDate || (batch as any).expiryDate || (batch as any).expirationDate;
+          const productionDateValue = batch.productionDate || (batch as any).production;
+
+          return {
+            id: batch.id,
+            batchNo: batch.batchNo,
+            productId: batch.productId,
+            supplierId: batch.supplierId,
+            supplierName: batch.supplierName,
+            supplierOutstanding: batch.supplierOutstanding || 0,
+            supplierInvoiceNo: batch.supplierInvoiceNo,
+            expireDate: expireDateValue ? (typeof expireDateValue === 'string' ? expireDateValue : expireDateValue.toISOString?.() || expireDateValue) : null,
+            productionDate: productionDateValue ? (typeof productionDateValue === 'string' ? productionDateValue : productionDateValue.toISOString?.() || productionDateValue) : null,
+            shelfId: batch.shelfId,
           shelfName: batch.shelfName,
           isActive: batch.isActive,
           isReported: batch.isReported,
@@ -211,7 +296,15 @@ const Batches = () => {
             id: batch.supplier.id,
             name: batch.supplier.name
           } : undefined
-        }));
+          };
+        });
+
+        // Debug: Log first mapped batch's expireDate
+        if (mappedBatches.length > 0) {
+          console.log('🔍 First mapped batch expireDate:', mappedBatches[0].expireDate);
+          console.log('🔍 First mapped batch expireDate formatted:', safeFormatDate(mappedBatches[0].expireDate, 'MMM dd, yyyy'));
+        }
+
         console.log('🔍 Mapped batches:', mappedBatches);
         setBatches(mappedBatches);
       }
@@ -246,10 +339,29 @@ const Batches = () => {
     try {
       const response = await apiService.getSuppliers({ page: 1, limit: 1000 });
       if (response.success) {
-        setSuppliers(response.data.suppliers);
+        setSuppliers(response.data.suppliers.map((supplier: any) => ({
+          id: supplier.id,
+          name: supplier.name,
+          manufacturerId: supplier.manufacturerId,
+          manufacturer: supplier.manufacturer ? {
+            id: supplier.manufacturer.id,
+            name: supplier.manufacturer.name
+          } : undefined
+        })));
       }
     } catch (error) {
       console.error('Error loading suppliers:', error);
+    }
+  }, []);
+
+  const loadManufacturers = useCallback(async () => {
+    try {
+      const response = await apiService.getManufacturers({ page: 1, limit: 1000, active: true });
+      if (response.success) {
+        setManufacturers(response.data.manufacturers || []);
+      }
+    } catch (error) {
+      console.error('Error loading manufacturers:', error);
     }
   }, []);
 
@@ -324,9 +436,10 @@ const Batches = () => {
   useEffect(() => {
     loadProducts();
     loadSuppliers();
+    loadManufacturers();
     loadShelves();
     loadNearExpiryBatches();
-  }, [loadProducts, loadSuppliers, loadShelves, loadNearExpiryBatches]);
+  }, [loadProducts, loadSuppliers, loadManufacturers, loadShelves, loadNearExpiryBatches]);
 
   // Handle form submission
   const handleSubmit = async () => {
@@ -601,8 +714,8 @@ const Batches = () => {
       productId: batch.productId,
       supplierId: batch.supplierId || '',
       supplierName: batch.supplierName || '',
-      expireDate: batch.expireDate ? format(new Date(batch.expireDate), 'yyyy-MM-dd') : '',
-      productionDate: batch.productionDate ? format(new Date(batch.productionDate), 'yyyy-MM-dd') : '',
+      expireDate: safeFormatDateForInput(batch.expireDate),
+      productionDate: safeFormatDateForInput(batch.productionDate),
       shelfId: batch.shelfId || '',
       shelfName: batch.shelfName || '',
       // Use actual batch data for pricing and stock fields
@@ -679,11 +792,11 @@ const Batches = () => {
         batch.quantity || 0,
         batch.purchasePrice || 0,
         batch.sellingPrice || 0,
-        batch.productionDate ? format(new Date(batch.productionDate), 'yyyy-MM-dd') : 'N/A',
-        batch.expireDate ? format(new Date(batch.expireDate), 'yyyy-MM-dd') : 'N/A',
+        safeFormatDate(batch.productionDate, 'yyyy-MM-dd'),
+        safeFormatDate(batch.expireDate, 'yyyy-MM-dd'),
         batch.shelfName || 'N/A',
         batch.isActive ? 'Active' : 'Inactive',
-        format(new Date(batch.createdAt), 'yyyy-MM-dd HH:mm:ss')
+        safeFormatDate(batch.createdAt, 'yyyy-MM-dd HH:mm:ss')
       ]);
 
       // Create CSV content
@@ -697,7 +810,7 @@ const Batches = () => {
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
-      link.setAttribute('download', `batch_history_${format(new Date(), 'yyyy-MM-dd_HH-mm-ss')}.csv`);
+      link.setAttribute('download', `batch_history_${safeFormatDate(new Date(), 'yyyy-MM-dd_HH-mm-ss', 'now')}.csv`);
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
@@ -746,26 +859,52 @@ const Batches = () => {
         filteredBatches = filteredBatches.filter(batch => {
           if (!batch.expireDate) return false;
           const expiryDate = new Date(batch.expireDate);
+          if (isNaN(expiryDate.getTime())) return false;
           return expiryDate <= thirtyDaysFromNow && expiryDate > new Date();
         });
         break;
       case 'expired':
         filteredBatches = filteredBatches.filter(batch => {
           if (!batch.expireDate) return false;
-          return new Date(batch.expireDate) < new Date();
+          const expiryDate = new Date(batch.expireDate);
+          if (isNaN(expiryDate.getTime())) return false;
+          return expiryDate < new Date();
         });
         break;
       case 'low-stock':
         filteredBatches = filteredBatches.filter(batch => {
           const stock = batch.quantity || 0;
           const minStock = batch.minStockLevel || 10;
-          return stock <= minStock;
+          // Include batch if:
+          // 1. Stock is at or below the minStockLevel threshold, OR
+          // 2. Stock is critically low (<= 20 units) as a safety check
+          return stock <= minStock || stock <= 20;
         });
         break;
       case 'all':
       default:
         // No additional filtering
         break;
+    }
+
+    // Apply manufacturer filter
+    if (selectedManufacturerFilter !== 'all') {
+      filteredBatches = filteredBatches.filter(batch => {
+        if (batch.supplierId) {
+          const supplier = suppliers.find(s => s.id === batch.supplierId);
+          if (supplier && supplier.manufacturerId) {
+            return supplier.manufacturerId === selectedManufacturerFilter;
+          }
+        }
+        return false;
+      });
+    }
+
+    // Apply supplier filter
+    if (selectedSupplierFilter !== 'all') {
+      filteredBatches = filteredBatches.filter(batch =>
+        batch.supplierId === selectedSupplierFilter
+      );
     }
 
     return filteredBatches;
@@ -824,16 +963,42 @@ const Batches = () => {
     }
   };
 
-  const isNearExpiry = (expireDate: string) => {
-    const expiry = new Date(expireDate);
+  const isNearExpiry = (expireDate: string | Date | number | undefined | null) => {
+    if (!expireDate) return false;
+    let expiry: Date;
+    if (expireDate instanceof Date) {
+      expiry = expireDate;
+    } else if (typeof expireDate === 'number') {
+      expiry = new Date(expireDate);
+    } else if (typeof expireDate === 'string') {
+      expiry = new Date(expireDate);
+    } else {
+      return false;
+    }
+
+    if (isNaN(expiry.getTime())) return false;
+
     const now = new Date();
     const diffTime = expiry.getTime() - now.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays <= 30 && diffDays > 0;
   };
 
-  const isExpired = (expireDate: string) => {
-    const expiry = new Date(expireDate);
+  const isExpired = (expireDate: string | Date | number | undefined | null) => {
+    if (!expireDate) return false;
+    let expiry: Date;
+    if (expireDate instanceof Date) {
+      expiry = expireDate;
+    } else if (typeof expireDate === 'number') {
+      expiry = new Date(expireDate);
+    } else if (typeof expireDate === 'string') {
+      expiry = new Date(expireDate);
+    } else {
+      return false;
+    }
+
+    if (isNaN(expiry.getTime())) return false;
+
     const now = new Date();
     return expiry < now;
   };
@@ -909,6 +1074,32 @@ const Batches = () => {
                   className="pl-10 w-64"
                 />
               </div>
+              <Select value={selectedSupplierFilter} onValueChange={setSelectedSupplierFilter}>
+                <SelectTrigger className="w-48 bg-blue-50 border-blue-200 text-blue-900 hover:bg-blue-100">
+                  <SelectValue placeholder="Filter by Supplier" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Suppliers</SelectItem>
+                  {suppliers.map((supplier) => (
+                    <SelectItem key={supplier.id} value={supplier.id}>
+                      {supplier.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={selectedManufacturerFilter} onValueChange={setSelectedManufacturerFilter}>
+                <SelectTrigger className="w-48 bg-purple-50 border-purple-200 text-purple-900 hover:bg-purple-100">
+                  <SelectValue placeholder="Filter by Manufacturer" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Manufacturers</SelectItem>
+                  {manufacturers.map((manufacturer) => (
+                    <SelectItem key={manufacturer.id} value={manufacturer.id}>
+                      {manufacturer.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <div className="relative">
                 <Button
                   variant="outline"
@@ -1044,7 +1235,7 @@ const Batches = () => {
                         {batch.expireDate ? (
                           <div className="flex items-center gap-2">
                             <Calendar className="w-4 h-4" />
-                            {format(new Date(batch.expireDate), 'MMM dd, yyyy')}
+                            {safeFormatDate(batch.expireDate, 'MMM dd, yyyy')}
                             {isExpired(batch.expireDate) && (
                               <Badge className="bg-red-500 text-white hover:bg-red-600">Expired</Badge>
                             )}
@@ -1274,7 +1465,7 @@ const Batches = () => {
                     {viewingBatch.productionDate ? (
                       <div className="flex items-center gap-2">
                         <Calendar className="w-4 h-4" />
-                        {format(new Date(viewingBatch.productionDate), 'MMM dd, yyyy')}
+                        {safeFormatDate(viewingBatch.productionDate, 'MMM dd, yyyy')}
                       </div>
                     ) : (
                       'N/A'
@@ -1287,7 +1478,7 @@ const Batches = () => {
                     {viewingBatch.expireDate ? (
                       <div className="flex items-center gap-2">
                         <Calendar className="w-4 h-4" />
-                        {format(new Date(viewingBatch.expireDate), 'MMM dd, yyyy')}
+                        {safeFormatDate(viewingBatch.expireDate, 'MMM dd, yyyy')}
                         {isExpired(viewingBatch.expireDate) && (
                           <Badge className="bg-red-500 text-white">Expired</Badge>
                         )}
@@ -1403,11 +1594,14 @@ const Batches = () => {
 
       {/* Add New Product Dialog */}
       <Dialog open={isProductDialogOpen} onOpenChange={setIsProductDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Add New Product</DialogTitle>
+            <DialogTitle className="flex items-center space-x-2">
+              <Plus className="w-5 h-5 text-[#0c2c8a]" />
+              <span>Add New Medicine</span>
+            </DialogTitle>
             <DialogDescription>
-              Create a new product for your inventory
+              Add a new product to your inventory with all necessary details.
             </DialogDescription>
           </DialogHeader>
           <ProductForm
@@ -1820,12 +2014,18 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
   const { toast } = useToast();
   const [formData, setFormData] = useState({
     name: '',
-    description: '',
     formula: '',
     categoryId: '',
+    barcode: '',
   });
   const [categories, setCategories] = useState<Category[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(false);
+
+  // Generate random barcode
+  const generateBarcode = () => {
+    const randomNum = Math.floor(Math.random() * 10000000000000);
+    return randomNum.toString().padStart(13, '0');
+  };
 
   // Load categories on component mount
   useEffect(() => {
@@ -1833,7 +2033,12 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
       try {
         setLoadingCategories(true);
         console.log('🔍 Loading categories for ProductForm...');
-        const response = await apiService.getCategories();
+
+        // Get branchId from user context (Batches component should have access to this)
+        // For now, we'll let the backend determine branchId from user context
+        const response = await apiService.getCategories({
+          limit: 1000 // Get all categories
+        });
         console.log('🔍 Categories API response:', response);
 
         if (response.success && response.data) {
@@ -1880,11 +2085,15 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
 
     try {
       const response = await apiService.createProduct({
-        ...formData,
+        name: formData.name,
+        description: "",
+        formula: formData.formula || "",
+        categoryId: formData.categoryId,
         supplierId: 'default-supplier',
         branchId: 'default-branch',
-        unitType: 'piece',
+        barcode: formData.barcode || null,
         requiresPrescription: false,
+        isActive: true,
         minStock: 1,
         maxStock: 1000,
         unitsPerPack: 1
@@ -1909,70 +2118,90 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="productName">Product Name *</Label>
-        <Input
-          id="productName"
-          value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          required
-        />
+    <form onSubmit={handleSubmit}>
+      <div className="space-y-4 ">
+        <div className="space-y-2">
+          <Label htmlFor="productName">Medicine Name *</Label>
+          <Input
+            id="productName"
+            placeholder="e.g., Paracetamol 500mg"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            required
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="productCategory">Category *</Label>
+          <Select
+            value={formData.categoryId}
+            onValueChange={(value) => {
+              // Only allow valid category IDs, not special values
+              if (value !== 'loading' && value !== 'no-categories') {
+                setFormData({ ...formData, categoryId: value });
+              }
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select category" />
+            </SelectTrigger>
+            <SelectContent>
+              {loadingCategories ? (
+                <SelectItem value="loading" disabled>Loading categories...</SelectItem>
+              ) : categories.length > 0 ? (
+                categories.map((category) => (
+                  <SelectItem
+                    key={category.id}
+                    value={category.id}
+                    className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                  >
+                    {category.name}
+                  </SelectItem>
+                ))
+              ) : (
+                <SelectItem value="no-categories" disabled>No categories available - Please create a category first</SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="productFormula">Formula/Composition</Label>
+          <Textarea
+            id="productFormula"
+            placeholder="Enter product formula or composition (e.g., Paracetamol 500mg, Lactose, Starch)"
+            value={formData.formula}
+            onChange={(e) => setFormData({ ...formData, formula: e.target.value })}
+            rows={3}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="productBarcode">Barcode</Label>
+          <div className="flex space-x-2">
+            <Input
+              id="productBarcode"
+              placeholder="e.g., 1234567890123"
+              value={formData.barcode}
+              onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setFormData({ ...formData, barcode: generateBarcode() })}
+            >
+              Generate
+            </Button>
+          </div>
+        </div>
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="productCategory">Category *</Label>
-        <Select
-          value={formData.categoryId}
-          onValueChange={(value) => {
-            // Only allow valid category IDs, not special values
-            if (value !== 'loading' && value !== 'no-categories') {
-              setFormData({ ...formData, categoryId: value });
-            }
-          }}
-        >
-          <SelectTrigger className="bg-orange-50 border-orange-200 text-orange-900 hover:bg-orange-100 focus:ring-orange-500">
-            <SelectValue placeholder="Select category" />
-          </SelectTrigger>
-          <SelectContent>
-            {loadingCategories ? (
-              <SelectItem value="loading" disabled>Loading categories...</SelectItem>
-            ) : categories.length > 0 ? (
-              categories.map((category) => (
-                <SelectItem
-                  key={category.id}
-                  value={category.id}
-                  className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
-                >
-                  {category.name}
-                </SelectItem>
-              ))
-            ) : (
-              <SelectItem value="no-categories" disabled>No categories available - Please create a category first</SelectItem>
-            )}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="productDescription">Description</Label>
-        <Input
-          id="productDescription"
-          value={formData.description}
-          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="productFormula">Formula/Composition</Label>
-        <Input
-          id="productFormula"
-          value={formData.formula}
-          onChange={(e) => setFormData({ ...formData, formula: e.target.value })}
-        />
-      </div>
-      <div className="flex justify-end gap-2 pt-4">
-        <Button type="button" variant="outline" onClick={onCancel}>
+
+      <div className="flex justify-end space-x-2 pt-6">
+        <Button variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit">
+        <Button type="submit" className="text-white bg-blue-600 hover:bg-blue-700 border-blue-600 shadow-md hover:shadow-lg transition-all duration-200">
           Add Product
         </Button>
       </div>

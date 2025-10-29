@@ -13,9 +13,10 @@ import {
 } from "lucide-react";
 import { apiService } from "@/services/api";
 import { toast } from "@/hooks/use-toast";
+import AccountDeactivationModal from "./AccountDeactivationModal";
 
 interface LoginFormProps {
-  onLogin: (user: { id: string; name: string; role: string; branchId: string }) => void;
+  onLogin: (user: { id: string; name: string; email?: string; username?: string; role: string; branchId: string }) => void;
   onNavigateToSignup?: () => void;
 }
 
@@ -29,6 +30,12 @@ const LoginForm = ({ onLogin, onNavigateToSignup }: LoginFormProps) => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showDeactivationModal, setShowDeactivationModal] = useState(false);
+  const [deactivatedUserInfo, setDeactivatedUserInfo] = useState<{
+    username?: string;
+    email?: string;
+    name?: string;
+  }>({});
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -59,6 +66,9 @@ const LoginForm = ({ onLogin, onNavigateToSignup }: LoginFormProps) => {
         onLogin({
           id: user.id,
           name: user.name,
+          email: user.email,
+          username: user.username,
+          profileImage: user.profileImage,
           role: user.role,
           branchId: user.branchId
         });
@@ -71,12 +81,24 @@ const LoginForm = ({ onLogin, onNavigateToSignup }: LoginFormProps) => {
         }, 100);
       } else {
         console.log('❌ Login failed:', response.message);
-        setError(response.message || "Login failed");
-        toast({
-          title: "Login failed",
-          description: response.message || "Please check your credentials and try again.",
-          duration: 2000,
-        });
+
+        // Check if account is disabled
+        if (response.accountDisabled) {
+          // Set user info for the modal (we'll try to get it from the username/email)
+          setDeactivatedUserInfo({
+            username: formData.username,
+            email: formData.username.includes('@') ? formData.username : undefined
+          });
+          setShowDeactivationModal(true);
+          setError(""); // Clear any existing error
+        } else {
+          setError(response.message || "Login failed");
+          toast({
+            title: "Login failed",
+            description: response.message || "Please check your credentials and try again.",
+            duration: 2000,
+          });
+        }
       }
     } catch (error) {
       console.error('❌ Login error:', error);
@@ -211,7 +233,7 @@ const LoginForm = ({ onLogin, onNavigateToSignup }: LoginFormProps) => {
         <div className="flex justify-center w-[100%] items-center text-white p-8 relative z-10">
           <div className="text-center w-[100%] flex flex-col items-center justify-center space-y-6">
             <div className="text-center flex flex-col items-center ">
-              <div className="w-[70px] h-[70px] text-[50px] flex items-center justify-center bg-white text-blue-900 rounded-full font-bold">Z</div>
+              <div className="w-[70px] h-[70px] text-[50px] flex items-center justify-center bg-white text-blue-900 rounded-full font-bold"><img src=" /images/favicon.png" alt="logo" className="w-10 object-cover" /></div>
               <h1 className="text-2xl font-bold text-white/90 mb-2">Zapeera</h1>
               <div className="w-16 h-0.5 bg-white/30 mx-auto"></div>
             </div>
@@ -223,6 +245,13 @@ const LoginForm = ({ onLogin, onNavigateToSignup }: LoginFormProps) => {
           </div>
         </div>
       </div>
+
+      {/* Account Deactivation Modal */}
+      <AccountDeactivationModal
+        isOpen={showDeactivationModal}
+        onClose={() => setShowDeactivationModal(false)}
+        userInfo={deactivatedUserInfo}
+      />
     </div>
   );
 };

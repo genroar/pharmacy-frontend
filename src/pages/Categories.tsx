@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { apiService } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAdmin } from "@/contexts/AdminContext";
 import { toast } from "@/hooks/use-toast";
 import CategoryForm from "@/components/inventory/CategoryForm";
 
@@ -55,6 +56,7 @@ interface Category {
 
 const Categories = () => {
   const { user } = useAuth();
+  const { selectedBranchId } = useAdmin();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +72,7 @@ const Categories = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    type: 'general' as 'medical' | 'non-medical' | 'general',
+    type: 'GENERAL' as 'MEDICAL' | 'NON_MEDICAL' | 'GENERAL',
     parentId: '',
     color: '#3B82F6',
     icon: 'Package'
@@ -81,7 +83,14 @@ const Categories = () => {
     try {
       setLoading(true);
       console.log('🔍 Loading categories...');
-      const response = await apiService.getCategories();
+      // Use selectedBranchId for admin users, or user's branchId for others
+      const branchId = (user?.role === 'ADMIN' || user?.role === 'SUPERADMIN')
+        ? selectedBranchId || ''
+        : user?.branchId || '';
+
+      const response = await apiService.getCategories({
+        branchId
+      });
       console.log('🔍 Categories API response:', response);
 
       if (response.success) {
@@ -117,7 +126,7 @@ const Categories = () => {
 
   useEffect(() => {
     loadCategories();
-  }, []);
+  }, [selectedBranchId]);
 
   // Filter categories based on search and type
   const filteredCategories = (Array.isArray(categories) ? categories : []).filter(category => {
@@ -143,11 +152,17 @@ const Categories = () => {
       setIsSubmitting(true);
 
       // Send the fields that the backend expects
+      // Use selectedBranchId for admin users, or user's branchId for others
+      const branchId = (user?.role === 'ADMIN' || user?.role === 'SUPERADMIN')
+        ? selectedBranchId || ''
+        : user?.branchId || '';
+
       const categoryData = {
         name: formData.name,
         description: formData.description,
         type: formData.type, // Already converted to uppercase in CategoryForm
-        color: formData.color
+        color: formData.color,
+        branchId
       };
       console.log('🔍 Creating category with data:', categoryData);
       const response = await apiService.createCategory(categoryData);
@@ -162,7 +177,7 @@ const Categories = () => {
         setFormData({
           name: '',
           description: '',
-          type: 'general',
+          type: 'GENERAL',
           parentId: '',
           color: '#3B82F6',
           icon: 'Package'
@@ -174,7 +189,7 @@ const Categories = () => {
           id: Date.now().toString(),
           name: formData.name,
           description: formData.description,
-          type: formData.type as 'general' | 'medical' | 'non-medical',
+          type: formData.type,
           parentId: formData.parentId || undefined,
           isActive: true,
           productCount: 0,
@@ -195,7 +210,7 @@ const Categories = () => {
         setFormData({
           name: '',
           description: '',
-          type: 'general',
+          type: 'GENERAL',
           parentId: '',
           color: '#3B82F6',
           icon: 'Package'
@@ -229,7 +244,7 @@ const Categories = () => {
       setFormData({
         name: '',
         description: '',
-        type: 'general',
+        type: 'GENERAL',
         parentId: '',
         color: '#3B82F6',
         icon: 'Package'
@@ -264,7 +279,7 @@ const Categories = () => {
         setFormData({
           name: '',
           description: '',
-          type: 'general',
+          type: 'GENERAL',
           parentId: '',
           color: '#3B82F6',
           icon: 'Package'
@@ -755,7 +770,7 @@ const Categories = () => {
           setFormData({
             name: '',
             description: '',
-            type: 'general',
+            type: 'GENERAL',
             parentId: '',
             color: '#3B82F6',
             icon: 'Package'

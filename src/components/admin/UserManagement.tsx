@@ -31,7 +31,9 @@ import {
   Edit,
   Trash2,
   Eye,
-  Loader2
+  Loader2,
+  UserCheck,
+  UserX
 } from "lucide-react";
 import { apiService } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -74,6 +76,7 @@ const UserManagement = () => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedBranch, setSelectedBranch] = useState("all");
+  const [selectedRole, setSelectedRole] = useState("all");
 
   // Define available roles based on current user's role
   const getAvailableRoles = () => {
@@ -241,7 +244,9 @@ const UserManagement = () => {
 
     const matchesBranch = selectedBranch === "all" || user.branch?.name === selectedBranch;
 
-    return matchesSearch && matchesBranch;
+    const matchesRole = selectedRole === "all" || user.role === selectedRole;
+
+    return matchesSearch && matchesBranch && matchesRole;
   });
 
   const handleCreateUser = async () => {
@@ -287,6 +292,7 @@ const UserManagement = () => {
         // Reset search and filter states
         setSearchTerm("");
         setSelectedBranch("all");
+        setSelectedRole("all");
 
         // Reload users list to ensure we have the latest data from the server
         await loadUsers();
@@ -371,6 +377,30 @@ const UserManagement = () => {
     }
   };
 
+  const handleActivateUser = async (user: User) => {
+    try {
+      setIsLoading(true);
+      setError("");
+
+      const response = await apiService.activateUser(user.id, !user.isActive);
+
+      if (response.success) {
+        setSuccess(`User ${user.name} ${user.isActive ? 'deactivated' : 'activated'} successfully!`);
+        setUsers(prevUsers => prevUsers.map(u =>
+          u.id === user.id ? { ...u, isActive: !u.isActive } : u
+        ));
+      } else {
+        setError(response.message || 'Failed to update user status');
+      }
+    } catch (error: any) {
+      console.error('Error updating user status:', error);
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to update user status';
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleUpdateUser = async () => {
     if (!selectedUser || !newUser.name || !newUser.email || !newUser.username || !newUser.role || !newUser.branchId) {
       setError("Please fill in all required fields!");
@@ -437,8 +467,8 @@ const UserManagement = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">User Management</h1>
-          <p className="text-muted-foreground">Manage branch users and their permissions</p>
+          <h1 className="text-3xl font-bold text-foreground">Staff Management</h1>
+          <p className="text-muted-foreground">Manage branch Staff and their permissions</p>
         </div>
 
         <div className="flex space-x-3">
@@ -446,15 +476,15 @@ const UserManagement = () => {
             <DialogTrigger asChild>
               <Button className="text-white bg-blue-600 hover:bg-blue-700 border-blue-600 shadow-md hover:shadow-lg transition-all duration-200">
                 <UserPlus className="w-4 h-4 mr-2" />
-                Create New User
+                Add New Staff
               </Button>
             </DialogTrigger>
 
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
-                <DialogTitle>Create New User</DialogTitle>
+                <DialogTitle>Add New Staff</DialogTitle>
                 <DialogDescription>
-                  Add a new user to your pharmacy system. They will receive login credentials via email.
+                  Add a new Staff to your pharmacy system. They will receive login credentials via email.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
@@ -620,6 +650,24 @@ const UserManagement = () => {
                 </SelectContent>
               </Select>
             </div>
+            <div className="md:w-48">
+              <Label htmlFor="role-filter" className="text-sm font-medium text-muted-foreground mb-2 block">
+                Filter by Role
+              </Label>
+              <Select value={selectedRole} onValueChange={setSelectedRole}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All roles" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Roles</SelectItem>
+                  <SelectItem value="CASHIER">Cashier</SelectItem>
+                  <SelectItem value="MANAGER">Manager</SelectItem>
+                  {currentUser?.role === 'SUPERADMIN' && (
+                    <SelectItem value="ADMIN">Admin</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -629,7 +677,7 @@ const UserManagement = () => {
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Users className="w-5 h-5 text-[#0C2C8A]" />
-            <span>Users ({filteredUsers.length})</span>
+            <span>Staff ({filteredUsers.length})</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -715,6 +763,17 @@ const UserManagement = () => {
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
+                          {currentUser?.role === 'SUPERADMIN' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleActivateUser(user)}
+                              title={user.isActive ? "Deactivate User" : "Activate User"}
+                              className={user.isActive ? "text-orange-600 hover:text-orange-700" : "text-green-600 hover:text-green-700"}
+                            >
+                              {user.isActive ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"

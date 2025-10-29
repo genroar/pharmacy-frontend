@@ -13,6 +13,7 @@ interface ApiResponse<T> {
   data?: T;
   message?: string;
   errors?: string[];
+  accountDisabled?: boolean;
 }
 
 class ApiService {
@@ -164,6 +165,12 @@ class ApiService {
             }
           }
 
+          // Handle account deactivation (403 status) - don't throw error, return the response
+          if (response.status === 403 && data.accountDisabled) {
+            console.log('🔍 Account deactivated, returning response without throwing error');
+            return data;
+          }
+
           const error = new Error(data.message || 'An error occurred') as any;
           if (data.field) {
             error.field = data.field;
@@ -201,6 +208,8 @@ class ApiService {
         id: string;
         username: string;
         name: string;
+        email?: string;
+        profileImage?: string;
         role: string;
         branchId: string;
         adminId?: string;
@@ -477,9 +486,9 @@ class ApiService {
     categoryId: string;
     supplierId: string;
     branchId: string;
-    unitType: string;
     barcode?: string;
     requiresPrescription: boolean;
+    isActive?: boolean;
     // Temporary fields for backend compatibility
     costPrice?: number;
     sellingPrice?: number;
@@ -496,7 +505,6 @@ class ApiService {
       category: { id: string; name: string };
       supplier: { id: string; name: string };
       branch: { id: string; name: string };
-      unitType: string;
       barcode?: string;
       requiresPrescription: boolean;
       isActive: boolean;
@@ -649,6 +657,7 @@ class ApiService {
     search?: string;
     branchId?: string;
     vip?: boolean;
+    createdByRole?: string;
   }) {
     const queryParams = new URLSearchParams();
     if (params) {
@@ -1787,6 +1796,25 @@ class ApiService {
     });
   }
 
+  async activateUser(userId: string, isActive: boolean) {
+    return this.request<{
+      id: string;
+      username: string;
+      name: string;
+      email: string;
+      role: string;
+      branchId: string;
+      isActive: boolean;
+      branch?: {
+        id: string;
+        name: string;
+      };
+    }>(`/users/${userId}/activate`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isActive }),
+    });
+  }
+
   // Categories
   async getCategories(params?: {
     page?: number;
@@ -1846,6 +1874,7 @@ class ApiService {
     description?: string;
     type?: string;
     color?: string;
+    branchId?: string;
   }) {
     return this.request<{
       id: string;
@@ -1899,6 +1928,7 @@ class ApiService {
     search?: string;
     active?: boolean;
     branchId?: string;
+    manufacturerId?: string;
   }) {
     const queryParams = new URLSearchParams();
     if (params) {
@@ -3491,6 +3521,11 @@ class ApiService {
             name: string;
             username: string;
           };
+          receipts?: Array<{
+            id: string;
+            receiptNumber: string;
+            createdAt: string;
+          }>;
         };
         items: Array<{
           id: string;
@@ -3876,6 +3911,57 @@ class ApiService {
         sku: string;
       };
     }>>(`/batches/near-expiry?days=${days}`);
+  }
+
+  async getLowStockBatches(params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    branchId?: string;
+  } = {}) {
+    const queryParams = new URLSearchParams();
+    if (params.page) queryParams.append('page', params.page.toString());
+    if (params.limit) queryParams.append('limit', params.limit.toString());
+    if (params.search) queryParams.append('search', params.search);
+    if (params.branchId) queryParams.append('branchId', params.branchId);
+
+    const queryString = queryParams.toString();
+    const endpoint = queryString ? `/batches/low-stock?${queryString}` : '/batches/low-stock';
+
+    return this.request<{
+      batches: Array<{
+        id: string;
+        batchNo: string;
+        productId: string;
+        productName: string;
+        productSku: string;
+        category: string;
+        supplier: string;
+        branch: {
+          id: string;
+          name: string;
+        };
+        currentStock: number;
+        totalProductStock: number;
+        minStock: number;
+        maxStock: number;
+        unitPrice: number;
+        expireDate?: string;
+        productionDate?: string;
+        orderQuantity: number;
+        isLowStock: boolean;
+        isCritical: boolean;
+        isNearExpiry: boolean;
+        isExpired: boolean;
+        reason: string;
+      }>;
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        pages: number;
+      };
+    }>(endpoint);
   }
 
   // Purchase Management Methods

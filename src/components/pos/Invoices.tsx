@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import DateRangeFilter from "@/components/ui/DateRangeFilter";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { apiService } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/AdminContext";
@@ -864,24 +864,48 @@ const Invoices = () => {
           </Button>
         </div>
 
-        {/* Date Range Filter */}
-        <DateRangeFilter
-          startDate={startDate}
-          endDate={endDate}
-          onStartDateChange={setStartDate}
-          onEndDateChange={setEndDate}
-          onClear={() => {
-            setStartDate("");
-            setEndDate("");
-          }}
-        />
-
-        {/* Search and Filters */}
+        {/* All Filters in One Line */}
         <Card>
           <CardContent className="p-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Start Date */}
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-muted-foreground" />
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-[150px]"
+                  placeholder="Start Date"
+                />
+              </div>
+
+              {/* End Date */}
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-[150px]"
+                placeholder="End Date"
+              />
+
+              {/* Clear Date Filters */}
+              {(startDate || endDate) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setStartDate("");
+                    setEndDate("");
+                  }}
+                  className="h-8 w-8 p-0"
+                >
+                  <X className="w-3 h-3" />
+                </Button>
+              )}
+
               {/* Search */}
-              <div className="relative">
+              <div className="relative flex-1 min-w-[200px]">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   placeholder="Search by invoice number, customer name, or phone..."
@@ -892,9 +916,9 @@ const Invoices = () => {
               </div>
 
               {/* Status Filter */}
-              <Select  value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filter by status" />
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem
@@ -926,8 +950,8 @@ const Invoices = () => {
 
               {/* Payment Method Filter */}
               <Select value={paymentMethodFilter} onValueChange={setPaymentMethodFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filter by payment method" />
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="All Payment Methods" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem
@@ -958,7 +982,7 @@ const Invoices = () => {
               </Select>
 
               {/* Results Count */}
-              <div className="flex items-center text-sm text-muted-foreground">
+              <div className="flex items-center text-sm text-muted-foreground whitespace-nowrap">
                 <Filter className="w-4 h-4 mr-2" />
                 {filteredInvoices.length} invoice(s) found
               </div>
@@ -982,149 +1006,92 @@ const Invoices = () => {
                 <p className="text-xs">Try adjusting your search or filters</p>
               </div>
             ) : (
-              <div className="space-y-4">
-                {paginatedInvoices.map((invoice) => (
-                  <div key={invoice.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-3">
-                        <div>
-                          <h3 className="font-semibold text-lg">{invoice.invoiceNumber}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {invoice.customer?.name || 'Walk-in Customer'}
-                          </p>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Invoice #</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Cashier</TableHead>
+                    <TableHead>Payment</TableHead>
+                    <TableHead>Branch</TableHead>
+                    <TableHead>Items</TableHead>
+                    <TableHead>Total</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginatedInvoices.map((invoice) => (
+                    <TableRow key={invoice.id}>
+                      <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
+                      <TableCell>{invoice.customer?.name || 'Walk-in Customer'}</TableCell>
+                      <TableCell>{invoice.saleDate ? formatDate(invoice.saleDate) : formatDate(invoice.createdAt)}</TableCell>
+                      <TableCell>{invoice.user.name}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center space-x-2">
+                          {getPaymentMethodIcon(invoice.paymentMethod)}
+                          <span>{invoice.paymentMethod}</span>
                         </div>
-                        {getStatusBadge(invoice.status)}
-                      </div>
-                      <div className="text-right">
-                        <p className="text-lg font-bold text-[#0c2c8a]">
-                          PKR {invoice.totalAmount.toFixed(2)}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {invoice.saleDate ? formatDate(invoice.saleDate) : formatDate(invoice.createdAt)}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-3">
-                      <div className="flex items-center space-x-2 text-sm">
-                        <User className="w-4 h-4 text-muted-foreground" />
-                        <span>{invoice.user.name}</span>
-                      </div>
-                      <div className="flex items-center space-x-2 text-sm">
-                        {getPaymentMethodIcon(invoice.paymentMethod)}
-                        <span>{invoice.paymentMethod}</span>
-                      </div>
-                      <div className="flex items-center space-x-2 text-sm">
-                        <Package className="w-4 h-4 text-muted-foreground" />
-                        <span>{invoice.items.length} item(s)</span>
-                      </div>
-                      <div className="flex items-center space-x-2 text-sm">
-                        <Calendar className="w-4 h-4 text-muted-foreground" />
-                        <span>{invoice.branch.name}</span>
-                      </div>
-                    </div>
-
-                    {/* Items Preview */}
-                    <div className="mb-3">
-                      <p className="text-sm font-medium mb-2">Items:</p>
-                      <div className="space-y-1">
-                        {invoice.items.slice(0, 2).map((item) => (
-                          <div key={item.id} className="flex items-center justify-between text-sm">
-                            <div className="flex items-center space-x-2">
-                              {getUnitIcon(item.product.unitType)}
-                              <span>{item.product.name}</span>
-                              <span className="text-muted-foreground">
-                                ({item.quantity} {item.product.unitType})
-                              </span>
-                            </div>
-                            <span className="font-medium">PKR {item.totalPrice.toFixed(2)}</span>
-                          </div>
-                        ))}
-                        {invoice.items.length > 2 && (
-                          <p className="text-xs text-muted-foreground">
-                            +{invoice.items.length - 2} more item(s)
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Invoice Summary */}
-                    <div className="mb-3 p-3 bg-gray-50 rounded-lg">
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Subtotal:</span>
-                          <span className="font-medium">PKR {invoice.subtotal.toFixed(2)}</span>
+                      </TableCell>
+                      <TableCell>{invoice.branch.name}</TableCell>
+                      <TableCell>{invoice.items.length} item(s)</TableCell>
+                      <TableCell className="font-semibold text-[#0c2c8a]">PKR {invoice.totalAmount.toFixed(2)}</TableCell>
+                      <TableCell>{getStatusBadge(invoice.status)}</TableCell>
+                      <TableCell>
+                        <div className="flex space-x-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => viewInvoice(invoice)}
+                            title="View Details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => printInvoice(invoice)}
+                            title="Print"
+                          >
+                            <Printer className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => downloadInvoice(invoice)}
+                            title="Download"
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => editInvoice(invoice)}
+                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            title="Edit"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openRefundDialog(invoice)}
+                            className={invoice.status === 'REFUNDED'
+                              ? "text-gray-400 cursor-not-allowed"
+                              : "text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                            }
+                            disabled={invoice.status === 'REFUNDED'}
+                            title={invoice.status === 'REFUNDED' ? 'Refunded' : 'Refund'}
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                          </Button>
                         </div>
-                        {((invoice.discountPercentage && invoice.discountPercentage > 0) || invoice.discountAmount > 0) && (
-                          <div className="flex justify-between text-green-600">
-                            <span>Discount:</span>
-                            <span>
-                              {invoice.discountPercentage && invoice.discountPercentage > 0
-                                ? `${invoice.discountPercentage}% (-PKR ${(invoice.subtotal * invoice.discountPercentage / 100).toFixed(2)})`
-                                : `-PKR ${invoice.discountAmount.toFixed(2)}`
-                              }
-                            </span>
-                          </div>
-                        )}
-                        <div className="flex justify-between font-semibold">
-                          <span>Total:</span>
-                          <span className="text-[#0c2c8a]">PKR {invoice.totalAmount.toFixed(2)}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex space-x-2 pt-3 border-t">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => viewInvoice(invoice)}
-                      >
-                        <Eye className="w-4 h-4 mr-2" />
-                        View Details
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => printInvoice(invoice)}
-                      >
-                        <Printer className="w-4 h-4 mr-2" />
-                        Print
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => downloadInvoice(invoice)}
-                      >
-                        <Download className="w-4 h-4 mr-2" />
-                        Download
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => editInvoice(invoice)}
-                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                      >
-                        <Edit className="w-4 h-4 mr-2" />
-                        Edit
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openRefundDialog(invoice)}
-                        className={invoice.status === 'REFUNDED'
-                          ? "text-gray-400 cursor-not-allowed"
-                          : "text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-                        }
-                        disabled={invoice.status === 'REFUNDED'}
-                      >
-                        <RotateCcw className="w-4 h-4 mr-2" />
-                        {invoice.status === 'REFUNDED' ? 'Refunded' : 'Refund'}
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
 
             {/* Pagination */}

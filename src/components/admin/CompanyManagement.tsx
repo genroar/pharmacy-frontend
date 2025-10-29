@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,10 +34,12 @@ import {
   Mail,
   Users,
   Package,
-  Store
+  Store,
+  ArrowRight
 } from 'lucide-react';
 import { apiService } from '@/services/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAdmin } from '@/contexts/AdminContext';
 import { toast } from '@/hooks/use-toast';
 
 interface Company {
@@ -72,6 +75,8 @@ interface Company {
 
 const CompanyManagement = () => {
   const { user } = useAuth();
+  const { setSelectedCompanyId } = useAdmin();
+  const navigate = useNavigate();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -341,6 +346,29 @@ const CompanyManagement = () => {
     }
   };
 
+  const handleClickToGo = (companyId: string) => {
+    // Clear branch selection from localStorage to show all branches by default
+    if (user?.id) {
+      localStorage.removeItem(`selected_branch_${user.id}`);
+    }
+
+    // Set the selected company in AdminContext
+    setSelectedCompanyId(companyId);
+
+    // Find the selected company details
+    const company = companies.find(c => c.id === companyId);
+
+    // Show success message
+    toast({
+      title: "Company Selected",
+      description: `You are now viewing ${company?.name || 'the selected company'}'s dashboard.`,
+      duration: 3000,
+    });
+
+    // Navigate to the main dashboard with the selected company context
+    navigate('/');
+  };
+
   const openEditDialog = (company: Company) => {
     setSelectedCompany(company);
     setFormData({
@@ -585,6 +613,13 @@ const CompanyManagement = () => {
                       </TableCell>
                       <TableCell className="py-4">
                         <div className="flex items-center justify-center space-x-2">
+                          <Button
+                            onClick={() => handleClickToGo(company.id)}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 text-sm"
+                          >
+                            <ArrowRight className="w-3 h-3 mr-1" />
+                            Click to Go
+                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"

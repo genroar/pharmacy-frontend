@@ -54,7 +54,17 @@ interface AdminProviderProps {
 }
 
 export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
-  const { isAuthenticated, user } = useAuth();
+  // Guard against calling useAuth outside of provider
+  let authContext;
+  try {
+    authContext = useAuth();
+  } catch (error) {
+    // If useAuth fails, return children without context functionality
+    console.warn('AdminProvider: useAuth failed, rendering without context');
+    return <>{children}</>;
+  }
+
+  const { isAuthenticated, user } = authContext;
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
   const [allCompanies, setAllCompanies] = useState<Company[]>([]);
@@ -148,17 +158,32 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
   // Load saved selections from localStorage on mount
   useEffect(() => {
     if (isAuthenticated && user) {
-      const savedCompanyId = localStorage.getItem(`selected_company_${user.id}`);
-      const savedBranchId = localStorage.getItem(`selected_branch_${user.id}`);
+      // For managers, automatically set their assigned branch
+      if (user.role === 'MANAGER' && user.branchId) {
+        setSelectedBranchId(user.branchId);
+        console.log('🏢 Manager auto-selected their assigned branch:', user.branchId);
+      } else {
+        // For admins and superadmins, load saved selections only if not a fresh login
+        const isFreshLogin = localStorage.getItem(`fresh_admin_login_${user.id}`);
 
-      if (savedCompanyId) {
-        setSelectedCompanyId(savedCompanyId);
-        console.log('🏢 Restored selected company:', savedCompanyId);
-      }
+        if (!isFreshLogin) {
+          const savedCompanyId = localStorage.getItem(`selected_company_${user.id}`);
+          const savedBranchId = localStorage.getItem(`selected_branch_${user.id}`);
 
-      if (savedBranchId) {
-        setSelectedBranchId(savedBranchId);
-        console.log('🏢 Restored selected branch:', savedBranchId);
+          if (savedCompanyId) {
+            setSelectedCompanyId(savedCompanyId);
+            console.log('🏢 Restored selected company:', savedCompanyId);
+          }
+
+          if (savedBranchId) {
+            setSelectedBranchId(savedBranchId);
+            console.log('🏢 Restored selected branch:', savedBranchId);
+          }
+        } else {
+          // Clear the fresh login flag
+          localStorage.removeItem(`fresh_admin_login_${user.id}`);
+          console.log('🏢 Fresh admin login detected, skipping saved selections');
+        }
       }
 
       // Load companies and branches
@@ -169,25 +194,23 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
 
   // Save company selection to localStorage
   const handleSetSelectedCompanyId = useCallback((companyId: string | null) => {
+    // For managers, prevent company selection changes
+    if (user?.role === 'MANAGER') {
+      console.warn('🏢 Manager cannot change company selection');
+      return;
+    }
+
     setSelectedCompanyId(companyId);
     if (user) {
       if (companyId) {
         localStorage.setItem(`selected_company_${user.id}`, companyId);
         console.log('🏢 Saved selected company:', companyId);
 
-        // Auto-select the first branch of the selected company
-        const companyBranches = allBranches.filter(branch => branch.companyId === companyId);
-        if (companyBranches.length > 0) {
-          const firstBranchId = companyBranches[0].id;
-          setSelectedBranchId(firstBranchId);
-          localStorage.setItem(`selected_branch_${user.id}`, firstBranchId);
-          console.log('🏢 Auto-selected first branch of company:', firstBranchId);
-        } else {
-          // No branches for this company, clear branch selection
-          setSelectedBranchId(null);
-          localStorage.removeItem(`selected_branch_${user.id}`);
-          console.log('🏢 No branches found for selected company, cleared branch selection');
-        }
+        // Don't auto-select branch - let user select from dropdown
+        // Clear branch selection to show all branches data by default
+        setSelectedBranchId(null);
+        localStorage.removeItem(`selected_branch_${user.id}`);
+        console.log('🏢 Cleared branch selection to show all branches by default');
       } else {
         localStorage.removeItem(`selected_company_${user.id}`);
         console.log('🏢 Cleared selected company');
@@ -202,6 +225,15 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
 
   // Save branch selection to localStorage
   const handleSetSelectedBranchId = useCallback((branchId: string | null) => {
+    // For managers, only allow their assigned branch
+    if (user?.role === 'MANAGER') {
+      if (branchId !== user.branchId) {
+        console.warn('🏢 Manager cannot select different branch, using assigned branch:', user.branchId);
+        setSelectedBranchId(user.branchId);
+        return;
+      }
+    }
+
     setSelectedBranchId(branchId);
     if (user) {
       if (branchId) {
