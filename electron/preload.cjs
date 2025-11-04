@@ -5,31 +5,41 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   // Example: Send a message to the main process
   sendMessage: (message) => ipcRenderer.send('message', message),
-  
+
   // Example: Receive a message from the main process
   onMessage: (callback) => ipcRenderer.on('message', callback),
-  
+
   // Example: Get app version
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
-  
+
+  // Get backend server status
+  getBackendStatus: () => ipcRenderer.invoke('get-backend-status'),
+
   // Example: Open external link
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
-  
+
   // Example: Get platform info
-  getPlatform: () => process.platform,
-  
+  getPlatform: () => ipcRenderer.invoke('get-platform'),
+
+  // Check if app is packaged (production build)
+  isPackaged: () => {
+    // In preload, we can check process.versions.electron and other indicators
+    // For accurate check, use IPC from main process
+    return ipcRenderer.invoke('is-packaged');
+  },
+
   // Example: Minimize window
   minimizeWindow: () => ipcRenderer.send('minimize-window'),
-  
+
   // Example: Maximize window
   maximizeWindow: () => ipcRenderer.send('maximize-window'),
-  
+
   // Example: Close window
   closeWindow: () => ipcRenderer.send('close-window'),
-  
+
   // Example: Get window state
   getWindowState: () => ipcRenderer.invoke('get-window-state'),
-  
+
   // Example: Set window state
   setWindowState: (state) => ipcRenderer.send('set-window-state', state)
 });
@@ -45,10 +55,10 @@ contextBridge.exposeInMainWorld('windowControls', {
 contextBridge.exposeInMainWorld('nodeAPI', {
   // Get current working directory
   getCwd: () => process.cwd(),
-  
+
   // Get environment variables
   getEnv: (key) => process.env[key],
-  
+
   // Get process info
   getProcessInfo: () => ({
     platform: process.platform,

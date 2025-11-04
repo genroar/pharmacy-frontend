@@ -1108,7 +1108,7 @@ const Batches = () => {
                   className="bg-indigo-50 border-indigo-200 text-indigo-900 hover:bg-indigo-100 focus:ring-indigo-500"
                 >
                   <Filter className="w-4 h-4 mr-2" />
-                  Filter
+                  All Batches
                 </Button>
                 {showFilterDropdown && (
                   <div className="absolute right-0 mt-2 w-48 bg-indigo-50 border border-indigo-200 rounded-md shadow-lg z-10">

@@ -47,7 +47,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Check for existing session on mount
   useEffect(() => {
-    const initializeAuth = () => {
+    const initializeAuth = async () => {
       const savedUser = localStorage.getItem('medibill_user');
       const savedToken = localStorage.getItem('token');
 
@@ -66,6 +66,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             setIsAuthenticated(true);
             // Set token in ApiService
             apiService.setToken(savedToken);
+
+            // Don't validate token with server immediately - let components handle auth errors
+            // This prevents hanging on loading screen if backend is starting
           } else {
             localStorage.removeItem('medibill_user');
             localStorage.removeItem('token');
@@ -87,11 +90,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setIsAuthenticated(false);
       }
 
-      // Mark as initialized
+      // Mark as initialized immediately - don't wait for backend
       setIsInitialized(true);
       localStorage.setItem('auth_initialized', 'true');
     };
 
+    // Initialize immediately (don't wait)
     initializeAuth();
   }, []);
 

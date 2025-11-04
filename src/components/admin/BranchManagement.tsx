@@ -329,30 +329,7 @@ const BranchManagement = () => {
                 className="pl-10 h-11"
               />
             </div>
-            <div className="w-64">
-              <Select value={selectedCompanyId} onValueChange={setSelectedCompanyId}>
-                <SelectTrigger className="h-11">
-                  <SelectValue placeholder="Filter by company" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem
-                    value="all"
-                    className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
-                  >
-                    All Companies
-                  </SelectItem>
-                  {companies.map(company => (
-                    <SelectItem
-                      key={company.id}
-                      value={company.id}
-                      className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
-                    >
-                      {company.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+
           </div>
         </CardContent>
       </Card>
@@ -660,34 +637,6 @@ const BranchManagement = () => {
                   placeholder="Enter email address"
                 />
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-manager">Manager</Label>
-              <select
-                id="edit-manager"
-                value={editBranch.managerId}
-                onChange={(e) => setEditBranch({ ...editBranch, managerId: e.target.value })}
-                className="w-full px-3 py-2 border border-input rounded-md bg-background"
-                aria-label="Select manager"
-              >
-                <option value="">No Manager</option>
-                {users.filter(user => ['ADMIN', 'MANAGER'].includes(user.role)).map(user => (
-                  <option key={user.id} value={user.id}>
-                    {user.name} ({user.role})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="edit-active"
-                checked={editBranch.isActive}
-                onChange={(e) => setEditBranch({ ...editBranch, isActive: e.target.checked })}
-                className="rounded"
-                aria-label="Active branch status"
-              />
-              <Label htmlFor="edit-active">Active Branch</Label>
             </div>
           </div>
           <DialogFooter>

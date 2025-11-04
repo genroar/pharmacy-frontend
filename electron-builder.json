@@ -1,6 +1,7 @@
 {
-  "appId": "com.medibill.pulse",
-  "productName": "MediBill Pulse",
+  "appId": "com.zapeera",
+  "productName": "Zapeera",
+  "copyright": "Copyright © 2024 Zapeera",
   "directories": {
     "output": "release"
   },
@@ -14,6 +15,25 @@
     {
       "from": "public",
       "to": "public"
+    },
+    {
+      "from": "../backend-pharmachy/dist",
+      "to": "backend/dist",
+      "filter": ["**/*"]
+    },
+    {
+      "from": "../backend-pharmachy/node_modules",
+      "to": "backend/node_modules",
+      "filter": ["**/*"]
+    },
+    {
+      "from": "../backend-pharmachy/package.json",
+      "to": "backend/package.json"
+    },
+    {
+      "from": "../backend-pharmachy/prisma",
+      "to": "backend/prisma",
+      "filter": ["**/*"]
     }
   ],
   "win": {
@@ -23,25 +43,60 @@
         "arch": ["x64"]
       }
     ],
-    "icon": "public/icon.ico",
-    "requestedExecutionLevel": "asInvoker"
+    "icon": "public/icons/icon.ico",
+    "requestedExecutionLevel": "asInvoker",
+    "publisherName": "Zapeera"
   },
   "mac": {
     "target": "dmg",
-    "icon": "public/icon.icns",
-    "category": "public.app-category.medical"
+    "icon": "public/icons/icon.icns",
+    "category": "public.app-category.medical",
+    "artifactName": "${productName}-${version}-${arch}.${ext}"
+  },
+  "dmg": {
+    "contents": [
+      {
+        "x": 130,
+        "y": 220,
+        "type": "file"
+      },
+      {
+        "x": 410,
+        "y": 220,
+        "type": "link",
+        "path": "/Applications"
+      }
+    ],
+    "window": {
+      "width": 540,
+      "height": 380
+    },
+    "iconSize": 128,
+    "iconTextSize": 14,
+    "artifactName": "${productName}-${version}-${arch}.${ext}"
   },
   "linux": {
     "target": "AppImage",
-    "icon": "public/icon.png",
-    "category": "Medical"
+    "icon": "public/icons/icon.png",
+    "category": "Medical",
+    "desktop": {
+      "Name": "Zapeera",
+      "Comment": "Pharmacy Management POS System",
+      "Categories": "Medical;Office;"
+    }
   },
   "nsis": {
     "oneClick": false,
     "allowToChangeInstallationDirectory": true,
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
-    "shortcutName": "MediBill Pulse"
+    "shortcutName": "Zapeera",
+    "installerIcon": "public/icons/icon.ico",
+    "uninstallerIcon": "public/icons/icon.ico",
+    "installerHeaderIcon": "public/icons/icon.ico",
+    "deleteAppDataOnUninstall": false,
+    "artifactName": "${productName}-Setup-${version}-${arch}.${ext}",
+    "warningsAsErrors": false
   },
   "publish": {
     "provider": "github",

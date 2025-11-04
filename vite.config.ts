@@ -19,6 +19,7 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  base: './', // Use relative paths for Electron
   build: {
     // Production optimizations
     minify: 'terser',
@@ -41,6 +42,8 @@ export default defineConfig(({ mode }) => ({
     sourcemap: mode === 'development',
     assetsInlineLimit: 4096,
     chunkSizeWarningLimit: 1000,
+    outDir: 'dist',
+    emptyOutDir: true,
   },
   // Environment-specific configuration
   define: {

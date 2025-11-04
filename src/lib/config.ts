@@ -2,10 +2,20 @@
  * Application configuration from environment variables
  */
 
+// Detect if running in Electron
+const isElectron = typeof window !== 'undefined' &&
+  typeof (window as any).electronAPI !== 'undefined';
+
+// In Electron, always use localhost backend (auto-started)
+// In web/dev, use environment variable
 export const config = {
   // API Configuration
   api: {
-    baseUrl: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api',
+    // Electron apps use localhost backend that auto-starts
+    // Web/Dev can use environment variable or default
+    baseUrl: (isElectron
+      ? 'http://localhost:5001/api'
+      : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api')),
     timeout: parseInt(import.meta.env.VITE_API_TIMEOUT || '30000'),
   },
 

@@ -444,31 +444,6 @@ const Customers = () => {
                   <SelectItem value="CASHIER">Cashier</SelectItem>
                 </SelectContent>
               </Select>
-
-              {filters.map((filter) => {
-                const filterLabels: { [key: string]: string } = {
-                  "all": "All",
-                  "vip": "VIP",
-                  "regular": "Regular",
-                  "recent": "Recent",
-                  "with-purchases": "With Purchases"
-                };
-                return (
-                  <Button
-                    key={filter}
-                    variant={selectedFilter === filter ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setSelectedFilter(filter)}
-                    className={`${
-                      selectedFilter === filter
-                        ? "text-white bg-blue-600 hover:bg-blue-700 border-blue-600"
-                        : ""
-                    }`}
-                  >
-                    {filterLabels[filter] || filter}
-                  </Button>
-                );
-              })}
             </div>
           </div>
         </CardContent>
@@ -507,7 +482,6 @@ const Customers = () => {
                   <TableHead>Name</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>Total Purchases</TableHead>
-                  <TableHead>Loyalty Points</TableHead>
                   <TableHead>Last Visit</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="w-[200px]">Actions</TableHead>
@@ -543,9 +517,6 @@ const Customers = () => {
                     </TableCell>
                     <TableCell>
                       <p className="font-semibold text-primary">PKR {customer.totalPurchases.toLocaleString()}</p>
-                    </TableCell>
-                    <TableCell>
-                      <p className="font-semibold text-warning">{customer.loyaltyPoints}</p>
                     </TableCell>
                     <TableCell>
                       <p className="text-sm">{new Date(customer.lastVisit).toLocaleDateString()}</p>

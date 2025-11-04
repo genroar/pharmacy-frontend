@@ -110,7 +110,8 @@ const Invoices = () => {
   const [editFormData, setEditFormData] = useState({
     discountPercentage: 0,
     saleDate: '',
-    notes: ''
+    notes: '',
+    paymentStatus: 'COMPLETED' as string
   });
   const [isRefundDialogOpen, setIsRefundDialogOpen] = useState(false);
   const [refundItems, setRefundItems] = useState<Array<{
@@ -388,7 +389,8 @@ const Invoices = () => {
     setEditFormData({
       discountPercentage: invoice.discountPercentage || 0,
       saleDate: invoice.saleDate ? new Date(invoice.saleDate).toISOString().split('T')[0] : '',
-      notes: ''
+      notes: '',
+      paymentStatus: invoice.paymentStatus || 'COMPLETED'
     });
     setIsEditDialogOpen(true);
   };
@@ -403,7 +405,8 @@ const Invoices = () => {
       const response = await apiService.updateSale(editingInvoice.id, {
         discountPercentage: editFormData.discountPercentage,
         saleDate: editFormData.saleDate || undefined,
-        notes: editFormData.notes
+        notes: editFormData.notes,
+        paymentStatus: editFormData.paymentStatus
       });
 
       if (response.success) {
@@ -415,6 +418,8 @@ const Invoices = () => {
                 discountPercentage: response.data.discountPercentage,
                 discountAmount: response.data.discountAmount,
                 totalAmount: response.data.totalAmount,
+                paymentStatus: response.data.paymentStatus,
+                status: response.data.status,
                 saleDate: response.data.saleDate,
                 updatedAt: response.data.updatedAt
               }
@@ -1468,30 +1473,64 @@ const Invoices = () => {
                       )}
                     </div>
 
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Sale Date</label>
-                      <Input
-                        type="date"
-                        value={editFormData.saleDate}
-                        onChange={(e) => setEditFormData({
-                          ...editFormData,
-                          saleDate: e.target.value
-                        })}
-                      />
-                    </div>
-                  </div>
-
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Notes (Optional)</label>
+                    <label className="text-sm font-medium">Sale Date</label>
                     <Input
-                      value={editFormData.notes}
+                      type="date"
+                      value={editFormData.saleDate}
                       onChange={(e) => setEditFormData({
                         ...editFormData,
-                        notes: e.target.value
+                        saleDate: e.target.value
                       })}
-                      placeholder="Add any notes about this invoice..."
                     />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Payment Status</label>
+                  <Select
+                    value={editFormData.paymentStatus}
+                    onValueChange={(value) => setEditFormData({
+                      ...editFormData,
+                      paymentStatus: value
+                    })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select payment status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="COMPLETED">
+                        <div className="flex items-center space-x-2">
+                          <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                          <span>Paid (Completed)</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="PENDING">
+                        <div className="flex items-center space-x-2">
+                          <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
+                          <span>Unpaid (Pending)</span>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {editFormData.paymentStatus === 'COMPLETED'
+                      ? 'Invoice will be marked as paid and completed'
+                      : 'Invoice will be marked as unpaid/pending'}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Notes (Optional)</label>
+                  <Input
+                    value={editFormData.notes}
+                    onChange={(e) => setEditFormData({
+                      ...editFormData,
+                      notes: e.target.value
+                    })}
+                    placeholder="Add any notes about this invoice..."
+                  />
+                </div>
                 </div>
 
                 {/* New Totals Preview */}

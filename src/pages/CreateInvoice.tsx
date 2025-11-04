@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Search,
   Package,
@@ -18,7 +21,11 @@ import {
   Download,
   Phone,
   Mail,
-  AlertCircle
+  AlertCircle,
+  Calendar,
+  Banknote,
+  CreditCard,
+  Smartphone
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/AdminContext";
@@ -35,6 +42,16 @@ interface Product {
   expiry: string;
 }
 
+interface Batch {
+  id: string;
+  batchNo: string;
+  quantity: number;
+  sellingPrice: number;
+  expireDate?: string;
+  expiryStatus?: 'GOOD' | 'WARNING' | 'CRITICAL' | 'EXPIRED';
+  daysUntilExpiry?: number;
+}
+
 interface CartItem {
   id: string;
   name: string;
@@ -44,7 +61,10 @@ interface CartItem {
   unitType: string;
   batch: string;
   expiry: string;
+  batchId?: string;
   instructions?: string;
+  discountPercentage?: number;
+  discountAmount?: number;
 }
 
 interface Receipt {
@@ -83,6 +103,8 @@ const CreateInvoice = () => {
     phone: ""
   });
   const [discountPercentage, setDiscountPercentage] = useState<number>(0);
+  const [paymentMethod, setPaymentMethod] = useState<string>('CASH');
+  const [paymentStatus, setPaymentStatus] = useState<string>('COMPLETED'); // COMPLETED = Paid, PENDING = Unpaid
   const [isLoading, setIsLoading] = useState(false);
   const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false);
   const [currentReceipt, setCurrentReceipt] = useState<Receipt | null>(null);
@@ -92,9 +114,79 @@ const CreateInvoice = () => {
   const [foundInvoice, setFoundInvoice] = useState<any>(null);
   const [invoiceLookupLoading, setInvoiceLookupLoading] = useState(false);
 
+  // Batch management state
+  const [productBatches, setProductBatches] = useState<Record<string, Batch[]>>({});
+  const [selectedBatches, setSelectedBatches] = useState<Record<string, string>>({}); // productId -> batchId
+  const [loadingBatches, setLoadingBatches] = useState<Record<string, boolean>>({});
+
   // Load products on component mount
   useEffect(() => {
     loadProducts();
+  }, []);
+
+  // Fetch batches for a specific product
+  const fetchProductBatches = useCallback(async (productId: string) => {
+    setLoadingBatches(prev => {
+      if (prev[productId]) return prev; // Already loading
+      return { ...prev, [productId]: true };
+    });
+
+    setProductBatches(prev => {
+      if (prev[productId]) {
+        // Already loaded, cancel loading state
+        setLoadingBatches(p => ({ ...p, [productId]: false }));
+        return prev;
+      }
+      return prev;
+    });
+
+    try {
+      const response = await apiService.getInventoryByBatches({
+        productId: productId,
+        limit: 100, // Get all batches for this product
+        expired: false // Exclude expired batches
+      });
+
+      if (response.success && response.data) {
+        const batches: Batch[] = response.data.map((batch: any) => ({
+          id: batch.id,
+          batchNo: batch.batchNo,
+          quantity: batch.quantity,
+          sellingPrice: batch.sellingPrice,
+          expireDate: batch.expireDate,
+          expiryStatus: batch.expiryStatus,
+          daysUntilExpiry: batch.daysUntilExpiry
+        }));
+
+        // Sort batches by expiry date (nearest first)
+        batches.sort((a, b) => {
+          if (!a.expireDate && !b.expireDate) return 0;
+          if (!a.expireDate) return 1;
+          if (!b.expireDate) return -1;
+          return new Date(a.expireDate).getTime() - new Date(b.expireDate).getTime();
+        });
+
+        setProductBatches(prev => {
+          if (prev[productId]) return prev; // Don't overwrite if already set
+          return { ...prev, [productId]: batches };
+        });
+
+        // Auto-select batch with nearest expiry if no batch is selected
+        setSelectedBatches(prev => {
+          if (prev[productId]) return prev; // Already selected
+          if (batches.length > 0) {
+            const nearestBatch = batches[0]; // Already sorted by expiry
+            return { ...prev, [productId]: nearestBatch.id };
+          }
+          return prev;
+        });
+      }
+    } catch (error) {
+      console.error(`Error fetching batches for product ${productId}:`, error);
+      setProductBatches(prev => ({ ...prev, [productId]: [] }));
+    } finally {
+      setLoadingBatches(prev => ({ ...prev, [productId]: false }));
+    }
   }, []);
 
   // Filter products based on search query
@@ -113,6 +205,35 @@ const CreateInvoice = () => {
       setFilteredProducts([]);
     }
   }, [searchQuery, products]);
+
+  // Fetch batches for filtered products
+  useEffect(() => {
+    filteredProducts.forEach(product => {
+      if (!productBatches[product.id] && !loadingBatches[product.id]) {
+        fetchProductBatches(product.id);
+      }
+    });
+  }, [filteredProducts, productBatches, loadingBatches, fetchProductBatches]);
+
+  // Get selected batch for a product, or auto-select nearest expiry
+  const getSelectedBatch = (productId: string): Batch | null => {
+    const batches = productBatches[productId] || [];
+    if (batches.length === 0) return null;
+
+    const selectedBatchId = selectedBatches[productId];
+    if (selectedBatchId) {
+      const batch = batches.find(b => b.id === selectedBatchId);
+      if (batch && batch.quantity > 0) return batch;
+    }
+
+    // Auto-select batch with nearest expiry that has stock
+    const availableBatches = batches.filter(b => b.quantity > 0);
+    if (availableBatches.length > 0) {
+      return availableBatches[0]; // Already sorted by expiry
+    }
+
+    return null;
+  };
 
   const loadProducts = async () => {
     try {
@@ -189,23 +310,62 @@ const CreateInvoice = () => {
   };
 
   const addToInvoiceCart = (product: Product, quantity: number, unitType: string) => {
+    // Get the selected batch or auto-select nearest expiry
+    const selectedBatch = getSelectedBatch(product.id);
+
+    if (!selectedBatch) {
+      toast({
+        title: "No Batch Available",
+        description: "No available batches found for this product. Please check inventory.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate quantity against batch stock
+    if (quantity > selectedBatch.quantity) {
+      toast({
+        title: "Insufficient Stock",
+        description: `Available stock in batch ${selectedBatch.batchNo}: ${selectedBatch.quantity} units.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     const existingItem = invoiceItems.find(item =>
-      item.name === product.name && item.unitType === unitType
+      item.name === product.name && item.unitType === unitType && item.batchId === selectedBatch.id
     );
 
     if (existingItem) {
+      // Check if adding quantity exceeds batch stock
+      if (existingItem.quantity + quantity > selectedBatch.quantity) {
+        toast({
+          title: "Insufficient Stock",
+          description: `Available stock in batch ${selectedBatch.batchNo}: ${selectedBatch.quantity} units.`,
+          variant: "destructive",
+        });
+        return;
+      }
       updateInvoiceQuantity(existingItem.id, existingItem.quantity + quantity);
     } else {
+      const batchPrice = selectedBatch.sellingPrice || product.price;
+      const expiryDate = selectedBatch.expireDate
+        ? new Date(selectedBatch.expireDate).toLocaleDateString()
+        : "N/A";
+
       const newItem: CartItem = {
-        id: `${product.id}-${unitType}-${Date.now()}`,
+        id: `${product.id}-${unitType}-${selectedBatch.id}-${Date.now()}`,
         name: product.name,
         quantity,
-        unitPrice: product.price,
-        totalPrice: product.price * quantity,
+        unitPrice: batchPrice,
+        totalPrice: batchPrice * quantity,
         unitType,
-        batch: product.batch || "BATCH001",
-        expiry: product.expiry || null,
-        instructions: unitType === "pack" ? "Take as directed" : `Take ${quantity} ${unitType} as directed`
+        batch: selectedBatch.batchNo,
+        batchId: selectedBatch.id,
+        expiry: expiryDate,
+        instructions: unitType === "pack" ? "Take as directed" : `Take ${quantity} ${unitType} as directed`,
+        discountPercentage: 0,
+        discountAmount: 0
       };
       setInvoiceItems([...invoiceItems, newItem]);
     }
@@ -215,12 +375,33 @@ const CreateInvoice = () => {
     if (newQuantity <= 0) {
       setInvoiceItems(invoiceItems.filter(item => item.id !== itemId));
     } else {
-      setInvoiceItems(invoiceItems.map(item =>
-        item.id === itemId
-          ? { ...item, quantity: newQuantity, totalPrice: item.unitPrice * newQuantity }
-          : item
-      ));
+      setInvoiceItems(invoiceItems.map(item => {
+        if (item.id === itemId) {
+          const subtotal = item.unitPrice * newQuantity;
+          const itemDiscount = item.discountPercentage ? (subtotal * item.discountPercentage / 100) : (item.discountAmount || 0);
+          const totalPrice = subtotal - itemDiscount;
+          return { ...item, quantity: newQuantity, totalPrice: totalPrice };
+        }
+        return item;
+      }));
     }
+  };
+
+  const updateItemDiscount = (itemId: string, discountPercentage: number) => {
+    setInvoiceItems(invoiceItems.map(item => {
+      if (item.id === itemId) {
+        const subtotal = item.unitPrice * item.quantity;
+        const discountAmount = discountPercentage > 0 ? (subtotal * discountPercentage / 100) : 0;
+        const totalPrice = subtotal - discountAmount;
+        return {
+          ...item,
+          discountPercentage: discountPercentage,
+          discountAmount: discountAmount,
+          totalPrice: totalPrice
+        };
+      }
+      return item;
+    }));
   };
 
   const createInvoice = async () => {
@@ -322,14 +503,19 @@ const CreateInvoice = () => {
           productId: item.id.split('-')[0],
           quantity: item.quantity,
           unitPrice: item.unitPrice,
-          batchNumber: item.batch,
-          expiryDate: item.expiry
+          batchId: item.batchId || undefined, // Use batchId if available
+          batchNumber: item.batch || undefined, // Fallback to batchNumber
+          expiryDate: item.expiry || undefined,
+          discountPercentage: item.discountPercentage || undefined, // Item-level discount
+          discountAmount: item.discountAmount || undefined, // Item-level discount amount
+          totalPrice: item.totalPrice // Item total after discount (for verification)
         })),
         customerId: customerId || undefined, // API expects undefined, not null
         branchId: branchId,
-        paymentMethod: 'CASH' as const, // API expects uppercase
-        discountAmount: discountAmount,
-        discountPercentage: discountPercentage || 0,
+        paymentMethod: paymentMethod.toUpperCase() as 'CASH' | 'CARD' | 'MOBILE' | 'BANK_TRANSFER',
+        paymentStatus: paymentStatus.toUpperCase() as 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED',
+        discountAmount: discountAmount, // Global discount amount
+        discountPercentage: discountPercentage || 0, // Global discount percentage
         saleDate: new Date().toISOString()
       };
 
@@ -378,8 +564,8 @@ const CreateInvoice = () => {
         discountAmount: discountAmount,
         discountPercentage: discountPercentage,
         total: totalAmount,
-        paymentMethod: 'CASH',
-        paymentStatus: 'Completed'
+        paymentMethod: paymentMethod.toUpperCase(),
+        paymentStatus: paymentStatus === 'COMPLETED' ? 'Completed' : 'Pending'
       };
 
       // Set current receipt and show dialog
@@ -397,6 +583,8 @@ const CreateInvoice = () => {
       setInvoiceItems([]);
       setInvoiceCustomer({ name: "", phone: "" });
       setDiscountPercentage(0);
+      setPaymentMethod('CASH');
+      setPaymentStatus('COMPLETED');
       setSearchQuery("");
 
     } catch (error) {
@@ -1106,72 +1294,173 @@ const CreateInvoice = () => {
                       <p>Loading products...</p>
                     </div>
                   ) : searchQuery.trim() && Array.isArray(filteredProducts) && filteredProducts.length > 0 ? (
-                    filteredProducts.map((product) => (
+                    filteredProducts.map((product) => {
+                      const batches = productBatches[product.id] || [];
+                      const selectedBatch = getSelectedBatch(product.id);
+                      const isLoadingBatch = loadingBatches[product.id];
+
+                      return (
                       <div key={product.id} className="p-3 border rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow">
-                        <div className="flex items-center space-x-3">
-                          {/* Product Info */}
-                          <div className="flex items-center space-x-2 flex-1 min-w-0">
-                            {getUnitIcon(product.unitType)}
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-medium text-sm truncate">{product.name}</h4>
-                              <span className="text-xs text-muted-foreground">
-                                {product.unitType} • Stock: {product.stock}
-                              </span>
+                        <div className="space-y-3">
+                          {/* Product Info Row */}
+                          <div className="flex items-center space-x-3">
+                            {/* Product Info */}
+                            <div className="flex items-center space-x-2 flex-1 min-w-0">
+                              {getUnitIcon(product.unitType)}
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-medium text-sm truncate">{product.name}</h4>
+                                <span className="text-xs text-muted-foreground">
+                                  {product.unitType} • Stock: {product.stock}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Price */}
+                            <span className="text-sm font-bold text-primary whitespace-nowrap">
+                              PKR {selectedBatch?.sellingPrice || product.price}
+                            </span>
+                          </div>
+
+                          {/* Quantity Input and Action Buttons */}
+                          <div className="flex items-center space-x-2">
+                            <Input
+                              type="number"
+                              min="0"
+                              max={selectedBatch?.quantity || 1000}
+                              placeholder="Qty"
+                              className="w-16 h-8 text-sm text-center"
+                              id={`invoice-pack-${product.id}`}
+                            />
+
+                            {/* Action Buttons */}
+                            <div className="flex space-x-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="px-2 h-8 text-xs"
+                                onClick={() => {
+                                  const input = document.getElementById(`invoice-pack-${product.id}`) as HTMLInputElement;
+                                  const quantity = parseInt(input.value) || 0;
+                                  if (quantity > 0) {
+                                    addToInvoiceCart(product, quantity, "pack");
+                                    input.value = "";
+                                  }
+                                }}
+                                disabled={!selectedBatch || batches.length === 0}
+                              >
+                                <Package className="w-3 h-3 mr-1" />
+                                Pack
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="px-2 h-8 bg-blue-600 hover:bg-blue-700 text-white text-xs"
+                                onClick={() => {
+                                  const input = document.getElementById(`invoice-pack-${product.id}`) as HTMLInputElement;
+                                  const quantity = parseInt(input.value) || 0;
+                                  if (quantity > 0) {
+                                    addToInvoiceCart(product, quantity, product.unitType);
+                                    input.value = "";
+                                  }
+                                }}
+                                disabled={!selectedBatch || batches.length === 0}
+                              >
+                                {getUnitIcon(product.unitType)}
+                                <span className="ml-1">Add</span>
+                              </Button>
                             </div>
                           </div>
 
-                          {/* Price */}
-                          <span className="text-sm font-bold text-primary whitespace-nowrap">
-                            PKR {product.price}
-                          </span>
+                          {/* Batch Selection Table */}
+                          {isLoadingBatch ? (
+                            <div className="flex items-center space-x-2 text-xs text-muted-foreground">
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+                              <span>Loading batches...</span>
+                            </div>
+                          ) : batches.length > 0 ? (
+                            <div className="space-y-2">
+                              <Label className="text-xs font-medium">Select Batch:</Label>
+                              <div className="border rounded-lg overflow-hidden">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow className="bg-gray-50">
+                                      <TableHead className="w-12"></TableHead>
+                                      <TableHead className="text-xs">Batch No.</TableHead>
+                                      <TableHead className="text-xs">Quantity</TableHead>
+                                      <TableHead className="text-xs">Expiry Date</TableHead>
+                                      <TableHead className="text-xs">Days Left</TableHead>
+                                      <TableHead className="text-xs text-right">Price</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {batches.map((batch) => {
+                                      const expiryDate = batch.expireDate
+                                        ? new Date(batch.expireDate).toLocaleDateString()
+                                        : "No expiry";
+                                      const statusColor = batch.expiryStatus === 'CRITICAL' ? 'text-red-600 font-semibold' :
+                                                         batch.expiryStatus === 'WARNING' ? 'text-orange-600' :
+                                                         batch.expiryStatus === 'EXPIRED' ? 'text-gray-400' :
+                                                         'text-green-600';
+                                      const isSelected = selectedBatches[product.id] === batch.id;
+                                      const isLowStock = batch.quantity <= 10;
 
-                          {/* Quantity Input */}
-                          <Input
-                            type="number"
-                            min="0"
-                            max="1000"
-                            placeholder="Qty"
-                            className="w-16 h-8 text-sm text-center"
-                            id={`invoice-pack-${product.id}`}
-                          />
-
-                          {/* Action Buttons */}
-                          <div className="flex space-x-1">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="px-2 h-8 text-xs"
-                              onClick={() => {
-                                const input = document.getElementById(`invoice-pack-${product.id}`) as HTMLInputElement;
-                                const quantity = parseInt(input.value) || 0;
-                                if (quantity > 0) {
-                                  addToInvoiceCart(product, quantity, "pack");
-                                  input.value = "";
-                                }
-                              }}
-                            >
-                              <Package className="w-3 h-3 mr-1" />
-                              Pack
-                            </Button>
-                            <Button
-                              size="sm"
-                              className="px-2 h-8 bg-blue-600 hover:bg-blue-700 text-white text-xs"
-                              onClick={() => {
-                                const input = document.getElementById(`invoice-pack-${product.id}`) as HTMLInputElement;
-                                const quantity = parseInt(input.value) || 0;
-                                if (quantity > 0) {
-                                  addToInvoiceCart(product, quantity, product.unitType);
-                                  input.value = "";
-                                }
-                              }}
-                            >
-                              {getUnitIcon(product.unitType)}
-                              <span className="ml-1">Add</span>
-                            </Button>
-                          </div>
+                                      return (
+                                        <TableRow
+                                          key={batch.id}
+                                          className={`cursor-pointer hover:bg-gray-50 ${isSelected ? 'bg-blue-50 border-l-2 border-l-blue-600' : ''}`}
+                                          onClick={() => {
+                                            setSelectedBatches(prev => ({ ...prev, [product.id]: batch.id }));
+                                          }}
+                                        >
+                                          <TableCell className="w-12">
+                                            <Checkbox
+                                              checked={isSelected}
+                                              onCheckedChange={() => {
+                                                setSelectedBatches(prev => ({ ...prev, [product.id]: batch.id }));
+                                              }}
+                                              onClick={(e) => e.stopPropagation()}
+                                            />
+                                          </TableCell>
+                                          <TableCell className="font-medium text-xs">
+                                            {batch.batchNo}
+                                          </TableCell>
+                                          <TableCell className="text-xs">
+                                            <span className={isLowStock ? 'text-orange-600 font-medium' : ''}>
+                                              {batch.quantity}
+                                            </span>
+                                          </TableCell>
+                                          <TableCell className="text-xs">
+                                            {expiryDate}
+                                          </TableCell>
+                                          <TableCell>
+                                            {batch.daysUntilExpiry !== undefined && batch.daysUntilExpiry > 0 ? (
+                                              <span className={`text-xs ${statusColor}`}>
+                                                {batch.daysUntilExpiry} days
+                                              </span>
+                                            ) : batch.expireDate ? (
+                                              <span className="text-xs text-red-600">Expired</span>
+                                            ) : (
+                                              <span className="text-xs text-gray-400">-</span>
+                                            )}
+                                          </TableCell>
+                                          <TableCell className="text-xs text-right font-medium">
+                                            PKR {batch.sellingPrice.toFixed(2)}
+                                          </TableCell>
+                                        </TableRow>
+                                      );
+                                    })}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-xs text-muted-foreground">
+                              No batches available
+                            </div>
+                          )}
                         </div>
                       </div>
-                    ))
+                    );
+                  })
                   ) : searchQuery.trim() ? (
                     <div className="text-center py-8 text-muted-foreground">
                       <Search className="w-12 h-12 mx-auto mb-2 opacity-50" />
@@ -1237,7 +1526,13 @@ const CreateInvoice = () => {
 
                 {/* Selected Items List */}
                 <div className="space-y-3 max-h-80 overflow-y-auto">
-                  {invoiceItems.map((item) => (
+                  {invoiceItems.map((item) => {
+                    const itemSubtotal = item.unitPrice * item.quantity;
+                    const itemDiscount = item.discountPercentage || 0;
+                    const itemDiscountAmount = item.discountAmount || 0;
+                    const displayPrice = item.totalPrice;
+
+                    return (
                     <div key={item.id} className="p-3 bg-gray-50 rounded-lg">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1">
@@ -1262,7 +1557,7 @@ const CreateInvoice = () => {
                         </Button>
                       </div>
 
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center space-x-2">
                           <Button
                             variant="outline"
@@ -1283,11 +1578,45 @@ const CreateInvoice = () => {
                           </Button>
                         </div>
                         <div className="text-right">
-                          <p className="font-semibold text-primary">PKR {item.totalPrice.toFixed(2)}</p>
+                          {itemDiscount > 0 ? (
+                            <div className="text-right">
+                              <p className="text-xs text-muted-foreground line-through">PKR {itemSubtotal.toFixed(2)}</p>
+                              <p className="font-semibold text-primary">PKR {displayPrice.toFixed(2)}</p>
+                              <p className="text-xs text-green-600">-{itemDiscount}%</p>
+                            </div>
+                          ) : (
+                            <p className="font-semibold text-primary">PKR {displayPrice.toFixed(2)}</p>
+                          )}
                         </div>
                       </div>
+
+                      {/* Item Discount Input */}
+                      <div className="flex items-center space-x-2 pt-2 border-t border-gray-200">
+                        <Label htmlFor={`discount-${item.id}`} className="text-xs text-muted-foreground whitespace-nowrap">
+                          Discount:
+                        </Label>
+                        <Input
+                          id={`discount-${item.id}`}
+                          type="number"
+                          min="0"
+                          max="100"
+                          placeholder="0"
+                          value={itemDiscount || ''}
+                          onChange={(e) => {
+                            const discount = Math.min(100, Math.max(0, parseFloat(e.target.value) || 0));
+                            updateItemDiscount(item.id, discount);
+                          }}
+                          className="w-20 h-7 text-xs text-center"
+                        />
+                        <span className="text-xs text-muted-foreground">%</span>
+                        {itemDiscount > 0 && (
+                          <span className="text-xs text-green-600 font-medium">
+                            -PKR {itemDiscountAmount.toFixed(2)}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  ))}
+                  )})}
 
                   {invoiceItems.length === 0 && (
                     <div className="text-center py-8 text-muted-foreground">
@@ -1321,18 +1650,93 @@ const CreateInvoice = () => {
                 {invoiceItems.length > 0 && (
                   <div className="space-y-2 border-t pt-4 mt-4">
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Subtotal</span>
+                      <span className="text-muted-foreground">Subtotal (after item discounts)</span>
                       <span className="font-medium">PKR {invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0).toFixed(2)}</span>
                     </div>
                     {discountPercentage > 0 && (
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Discount ({discountPercentage}%)</span>
+                        <span className="text-muted-foreground">Global Discount ({discountPercentage}%)</span>
                         <span className="font-medium text-green-600">-PKR {((invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0) * discountPercentage) / 100).toFixed(2)}</span>
                       </div>
                     )}
                     <div className="flex justify-between text-lg font-bold border-t pt-2">
                       <span>Total</span>
                       <span className="text-primary">PKR {(invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0) * (1 - discountPercentage / 100)).toFixed(2)}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Payment Method & Status Selection */}
+                {invoiceItems.length > 0 && (
+                  <div className="border-t pt-4 mt-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Payment Method */}
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Payment Method</Label>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            variant={paymentMethod === 'CASH' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setPaymentMethod('CASH')}
+                            className={paymentMethod === 'CASH' ? 'bg-blue-600 hover:bg-blue-700' : ''}
+                          >
+                            Cash
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={paymentMethod === 'CARD' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setPaymentMethod('CARD')}
+                            className={paymentMethod === 'CARD' ? 'bg-blue-600 hover:bg-blue-700' : ''}
+                          >
+                            Card
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={paymentMethod === 'MOBILE' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setPaymentMethod('MOBILE')}
+                            className={paymentMethod === 'MOBILE' ? 'bg-blue-600 hover:bg-blue-700' : ''}
+                          >
+                            Mobile
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={paymentMethod === 'BANK_TRANSFER' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setPaymentMethod('BANK_TRANSFER')}
+                            className={paymentMethod === 'BANK_TRANSFER' ? 'bg-blue-600 hover:bg-blue-700' : ''}
+                          >
+                            Bank
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Payment Status */}
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Payment Status</Label>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant={paymentStatus === 'COMPLETED' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setPaymentStatus('COMPLETED')}
+                            className={paymentStatus === 'COMPLETED' ? 'bg-green-600 hover:bg-green-700' : ''}
+                          >
+                            Paid
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={paymentStatus === 'PENDING' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setPaymentStatus('PENDING')}
+                            className={paymentStatus === 'PENDING' ? 'bg-yellow-600 hover:bg-yellow-700' : ''}
+                          >
+                            Unpaid
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}

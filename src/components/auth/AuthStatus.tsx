@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
@@ -12,6 +12,8 @@ interface AuthStatusProps {
 
 export const AuthStatus: React.FC<AuthStatusProps> = ({ children, fallback }) => {
   const { isAuthenticated, checkAuthStatus, logout, user } = useAuth();
+  const [showError, setShowError] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
 
   // Check if user is properly authenticated
   const isProperlyAuthenticated = checkAuthStatus();
@@ -26,13 +28,50 @@ export const AuthStatus: React.FC<AuthStatusProps> = ({ children, fallback }) =>
     // Don't redirect - let the ZapeeraDashboard handle the disabled account display
   }
 
-  // Show loading state during initialization
+  // Show loading state during initialization (with timeout and auto-redirect)
+  useEffect(() => {
+    if (!isAuthenticated && !user && !redirecting) {
+      // Show error message after 3 seconds
+      const errorTimer = setTimeout(() => {
+        setShowError(true);
+      }, 3000);
+
+      // Redirect to login after 5 seconds
+      const redirectTimer = setTimeout(() => {
+        setRedirecting(true);
+        console.log('🔍 AuthStatus: Redirecting to login page');
+        window.location.href = '/#/login';
+      }, 5000);
+
+      return () => {
+        clearTimeout(errorTimer);
+        clearTimeout(redirectTimer);
+      };
+    }
+  }, [isAuthenticated, user, redirecting]);
+
+  // If not authenticated and no user, show loading then redirect to login
   if (!isAuthenticated && !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-2 text-gray-600">Loading...</p>
+          <p className="mt-1 text-sm text-gray-400">Connecting to server...</p>
+          {showError && (
+            <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg max-w-md mx-auto">
+              <p className="text-sm text-yellow-800">
+                Taking longer than expected. Redirecting to login...
+              </p>
+            </div>
+          )}
+          {redirecting && (
+            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg max-w-md mx-auto">
+              <p className="text-sm text-blue-800">
+                Redirecting to login page...
+              </p>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -61,7 +100,7 @@ export const AuthStatus: React.FC<AuthStatusProps> = ({ children, fallback }) =>
             </p>
             <div className="flex flex-col space-y-2">
               <Button
-                onClick={() => window.location.href = '/login'}
+                onClick={() => window.location.href = '/#/login'}
                 className="w-full"
               >
                 <LogIn className="mr-2 h-4 w-4" />
@@ -71,7 +110,7 @@ export const AuthStatus: React.FC<AuthStatusProps> = ({ children, fallback }) =>
                 variant="outline"
                 onClick={() => {
                   logout();
-                  window.location.href = '/login';
+                  window.location.href = '/#/login';
                 }}
                 className="w-full"
               >

@@ -2,11 +2,16 @@
 
 
 import { config } from '../lib/config';
+import { waitForBackend, checkBackendHealth } from '../utils/backendHealthCheck';
 
 const API_BASE_URL = config.api.baseUrl;
 const API_TIMEOUT = config.api.timeout;
 const DEBUG_MODE = config.debug.enabled;
 const LOG_LEVEL = config.debug.logLevel;
+
+// Track if backend is ready
+let backendReady = false;
+let backendCheckPromise: Promise<boolean> | null = null;
 
 interface ApiResponse<T> {
   success: boolean;
@@ -45,10 +50,45 @@ class ApiService {
     this.token = token;
   }
 
+  // Method to reset backend ready state (useful after backend restart)
+  resetBackendReady() {
+    backendReady = false;
+    backendCheckPromise = null;
+  }
+
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
+    // Check if backend is ready (only for Electron, wait for backend to start)
+    const isElectron = typeof window !== 'undefined' && typeof (window as any).electronAPI !== 'undefined';
+    const isHealthEndpoint = endpoint.includes('/health');
+
+    // For Electron, wait for backend to be ready (but not for health check itself)
+    if (isElectron && !isHealthEndpoint && !backendReady) {
+      if (!backendCheckPromise) {
+        backendCheckPromise = waitForBackend(this.baseURL).then((ready) => {
+          backendReady = ready;
+          return ready;
+        }).catch(() => {
+          backendReady = false;
+          return false;
+        });
+      }
+
+      try {
+        await backendCheckPromise;
+        // Double-check backend is actually ready
+        const isHealthy = await checkBackendHealth(this.baseURL);
+        if (!isHealthy) {
+          throw new Error('Cannot connect to server. The backend may still be starting. Please wait a moment and try again.');
+        }
+        backendReady = true;
+      } catch (error) {
+        throw new Error('Cannot connect to server. The backend may still be starting. Please wait a moment and try again.');
+      }
+    }
+
     // Refresh token from localStorage in case it was updated
     if (!this.token) {
       this.token = localStorage.getItem('token');
@@ -89,6 +129,17 @@ class ApiService {
     // Debug: Log context
     console.log('🔍 API Service - Context retrieved:', context);
 
+    // Create abort controller for timeout (AbortSignal.timeout may not be available in all environments)
+    let abortController: AbortController | undefined;
+    let timeoutId: NodeJS.Timeout | undefined;
+
+    if (!options.signal) {
+      abortController = new AbortController();
+      timeoutId = setTimeout(() => {
+        abortController?.abort();
+      }, API_TIMEOUT);
+    }
+
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
@@ -98,6 +149,8 @@ class ApiService {
         ...options.headers,
       },
       ...options,
+      // Add signal for timeout
+      signal: options.signal || abortController?.signal,
     };
 
     // Debug: Log final headers
@@ -183,10 +236,29 @@ class ApiService {
         }
 
         return data;
-      } catch (error) {
+      } catch (error: any) {
         console.error('API Error:', error);
+
+        // Clear timeout if request completes or errors
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+
+        // Handle network/connection errors
+        if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+          throw new Error('Request timeout. The server may be starting up. Please wait a moment and try again.');
+        }
+
+        if (error.name === 'TypeError' && (error.message.includes('fetch') || error.message.includes('Failed to fetch') || error.message.includes('NetworkError'))) {
+          throw new Error('Cannot connect to server. The backend may still be starting. Please wait a moment and try again.');
+        }
+
         throw error;
       } finally {
+        // Clean up timeout
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
         // Clean up request queue and update last request time
         this.requestQueue.delete(endpoint);
         this.lastRequestTime.set(endpoint, Date.now());
@@ -784,6 +856,7 @@ class ApiService {
     discountPercentage?: number;
     saleDate?: string;
     notes?: string;
+    paymentStatus?: string;
   }) {
     return this.request<{
       id: string;
@@ -1572,8 +1645,8 @@ class ApiService {
     }>>('/admin/activities');
   }
 
-  // Shift Management Methods
-  async getShifts() {
+  // Scheduled Shift Management Methods
+  async getScheduledShifts() {
     return this.request<Array<{
       id: string;
       name: string;
@@ -1629,7 +1702,7 @@ class ApiService {
     });
   }
 
-  async updateShift(shiftId: string, shiftData: {
+  async updateScheduledShift(shiftId: string, shiftData: {
     name: string;
     startTime: string;
     endTime: string;
@@ -1669,8 +1742,9 @@ class ApiService {
     });
   }
 
-  // User Management Methods
-  async getUser(userId: string) {
+  // User Management Methods (Basic - deprecated, use getUser instead)
+  // Note: This method is kept for backward compatibility but getUser() below provides more details
+  async getUserBasic(userId: string) {
     return this.request<{
       id: string;
       name: string;
@@ -2959,7 +3033,7 @@ class ApiService {
     }>(`/shifts/active/${employeeId}`);
   }
 
-  async updateShift(shiftId: string, shiftData: {
+  async updateCashierShift(shiftId: string, shiftData: {
     cashIn?: number;
     cashOut?: number;
     notes?: string;

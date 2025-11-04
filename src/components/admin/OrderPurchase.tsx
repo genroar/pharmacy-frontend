@@ -268,7 +268,7 @@ const OrderPurchase = () => {
     if (batch.isExpired) {
       return { status: "Expired", color: "destructive" };
     } else if (batch.isCritical) {
-      return { status: "Critical", color: "destructive" };
+      return { status: "Out of Stock", color: "destructive" };
     } else if (batch.isNearExpiry) {
       return { status: "Near Expiry", color: "secondary" };
     } else if (batch.isLowStock) {
@@ -477,7 +477,7 @@ const OrderPurchase = () => {
                 <SelectContent>
                   <SelectItem value="all">All Issues</SelectItem>
                   <SelectItem value="low">Low Stock</SelectItem>
-                  <SelectItem value="critical">Critical</SelectItem>
+                  <SelectItem value="critical">Out of Stock</SelectItem>
                   <SelectItem value="nearExpiry">Near Expiry</SelectItem>
                   <SelectItem value="expired">Expired</SelectItem>
                 </SelectContent>
