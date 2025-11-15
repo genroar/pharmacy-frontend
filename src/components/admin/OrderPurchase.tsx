@@ -36,10 +36,14 @@ import {
   RefreshCw,
   Filter,
   Plus,
-  RotateCcw
+  RotateCcw,
+  FileText
 } from "lucide-react";
 import { apiService } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { Checkbox } from "@/components/ui/checkbox";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface Batch {
   id: string;
@@ -86,6 +90,10 @@ const OrderPurchase = () => {
   const [showNewBatchDialog, setShowNewBatchDialog] = useState(false);
   const [selectedBatchForRestock, setSelectedBatchForRestock] = useState<Batch | null>(null);
   const [restockQuantity, setRestockQuantity] = useState(0);
+  const [showCreateOrderDialog, setShowCreateOrderDialog] = useState(false);
+  const [selectedBatches, setSelectedBatches] = useState<Set<string>>(new Set());
+  // Store order quantities in dialog (not in main table)
+  const [dialogOrderQuantities, setDialogOrderQuantities] = useState<Record<string, number>>({});
 
   // Set default branch for managers and cashiers
   useEffect(() => {
@@ -209,15 +217,7 @@ const OrderPurchase = () => {
     // Filter changes are handled by useEffect
   };
 
-  const handleOrderQuantityChange = (batchId: string, newQuantity: number) => {
-    setBatches(prevBatches =>
-      prevBatches.map(batch =>
-        batch.id === batchId
-          ? { ...batch, orderQuantity: Math.max(0, newQuantity) }
-          : batch
-      )
-    );
-  };
+  // Removed handleOrderQuantityChange - order quantities are now managed in dialog
 
   const handleRestockBatch = (batch: Batch) => {
     setSelectedBatchForRestock(batch);
@@ -279,8 +279,10 @@ const OrderPurchase = () => {
   };
 
   const calculateOrderQuantity = (batch: Batch) => {
-    // Use the orderQuantity from the batch if set, otherwise calculate suggested quantity
-    return batch.orderQuantity || 0;
+    // Calculate suggested quantity based on stock levels
+    // Suggested = maxStock - currentStock (but not less than 0)
+    const suggested = Math.max(0, batch.maxStock - batch.currentStock);
+    return suggested;
   };
 
   const downloadOrderList = () => {
@@ -325,13 +327,105 @@ const OrderPurchase = () => {
     document.body.removeChild(link);
   };
 
-  const totalOrderValue = batches.reduce((sum, batch) =>
-    sum + ((batch.orderQuantity || 0) * batch.unitPrice), 0
-  );
+  // Calculate total order value from dialog quantities
+  const totalOrderValue = batches.reduce((sum, batch) => {
+    const qty = dialogOrderQuantities[batch.id] || 0;
+    return sum + (qty * batch.unitPrice);
+  }, 0);
 
-  const totalOrderItems = batches.reduce((sum, batch) =>
-    sum + (batch.orderQuantity || 0), 0
-  );
+  // Calculate total order items from dialog quantities
+  const totalOrderItems = batches.reduce((sum, batch) => {
+    return sum + (dialogOrderQuantities[batch.id] || 0);
+  }, 0);
+
+  // Get batches that have order quantity set in dialog
+  const batchesWithOrderQty = batches.filter(batch => {
+    const qty = dialogOrderQuantities[batch.id] || 0;
+    return qty > 0;
+  });
+
+  const handleSelectBatch = (batchId: string) => {
+    setSelectedBatches(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(batchId)) {
+        newSet.delete(batchId);
+      } else {
+        newSet.add(batchId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedBatches.size === batchesWithOrderQty.length) {
+      setSelectedBatches(new Set());
+    } else {
+      // Only select batches that have order quantity > 0
+      const batchesToSelect = batches.filter(batch => {
+        const qty = dialogOrderQuantities[batch.id] || 0;
+        return qty > 0;
+      });
+      setSelectedBatches(new Set(batchesToSelect.map(b => b.id)));
+    }
+  };
+
+  const handleDownloadPDF = () => {
+    if (selectedBatches.size === 0) {
+      return;
+    }
+
+    const selectedBatchesData = batches.filter(batch =>
+      selectedBatches.has(batch.id) && (dialogOrderQuantities[batch.id] || 0) > 0
+    );
+
+    // Create PDF
+    const doc = new jsPDF();
+
+    // Add title
+    doc.setFontSize(16);
+    doc.text("Purchase Order", 14, 20);
+    doc.setFontSize(10);
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, 14, 30);
+    doc.text(`Total Items: ${selectedBatchesData.length}`, 14, 36);
+
+    // Prepare table data
+    const tableData = selectedBatchesData.map(batch => [
+      batch.productName,
+      (dialogOrderQuantities[batch.id] || 0).toString(),
+      batch.branch.name
+    ]);
+
+    // Add table using autoTable function (v5.x API)
+    autoTable(doc, {
+      head: [['Product Name', 'Order Qty', 'Branch Name']],
+      body: tableData,
+      startY: 45,
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [12, 44, 138] }, // Blue color matching theme
+      alternateRowStyles: { fillColor: [245, 247, 250] }
+    });
+
+    // Save PDF
+    doc.save(`purchase_order_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  const handleOpenCreateOrderDialog = () => {
+    setSelectedBatches(new Set());
+    // Initialize dialog order quantities from existing batch orderQuantity values
+    const initialQuantities: Record<string, number> = {};
+    batches.forEach(batch => {
+      initialQuantities[batch.id] = batch.orderQuantity || 0;
+    });
+    setDialogOrderQuantities(initialQuantities);
+    setShowCreateOrderDialog(true);
+  };
+
+  const handleDialogOrderQuantityChange = (batchId: string, quantity: number) => {
+    setDialogOrderQuantities(prev => ({
+      ...prev,
+      [batchId]: Math.max(0, quantity)
+    }));
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -356,6 +450,14 @@ const OrderPurchase = () => {
               </div>
             </div>
             <div className="flex items-center space-x-3">
+              <Button
+                onClick={handleOpenCreateOrderDialog}
+                disabled={batches.length === 0}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-md hover:shadow-lg transition-all duration-200"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Create Purchase Order
+              </Button>
               <Button
                 onClick={handleAddNewBatch}
                 className="bg-green-600 hover:bg-green-700 text-white font-medium shadow-md hover:shadow-lg transition-all duration-200"
@@ -518,8 +620,6 @@ const OrderPurchase = () => {
                     <TableHead className="font-semibold">Batch & Product</TableHead>
                     <TableHead className="font-semibold">Stock Info</TableHead>
                     <TableHead className="font-semibold">Pricing</TableHead>
-                    <TableHead className="font-semibold text-center">Order Qty</TableHead>
-                    <TableHead className="font-semibold text-right">Total Value</TableHead>
                     <TableHead className="font-semibold">Status</TableHead>
                     <TableHead className="font-semibold">Branch</TableHead>
                     <TableHead className="font-semibold text-center">Actions</TableHead>
@@ -528,8 +628,6 @@ const OrderPurchase = () => {
                 <TableBody>
                   {batches.map((batch) => {
                     const stockStatus = getStockStatus(batch);
-                    const orderQuantity = calculateOrderQuantity(batch);
-                    const totalValue = orderQuantity * batch.unitPrice;
 
                     return (
                       <TableRow key={batch.id} className="hover:bg-gray-50">
@@ -568,20 +666,6 @@ const OrderPurchase = () => {
                           <div className="text-sm">
                             <div className="font-medium">${batch.unitPrice.toFixed(2)}</div>
                             <div className="text-gray-500">per unit</div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Input
-                            type="number"
-                            min="0"
-                            value={orderQuantity}
-                            onChange={(e) => handleOrderQuantityChange(batch.id, parseInt(e.target.value) || 0)}
-                            className="w-20 text-center font-medium"
-                          />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="font-semibold text-green-600">
-                            ${totalValue.toFixed(2)}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -697,6 +781,127 @@ const OrderPurchase = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowNewBatchDialog(false)}>
               Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Purchase Order Dialog */}
+      <Dialog open={showCreateOrderDialog} onOpenChange={setShowCreateOrderDialog}>
+        <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <FileText className="w-5 h-5 text-blue-600" />
+              <span>Create Purchase Order</span>
+            </DialogTitle>
+            <DialogDescription>
+              Select batches and set order quantities for each batch.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {batches.length === 0 ? (
+              <div className="text-center py-8">
+                <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No Batches Available</h3>
+                <p className="text-gray-500">
+                  No batches found matching your criteria.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="select-all"
+                      checked={selectedBatches.size === batchesWithOrderQty.length && batchesWithOrderQty.length > 0}
+                      onCheckedChange={handleSelectAll}
+                    />
+                    <Label htmlFor="select-all" className="cursor-pointer">
+                      Select All with Qty ({selectedBatches.size} selected)
+                    </Label>
+                  </div>
+                  <Button
+                    onClick={handleDownloadPDF}
+                    disabled={selectedBatches.size === 0 || batchesWithOrderQty.length === 0}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download PDF
+                  </Button>
+                </div>
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-gray-50">
+                        <TableHead className="w-12"></TableHead>
+                        <TableHead className="font-semibold">Product Name</TableHead>
+                        <TableHead className="font-semibold">Stock Info</TableHead>
+                        <TableHead className="font-semibold">Pricing</TableHead>
+                        <TableHead className="font-semibold text-center">Order Qty</TableHead>
+                        <TableHead className="font-semibold text-right">Total Value</TableHead>
+                        <TableHead className="font-semibold">Branch Name</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {batches.map((batch) => {
+                        const orderQty = dialogOrderQuantities[batch.id] || 0;
+                        const totalValue = orderQty * batch.unitPrice;
+                        return (
+                          <TableRow key={batch.id} className="hover:bg-gray-50">
+                            <TableCell>
+                              <Checkbox
+                                checked={selectedBatches.has(batch.id)}
+                                onCheckedChange={() => handleSelectBatch(batch.id)}
+                                disabled={orderQty === 0}
+                              />
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              <div>
+                                <div>{batch.productName}</div>
+                                <div className="text-xs text-gray-500">SKU: {batch.productSku}</div>
+                                <div className="text-xs text-gray-500">Batch: {batch.batchNo}</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm">
+                                <div>Current: <span className="font-medium">{batch.currentStock}</span></div>
+                                <div>Min: <span className="font-medium">{batch.minStock}</span> | Max: <span className="font-medium">{batch.maxStock}</span></div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm">
+                                <div className="font-medium">${batch.unitPrice.toFixed(2)}</div>
+                                <div className="text-gray-500">per unit</div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Input
+                                type="number"
+                                min="0"
+                                value={orderQty}
+                                onChange={(e) => handleDialogOrderQuantityChange(batch.id, parseInt(e.target.value) || 0)}
+                                className="w-24 text-center font-medium"
+                                placeholder="0"
+                              />
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className={`font-semibold ${totalValue > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                                ${totalValue.toFixed(2)}
+                              </div>
+                            </TableCell>
+                            <TableCell>{batch.branch.name}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateOrderDialog(false)}>
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>

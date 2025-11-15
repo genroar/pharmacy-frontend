@@ -15,6 +15,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Get backend server status
   getBackendStatus: () => ipcRenderer.invoke('get-backend-status'),
 
+  // Get log file path
+  getLogFilePath: () => ipcRenderer.invoke('get-log-file-path'),
+
   // Example: Open external link
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
 

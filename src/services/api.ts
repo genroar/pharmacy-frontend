@@ -77,14 +77,19 @@ class ApiService {
       }
 
       try {
-        await backendCheckPromise;
-        // Double-check backend is actually ready
-        const isHealthy = await checkBackendHealth(this.baseURL);
-        if (!isHealthy) {
-          throw new Error('Cannot connect to server. The backend may still be starting. Please wait a moment and try again.');
+        const ready = await backendCheckPromise;
+        if (!ready) {
+          // Double-check backend is actually ready
+          const isHealthy = await checkBackendHealth(this.baseURL);
+          if (!isHealthy) {
+            console.error(`[API] Backend health check failed. Base URL: ${this.baseURL}`);
+            throw new Error('Cannot connect to server. The backend may still be starting. Please wait a moment and try again.');
+          }
         }
         backendReady = true;
-      } catch (error) {
+        console.log(`[API] ✓ Backend is ready at ${this.baseURL}`);
+      } catch (error: any) {
+        console.error(`[API] Backend connection failed:`, error.message);
         throw new Error('Cannot connect to server. The backend may still be starting. Please wait a moment and try again.');
       }
     }

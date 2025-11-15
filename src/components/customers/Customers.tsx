@@ -60,7 +60,6 @@ const Customers = () => {
   const { selectedBranchId, selectedBranch } = useAdmin();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedFilter, setSelectedFilter] = useState("all");
   const [createdByFilter, setCreatedByFilter] = useState("all"); // New filter for created by
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
@@ -88,7 +87,7 @@ const Customers = () => {
   // Load customers on component mount
   useEffect(() => {
     loadCustomers();
-  }, [searchQuery, selectedFilter, createdByFilter, selectedBranchId]);
+  }, [searchQuery, createdByFilter, selectedBranchId]);
 
   // Refresh customers when component becomes visible (e.g., after returning from POS)
   useEffect(() => {
@@ -199,16 +198,14 @@ const Customers = () => {
         page: pagination.page,
         limit: pagination.limit,
         search: searchQuery,
-        branchId: branchId || "",
-        vip: selectedFilter === "vip" ? true : selectedFilter === "regular" ? false : undefined
+        branchId: branchId || ""
       });
 
       const params: any = {
         page: pagination.page,
         limit: pagination.limit,
         search: searchQuery,
-        branchId: branchId || "",
-        vip: selectedFilter === "vip" ? true : selectedFilter === "regular" ? false : undefined
+        branchId: branchId || ""
       };
 
       // Add createdByRole filter if not "all"
@@ -273,36 +270,12 @@ const Customers = () => {
   };
 
 
-  const filters = ["all", "vip", "regular", "recent", "with-purchases"];
-
   const filteredCustomers = customers.filter(customer => {
     const matchesSearch = customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          customer.phone.includes(searchQuery) ||
                          customer.email.toLowerCase().includes(searchQuery.toLowerCase());
 
-    let matchesFilter = true;
-    if (selectedFilter === "vip") matchesFilter = customer.isVIP;
-    if (selectedFilter === "regular") matchesFilter = !customer.isVIP;
-    if (selectedFilter === "recent") {
-      const lastVisit = new Date(customer.lastVisit);
-      const threeDaysAgo = new Date();
-      threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-      matchesFilter = lastVisit >= threeDaysAgo;
-    }
-    if (selectedFilter === "with-purchases") {
-      matchesFilter = customer.totalPurchases > 0;
-    }
-
-    // Apply created by filter (commented out until backend provides creator information)
-    // The backend currently doesn't return createdByUser information
-    // TODO: Implement this when backend is updated to return creator role
-    // let matchesCreatedBy = true;
-    // if (createdByFilter !== "all") {
-    //   const creatorRole = customer.createdByUser?.role?.toLowerCase();
-    //   matchesCreatedBy = creatorRole === createdByFilter.toLowerCase();
-    // }
-
-    return matchesSearch && matchesFilter;
+    return matchesSearch;
   });
 
   const totalCustomers = customers.length;

@@ -100,14 +100,31 @@ const LoginForm = ({ onLogin, onNavigateToSignup }: LoginFormProps) => {
           });
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Login error:', error);
-      setError(error instanceof Error ? error.message : "Login failed. Please try again.");
-      toast({
-        title: "Login error",
-        description: "An unexpected error occurred. Please try again.",
-        duration: 2000,
-      });
+
+      // Check if it's a backend connection error
+      const errorMessage = error?.message || String(error);
+      if (errorMessage.includes('Cannot connect to server') ||
+          errorMessage.includes('backend may still be starting') ||
+          errorMessage.includes('Failed to fetch') ||
+          errorMessage.includes('NetworkError')) {
+        setError("Backend server is not responding. Please wait a moment and try again. If the problem persists, restart the application.");
+        toast({
+          title: "Connection Error",
+          description: "Cannot connect to the backend server. Please wait and try again.",
+          duration: 5000,
+          variant: "destructive"
+        });
+      } else {
+        setError(errorMessage || "An unexpected error occurred. Please try again.");
+        toast({
+          title: "Login Error",
+          description: errorMessage || "An unexpected error occurred.",
+          duration: 3000,
+          variant: "destructive"
+        });
+      }
     } finally {
       setIsLoading(false);
     }

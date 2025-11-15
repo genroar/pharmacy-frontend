@@ -34,6 +34,16 @@
       "from": "../backend-pharmachy/prisma",
       "to": "backend/prisma",
       "filter": ["**/*"]
+    },
+    {
+      "from": "../backend-pharmachy/.env",
+      "to": "backend/.env",
+      "filter": ["**/*"]
+    },
+    {
+      "from": "../backend-pharmachy/.env.example",
+      "to": "backend/.env.example",
+      "filter": ["**/*"]
     }
   ],
   "win": {
@@ -48,10 +58,19 @@
     "publisherName": "Zapeera"
   },
   "mac": {
-    "target": "dmg",
+    "target": [
+      {
+        "target": "dmg",
+        "arch": ["arm64"]
+      }
+    ],
     "icon": "public/icons/icon.icns",
     "category": "public.app-category.medical",
-    "artifactName": "${productName}-${version}-${arch}.${ext}"
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
+    "hardenedRuntime": true,
+    "gatekeeperAssess": false,
+    "entitlements": "electron/entitlements.mac.plist",
+    "entitlementsInherit": "electron/entitlements.mac.plist"
   },
   "dmg": {
     "contents": [

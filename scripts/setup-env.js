@@ -10,7 +10,7 @@ const path = require('path');
 
 const environments = {
   development: {
-    VITE_API_BASE_URL: 'http://localhost:5001/api',
+    VITE_API_BASE_URL: 'http://localhost:5002/api',
     VITE_API_TIMEOUT: '30000',
     VITE_APP_NAME: 'MediBill Pulse',
     VITE_APP_VERSION: '1.0.0',
