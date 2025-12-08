@@ -18,7 +18,7 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowLeft,
-  Home
+  Globe
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { RoleGuard } from '@/components/auth/RoleGuard';
@@ -46,9 +46,6 @@ const navigationItems: NavItem[] = [
 
   // Refunds - Only for Cashiers (standalone)
   { name: 'Refunds', href: '/refunds', icon: Receipt, roles: ['CASHIER'] },
-
-  // Customers - Available to all roles
-  { name: 'Customers', href: '/customers', icon: Users, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
 
   // Sales Dropdown - Available to Manager, Admin, SuperAdmin (removed CASHIER)
   {
@@ -78,6 +75,9 @@ const navigationItems: NavItem[] = [
     ]
   },
 
+  // Customers - Available to all roles (moved below Inventory)
+  { name: 'Customers', href: '/customers', icon: Users, roles: ['CASHIER', 'MANAGER', 'ADMIN', 'SUPERADMIN'] },
+
   // Management Dropdown - Available to Admin, SuperAdmin
   {
     name: 'Business Management',
@@ -103,11 +103,40 @@ const DropdownNavItem: React.FC<{ item: NavItem; isCollapsed: boolean }> = React
 
   // Keep dropdown open if any child is active
   const [isOpen, setIsOpen] = useState(isChildActive);
+  const [isHovered, setIsHovered] = useState(false);
+  const hoverTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   // Update isOpen state when location changes
   React.useEffect(() => {
     setIsOpen(isChildActive);
   }, [isChildActive]);
+
+  // Cleanup timeout on unmount
+  React.useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleMouseEnter = () => {
+    if (isCollapsed) {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+      setIsHovered(true);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (isCollapsed) {
+      // Add small delay before hiding to allow moving to popup
+      hoverTimeoutRef.current = setTimeout(() => {
+        setIsHovered(false);
+      }, 150);
+    }
+  };
 
   const handleToggle = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -119,7 +148,11 @@ const DropdownNavItem: React.FC<{ item: NavItem; isCollapsed: boolean }> = React
 
   return (
     <RoleGuard roles={item.roles} resource={item.resource} action={item.action}>
-      <div className="relative">
+      <div
+        className="relative group"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
         <button
           onClick={handleToggle}
           className={`w-full flex items-center justify-between px-4 py-3 text-sm font-medium relative transition-all duration-300 ${
@@ -144,10 +177,49 @@ const DropdownNavItem: React.FC<{ item: NavItem; isCollapsed: boolean }> = React
           )}
         </button>
 
-        {/* Dropdown Menu */}
+        {/* Hover Popup Menu for Collapsed Sidebar */}
+        {isCollapsed && item.children && isHovered && (
+          <div
+            className="fixed ml-16 bg-white border border-gray-200 rounded-lg shadow-xl py-2 min-w-52 z-[9999]"
+            style={{
+              left: '0',
+              top: 'auto',
+              marginTop: '-44px'
+            }}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+          >
+            <div className="px-4 py-2 border-b border-gray-100 bg-gray-50 rounded-t-lg">
+              <span className="text-sm font-semibold text-gray-800">{item.name}</span>
+            </div>
+            <div className="py-1">
+              {item.children.map((child) => (
+                <RoleGuard key={child.name} roles={child.roles} resource={child.resource} action={child.action}>
+                  <Link
+                    to={child.href!}
+                    className={`flex items-center px-4 py-2.5 text-sm transition-colors ${
+                      location.pathname === child.href
+                        ? 'text-blue-600 bg-blue-50 font-medium'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsHovered(false);
+                    }}
+                  >
+                    <child.icon className={`w-4 h-4 mr-3 ${location.pathname === child.href ? 'text-blue-600' : 'text-gray-500'}`} />
+                    <span>{child.name}</span>
+                  </Link>
+                </RoleGuard>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Expanded Dropdown Menu */}
         {!isCollapsed && item.children && (
           <div
-            className={`ml-4 mt-1 space-y-1 overflow-hidden ${
+            className={`ml-4 mt-1 space-y-1 overflow-hidden transition-all duration-300 ${
               isOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
             }`}
           >
@@ -163,9 +235,9 @@ const DropdownNavItem: React.FC<{ item: NavItem; isCollapsed: boolean }> = React
                     } ${
                       isOpen ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'
                     }`}
+                    style={{ transitionDelay: `${index * 50}ms` }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      // Don't close the dropdown when clicking on child items
                     }}
                   >
                     <child.icon className={`w-4 h-4 mr-3 transition-colors duration-300 ${location.pathname === child.href ? 'text-blue-600' : 'text-gray-700'}`} />
@@ -226,7 +298,7 @@ export const RoleBasedSidebar: React.FC = () => {
         {!isCollapsed && (
           <div className="flex items-center space-x-2">
             <img
-              src="/images/logo.png"
+              src={`${import.meta.env.BASE_URL}images/logo.png`}
               alt="Zapeera Logo"
               className=" w-40 object-contain"
             />
@@ -234,7 +306,7 @@ export const RoleBasedSidebar: React.FC = () => {
         )}
         {isCollapsed && (
           <img
-            src="/images/favicon.png"
+            src={`${import.meta.env.BASE_URL}images/favicon.png`}
             alt="Zapeera Logo"
             className="w-8 h-8 object-contain"
           />
@@ -248,7 +320,7 @@ export const RoleBasedSidebar: React.FC = () => {
       </div>
 
       {/* Navigation */}
-      <nav className={`flex-1 ${isCollapsed ? 'px-2' : ''} space-y-2 overflow-y-auto`}>
+      <nav className={`flex-1 ${isCollapsed ? 'px-2 overflow-visible' : 'overflow-y-auto'} space-y-2`}>
         {navigationItems.map((item) => (
           <NavItem key={`${item.name}-${isCollapsed}`} item={item} isCollapsed={isCollapsed} />
         ))}
@@ -258,14 +330,14 @@ export const RoleBasedSidebar: React.FC = () => {
       <div className="p-4 border-t border-gray-200 space-y-2">
         {/* Back to Zappera Dashboard Button */}
         <a
-          href="https://zappera.com"
+          href="https://zapeera.com"
           target="_blank"
           rel="noopener noreferrer"
           className={`w-full flex items-center px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg transition-all ${isCollapsed ? 'justify-center' : ''}`}
-          title={isCollapsed ? 'Back to Zappera Dashboard' : undefined}
+          title={isCollapsed ? 'Back to  Dashboard' : undefined}
         >
-          <Home className={`w-5 h-5 ${isCollapsed ? '' : 'mr-3'}`} />
-          {!isCollapsed && 'Back to Zappera'}
+          <Globe className={`w-5 h-5 ${isCollapsed ? '' : 'mr-3'}`} />
+          {!isCollapsed && 'Zapeera'}
         </a>
 
         {/* Logout Button */}

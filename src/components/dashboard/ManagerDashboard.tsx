@@ -106,11 +106,13 @@ const ManagerDashboard = () => {
         setDashboardData(dashboardResponse.data);
       }
 
-      // Process sales data
+      // Process sales data (EXCLUDING REFUNDED sales from totals)
       if (salesResponse.success && salesResponse.data) {
         const sales = salesResponse.data.sales || [];
         setRealSalesData(sales);
-        const totalRevenue = sales.reduce((sum: number, sale: any) => sum + (sale.totalAmount || 0), 0);
+        // Filter out REFUNDED sales from revenue calculation
+        const activeSales = sales.filter((sale: any) => sale.status !== 'REFUNDED');
+        const totalRevenue = activeSales.reduce((sum: number, sale: any) => sum + (sale.totalAmount || 0), 0);
         setRealRevenue(totalRevenue);
       }
 

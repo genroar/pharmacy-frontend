@@ -71,6 +71,7 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
   const [allBranches, setAllBranches] = useState<Branch[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasInitialized, setHasInitialized] = useState(false); // Track if initial setup is done
 
 
   const selectedCompany = selectedCompanyId
@@ -123,16 +124,6 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
         const branchesData = Array.isArray(response.data) ? response.data : response.data.branches;
         setAllBranches(branchesData || []);
         console.log('🏢 Loaded branches:', branchesData?.length || 0);
-
-        // If admin/superadmin has exactly one branch and none selected yet, auto-select it
-        if ((user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') && branchesData?.length === 1 && !selectedBranchId) {
-          const onlyBranchId = branchesData[0].id;
-          setSelectedBranchId(onlyBranchId);
-          if (user) {
-            localStorage.setItem(`selected_branch_${user.id}`, onlyBranchId);
-          }
-          console.log('🏢 Auto-selected the only available branch for admin:', onlyBranchId);
-        }
       } else {
         setError('Failed to load branches');
       }
@@ -142,7 +133,7 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated, user, selectedBranchId, setSelectedBranchId]);
+  }, [isAuthenticated]); // Removed selectedBranchId dependency to prevent infinite loop
 
   // Memoize the context getter function
   const contextGetter = useCallback(() => ({
@@ -155,34 +146,66 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
     apiService.setContextGetter(contextGetter);
   }, [contextGetter]);
 
-  // Load saved selections from localStorage on mount
+  // Reset hasInitialized when user logs out
   useEffect(() => {
-    if (isAuthenticated && user) {
-      // For managers, automatically set their assigned branch
-      if (user.role === 'MANAGER' && user.branchId) {
+    if (!isAuthenticated) {
+      setHasInitialized(false);
+      setSelectedCompanyId(null);
+      setSelectedBranchId(null);
+    }
+  }, [isAuthenticated]);
+
+  // Load saved selections from localStorage on mount - ONLY ONCE per login
+  useEffect(() => {
+    if (isAuthenticated && user && !hasInitialized) {
+      // Mark as initialized to prevent re-running this logic
+      setHasInitialized(true);
+
+      // For managers and cashiers, automatically set their assigned branch
+      if ((user.role === 'MANAGER' || user.role === 'CASHIER') && user.branchId) {
         setSelectedBranchId(user.branchId);
-        console.log('🏢 Manager auto-selected their assigned branch:', user.branchId);
-      } else {
-        // For admins and superadmins, load saved selections only if not a fresh login
+        // Also set company from their branch
+        if (user.companyId) {
+          setSelectedCompanyId(user.companyId);
+        }
+        console.log('🏢 Auto-selected assigned branch:', user.branchId);
+      } else if (user.role === 'ADMIN') {
+        // For ADMIN users: Check if this is a fresh login
         const isFreshLogin = localStorage.getItem(`fresh_admin_login_${user.id}`);
 
-        if (!isFreshLogin) {
+        if (isFreshLogin) {
+          // Fresh login - show Zapeera screen first
+          console.log('🏢 Admin user - fresh login, will show Zapeera screen');
+          // Remove the flag so next app open (without logging in again) can restore selections
+          localStorage.removeItem(`fresh_admin_login_${user.id}`);
+          // Keep selections null to show Zapeera
+        } else {
+          // Not a fresh login - restore selections from localStorage
           const savedCompanyId = localStorage.getItem(`selected_company_${user.id}`);
           const savedBranchId = localStorage.getItem(`selected_branch_${user.id}`);
 
           if (savedCompanyId) {
             setSelectedCompanyId(savedCompanyId);
-            console.log('🏢 Restored selected company:', savedCompanyId);
+            console.log('🏢 Admin user - restored company:', savedCompanyId);
           }
-
           if (savedBranchId) {
             setSelectedBranchId(savedBranchId);
-            console.log('🏢 Restored selected branch:', savedBranchId);
+            console.log('🏢 Admin user - restored branch:', savedBranchId);
           }
-        } else {
-          // Clear the fresh login flag
-          localStorage.removeItem(`fresh_admin_login_${user.id}`);
-          console.log('🏢 Fresh admin login detected, skipping saved selections');
+        }
+      } else if (user.role === 'SUPERADMIN') {
+        // For SUPERADMIN: Can optionally restore selections
+        const savedCompanyId = localStorage.getItem(`selected_company_${user.id}`);
+        const savedBranchId = localStorage.getItem(`selected_branch_${user.id}`);
+
+        if (savedCompanyId) {
+          setSelectedCompanyId(savedCompanyId);
+          console.log('🏢 SuperAdmin restored selected company:', savedCompanyId);
+        }
+
+        if (savedBranchId) {
+          setSelectedBranchId(savedBranchId);
+          console.log('🏢 SuperAdmin restored selected branch:', savedBranchId);
         }
       }
 
@@ -190,7 +213,7 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
       refreshCompanies();
       refreshBranches();
     }
-  }, [isAuthenticated, user, refreshCompanies, refreshBranches]);
+  }, [isAuthenticated, user, hasInitialized, refreshCompanies, refreshBranches]);
 
   // Save company selection to localStorage
   const handleSetSelectedCompanyId = useCallback((companyId: string | null) => {

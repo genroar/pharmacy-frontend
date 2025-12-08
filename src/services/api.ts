@@ -79,18 +79,48 @@ class ApiService {
       try {
         const ready = await backendCheckPromise;
         if (!ready) {
-          // Double-check backend is actually ready
-          const isHealthy = await checkBackendHealth(this.baseURL);
+          // Double-check backend is actually ready with additional retries
+          console.log(`[API] Backend check returned false, performing additional health checks...`);
+          let isHealthy = false;
+          let retries = 0;
+          const maxRetries = 10; // Try 10 more times (20 seconds)
+
+          while (!isHealthy && retries < maxRetries) {
+            isHealthy = await checkBackendHealth(this.baseURL);
+            if (isHealthy) {
+              console.log(`[API] ✓ Backend health check passed after ${retries + 1} additional attempts`);
+              break;
+            }
+            retries++;
+            if (retries < maxRetries) {
+              console.log(`[API] Backend not ready yet, retrying... (${retries}/${maxRetries})`);
+              await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+          }
+
           if (!isHealthy) {
-            console.error(`[API] Backend health check failed. Base URL: ${this.baseURL}`);
-            throw new Error('Cannot connect to server. The backend may still be starting. Please wait a moment and try again.');
+            const healthUrl = this.baseURL.replace('/api', '/health');
+            console.error(`[API] Backend health check failed after all retries. Base URL: ${this.baseURL}`);
+            console.error(`[API] Health check URL: ${healthUrl}`);
+            console.error(`[API] 💡 Please check:`);
+            console.error(`[API]    1. Is backend running? Test: curl ${healthUrl}`);
+            console.error(`[API]    2. In dev mode, build backend: cd backend-pharmachy && npm run build`);
+            console.error(`[API]    3. Or run backend separately: cd backend-pharmachy && npm run dev`);
+            console.error(`[API]    4. Check Electron console for backend startup messages`);
+            throw new Error('Cannot connect to server. Please ensure the backend is running on port 5001. In development mode, you may need to build the backend first (cd backend-pharmachy && npm run build) or run it separately (cd backend-pharmachy && npm run dev).');
           }
         }
         backendReady = true;
         console.log(`[API] ✓ Backend is ready at ${this.baseURL}`);
       } catch (error: any) {
         console.error(`[API] Backend connection failed:`, error.message);
-        throw new Error('Cannot connect to server. The backend may still be starting. Please wait a moment and try again.');
+        // Don't throw immediately - try one more health check
+        const finalCheck = await checkBackendHealth(this.baseURL);
+        if (!finalCheck) {
+          throw new Error('Cannot connect to server. The backend may still be starting. Please wait a moment and try again.');
+        }
+        backendReady = true;
+        console.log(`[API] ✓ Backend is ready after final check`);
       }
     }
 
@@ -213,6 +243,12 @@ class ApiService {
             if (data.code === 'ACCOUNT_DEACTIVATED') {
               // Dispatch custom event for account deactivation
               window.dispatchEvent(new CustomEvent('accountDeactivated', {
+                detail: { message: data.message }
+              }));
+            } else if (data.code === 'SESSION_EXPIRED_ANOTHER_DEVICE') {
+              // Handle session expired due to login from another device
+              console.log('🔒 Session expired - logged in from another device');
+              window.dispatchEvent(new CustomEvent('sessionExpiredAnotherDevice', {
                 detail: { message: data.message }
               }));
             } else {
@@ -2064,8 +2100,8 @@ class ApiService {
     name: string;
     contactPerson: string;
     phone: string;
-    email: string;
-    address: string;
+    email?: string;
+    address?: string;
     manufacturerId?: string;
   }) {
     return this.request<{
@@ -3528,6 +3564,8 @@ class ApiService {
       quantity: number;
       unitPrice: number;
       reason: string;
+      batchId?: string | null;
+      saleItemId?: string | null;
     }>;
     refundedBy: string;
   }) {
@@ -4338,6 +4376,7 @@ class ApiService {
     productId?: string;
     nearExpiry?: boolean;
     expired?: boolean;
+    branchId?: string;
   } = {}) {
     const queryParams = new URLSearchParams();
     if (params.page) queryParams.append('page', params.page.toString());
@@ -4346,6 +4385,7 @@ class ApiService {
     if (params.productId) queryParams.append('productId', params.productId);
     if (params.nearExpiry) queryParams.append('nearExpiry', params.nearExpiry.toString());
     if (params.expired) queryParams.append('expired', params.expired.toString());
+    if (params.branchId) queryParams.append('branchId', params.branchId);
 
     return this.request<{
       data: Array<{

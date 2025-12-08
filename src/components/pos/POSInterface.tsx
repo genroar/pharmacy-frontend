@@ -64,6 +64,7 @@ interface Product {
   category: string;
   requiresPrescription: boolean;
   barcode?: string;
+  formula?: string; // Product composition/formula for search
 }
 
 interface Customer {
@@ -277,7 +278,8 @@ const POSInterface = () => {
               unitType: product.unitType,
               category: product.category?.name || 'No Category',
               requiresPrescription: product.requiresPrescription,
-              barcode: product.barcode
+              barcode: product.barcode,
+              formula: product.formula // Include formula for search
             }));
             console.log('🔄 Setting products immediately:', transformedProducts);
             setProducts(transformedProducts);
@@ -499,7 +501,8 @@ const POSInterface = () => {
               unitType: product.unitType,
               category: product.category?.name || 'No Category',
               requiresPrescription: product.requiresPrescription,
-              barcode: product.barcode
+              barcode: product.barcode,
+              formula: product.formula // Include formula for search
             };
           });
           console.log('🔄 Transformed products:', transformedProducts);
@@ -719,7 +722,11 @@ const POSInterface = () => {
   ];
 
   const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const query = searchQuery.toLowerCase();
+    const matchesSearch =
+      product.name.toLowerCase().includes(query) ||
+      (product.formula && product.formula.toLowerCase().includes(query)) ||
+      (product.barcode && product.barcode.toLowerCase().includes(query));
     const matchesCategory = selectedCategory === "all" || product.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
@@ -729,7 +736,11 @@ const POSInterface = () => {
   console.log('🔄 Filtered products:', filteredProducts);
 
   const filteredInvoiceProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(invoiceSearchQuery.toLowerCase());
+    const query = invoiceSearchQuery.toLowerCase();
+    const matchesSearch =
+      product.name.toLowerCase().includes(query) ||
+      (product.formula && product.formula.toLowerCase().includes(query)) ||
+      (product.barcode && product.barcode.toLowerCase().includes(query));
     return matchesSearch;
   });
 
@@ -1404,228 +1415,279 @@ const POSInterface = () => {
   const printReceipt = () => {
     if (!currentReceipt) return;
 
-    // Create a new window for printing
-    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    // Generate receipt HTML content
+    const receiptHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Pharmacy Receipt - ${currentReceipt.receiptNumber}</title>
+        <style>
+          * { box-sizing: border-box; }
+          body {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            margin: 0;
+            padding: 20px;
+            background: white;
+            color: black;
+            width: 300px;
+          }
+          .receipt {
+            max-width: 300px;
+            margin: 0 auto;
+          }
+          .header {
+            text-align: center;
+            border-bottom: 2px solid #000;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+          }
+          .header h1 {
+            font-size: 16px;
+            margin: 0;
+            font-weight: bold;
+          }
+          .header p {
+            font-size: 10px;
+            margin: 5px 0;
+          }
+          .receipt-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            margin-bottom: 15px;
+          }
+          .customer-info {
+            border: 1px solid #000;
+            padding: 8px;
+            margin-bottom: 15px;
+            font-size: 10px;
+          }
+          .customer-info h3 {
+            margin: 0 0 5px 0;
+            font-size: 11px;
+            font-weight: bold;
+          }
+          .items {
+            margin-bottom: 15px;
+          }
+          .item {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+            border-bottom: 1px dotted #ccc;
+          }
+          .item-name {
+            flex: 1;
+            font-weight: bold;
+            font-size: 11px;
+          }
+          .item-details {
+            font-size: 9px;
+            color: #666;
+          }
+          .item-price {
+            font-weight: bold;
+            font-size: 11px;
+          }
+          .totals {
+            border-top: 2px solid #000;
+            padding-top: 10px;
+            margin-top: 15px;
+          }
+          .total-line {
+            display: flex;
+            justify-content: space-between;
+            padding: 2px 0;
+            font-size: 11px;
+          }
+          .total-final {
+            font-weight: bold;
+            font-size: 14px;
+            border-top: 1px solid #000;
+            padding-top: 5px;
+            margin-top: 5px;
+          }
+          .payment-info {
+            border: 1px solid #000;
+            padding: 8px;
+            margin: 15px 0;
+            font-size: 10px;
+          }
+          .footer {
+            text-align: center;
+            font-size: 9px;
+            margin-top: 20px;
+            border-top: 1px solid #000;
+            padding-top: 10px;
+          }
+          @media print {
+            body { margin: 0; padding: 10px; width: 100%; }
+            .receipt { max-width: none; }
+            @page { size: 80mm auto; margin: 0; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="receipt">
+          <div class="header">
+            <h1>Zapeera Pharmacy</h1>
+            <p>Your Health, Our Priority</p>
+          </div>
 
-    if (printWindow) {
-      printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Pharmacy Receipt - ${currentReceipt.receiptNumber}</title>
-          <style>
-            body {
-              font-family: 'Courier New', monospace;
-              font-size: 12px;
-              line-height: 1.4;
-              margin: 0;
-              padding: 20px;
-              background: white;
-              color: black;
-            }
-            .receipt {
-              max-width: 300px;
-              margin: 0 auto;
-            }
-            .header {
-              text-align: center;
-              border-bottom: 2px solid #000;
-              padding-bottom: 10px;
-              margin-bottom: 15px;
-            }
-            .header h1 {
-              font-size: 18px;
-              margin: 0;
-              font-weight: bold;
-            }
-            .header p {
-              font-size: 10px;
-              margin: 5px 0;
-            }
-            .receipt-info {
-              display: flex;
-              justify-content: space-between;
-              font-size: 10px;
-              margin-bottom: 15px;
-            }
-            .customer-info {
-              border: 1px solid #000;
-              padding: 8px;
-              margin-bottom: 15px;
-              font-size: 10px;
-            }
-            .customer-info h3 {
-              margin: 0 0 5px 0;
-              font-size: 11px;
-              font-weight: bold;
-            }
-            .items {
-              margin-bottom: 15px;
-            }
-            .item {
-              display: flex;
-              justify-content: space-between;
-              padding: 3px 0;
-              border-bottom: 1px dotted #ccc;
-            }
-            .item-name {
-              flex: 1;
-              font-weight: bold;
-            }
-            .item-details {
-              font-size: 9px;
-              color: #666;
-            }
-            .item-price {
-              font-weight: bold;
-            }
-            .totals {
-              border-top: 2px solid #000;
-              padding-top: 10px;
-              margin-top: 15px;
-            }
-            .total-line {
-              display: flex;
-              justify-content: space-between;
-              padding: 2px 0;
-            }
-            .total-final {
-              font-weight: bold;
-              font-size: 14px;
-              border-top: 1px solid #000;
-              padding-top: 5px;
-              margin-top: 5px;
-            }
-            .payment-info {
-              border: 1px solid #000;
-              padding: 8px;
-              margin: 15px 0;
-              font-size: 10px;
-            }
-            .footer {
-              text-align: center;
-              font-size: 9px;
-              margin-top: 20px;
-              border-top: 1px solid #000;
-              padding-top: 10px;
-            }
-            @media print {
-              body { margin: 0; padding: 10px; }
-              .receipt { max-width: none; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="receipt">
-            <div class="header">
-              <h1>MediBill Pulse Pharmacy</h1>
-              <p>Your Health, Our Priority</p>
+          <div class="receipt-info">
+            <div>
+              <strong>Receipt:</strong> ${currentReceipt.receiptNumber}<br>
+              <strong>Date:</strong> ${currentReceipt.date}
             </div>
-
-            <div class="receipt-info">
-              <div>
-                <strong>Receipt:</strong> ${currentReceipt.receiptNumber}<br>
-                <strong>Date:</strong> ${currentReceipt.date}
-              </div>
-              <div>
-                <strong>Time:</strong> ${currentReceipt.time}<br>
-                <strong>Cashier:</strong> ${currentReceipt.cashier}
-              </div>
-            </div>
-
-            ${currentReceipt.customer ? `
-            <div class="customer-info">
-              <h3>Customer Information</h3>
-              <strong>Name:</strong> ${currentReceipt.customer.name}<br>
-              <strong>Phone:</strong> ${currentReceipt.customer.phone}<br>
-              ${currentReceipt.customer.email ? `<strong>Email:</strong> ${currentReceipt.customer.email}<br>` : ''}
-              ${currentReceipt.customer.address ? `<strong>Address:</strong> ${currentReceipt.customer.address}` : ''}
-            </div>
-            ` : ''}
-
-            <div class="items">
-              <h3>Items Purchased:</h3>
-              ${currentReceipt.items.map(item => `
-                <div class="item">
-                  <div>
-                    <div class="item-name">${item.name}</div>
-                    <div class="item-details">${item.quantity} ${item.unitType} × PKR ${item.unitPrice.toFixed(2)}</div>
-                    ${item.instructions ? `<div class="item-details">${item.instructions}</div>` : ''}
-                  </div>
-                  <div class="item-price">PKR ${item.totalPrice.toFixed(2)}</div>
-                </div>
-              `).join('')}
-            </div>
-
-            <div class="totals">
-              <div class="total-line">
-                <span>Subtotal:</span>
-                <span>PKR ${currentReceipt.subtotal.toFixed(2)}</span>
-              </div>
-              ${currentReceipt.discountPercentage && currentReceipt.discountPercentage > 0 ? `
-              <div class="total-line" style="color: #16a34a;">
-                <span>Discount (${currentReceipt.discountPercentage}%):</span>
-                <span>-PKR ${currentReceipt.discountAmount?.toFixed(2) || '0.00'}</span>
-              </div>
-              ` : ''}
-              <div class="total-line total-final">
-                <span>TOTAL:</span>
-                <span>PKR ${currentReceipt.total.toFixed(2)}</span>
-              </div>
-            </div>
-
-            <div class="payment-info">
-              <strong>Payment Method:</strong> ${currentReceipt.paymentMethod.toUpperCase()}<br>
-              <strong>Status:</strong> ${currentReceipt.paymentStatus}
-              ${selectedPayment === 'cash' && changeAmount > 0 ? `
-                <br><strong>Cash Received:</strong> PKR ${parseFloat(cashAmount).toFixed(2)}
-                <br><strong>Change:</strong> PKR ${changeAmount.toFixed(2)}
-              ` : ''}
-            </div>
-
-            <div class="footer">
-              <p>Thank you for choosing MediBill Pulse Pharmacy!</p>
-              <p>Please keep this receipt for your records</p>
-              <p><strong>Important:</strong> Follow dosage instructions carefully.<br>
-              Consult your doctor if you have any questions.</p>
+            <div>
+              <strong>Time:</strong> ${currentReceipt.time}<br>
+              <strong>Cashier:</strong> ${currentReceipt.cashier}
             </div>
           </div>
-        </body>
-        </html>
-      `);
 
-      printWindow.document.close();
-      printWindow.focus();
+          ${currentReceipt.customer ? `
+          <div class="customer-info">
+            <h3>Customer Information</h3>
+            <strong>Name:</strong> ${currentReceipt.customer.name}<br>
+            <strong>Phone:</strong> ${currentReceipt.customer.phone}<br>
+            ${currentReceipt.customer.email ? `<strong>Email:</strong> ${currentReceipt.customer.email}<br>` : ''}
+            ${currentReceipt.customer.address ? `<strong>Address:</strong> ${currentReceipt.customer.address}` : ''}
+          </div>
+          ` : ''}
 
-      // Wait for content to load then print
-      setTimeout(() => {
-        printWindow.print();
-        printWindow.close();
-      }, 500);
+          <div class="items">
+            <h3>Items Purchased:</h3>
+            ${currentReceipt.items.map(item => `
+              <div class="item">
+                <div>
+                  <div class="item-name">${item.name}</div>
+                  <div class="item-details">${item.quantity} ${item.unitType} × PKR ${item.unitPrice.toFixed(2)}</div>
+                  ${item.instructions ? `<div class="item-details">${item.instructions}</div>` : ''}
+                </div>
+                <div class="item-price">PKR ${item.totalPrice.toFixed(2)}</div>
+              </div>
+            `).join('')}
+          </div>
+
+          <div class="totals">
+            <div class="total-line">
+              <span>Subtotal:</span>
+              <span>PKR ${currentReceipt.subtotal.toFixed(2)}</span>
+            </div>
+            ${currentReceipt.discountPercentage && currentReceipt.discountPercentage > 0 ? `
+            <div class="total-line" style="color: #16a34a;">
+              <span>Discount (${currentReceipt.discountPercentage}%):</span>
+              <span>-PKR ${currentReceipt.discountAmount?.toFixed(2) || '0.00'}</span>
+            </div>
+            ` : ''}
+            <div class="total-line total-final">
+              <span>TOTAL:</span>
+              <span>PKR ${currentReceipt.total.toFixed(2)}</span>
+            </div>
+          </div>
+
+          <div class="payment-info">
+            <strong>Payment Method:</strong> ${currentReceipt.paymentMethod.toUpperCase()}<br>
+            <strong>Status:</strong> ${currentReceipt.paymentStatus}
+            ${selectedPayment === 'cash' && changeAmount > 0 ? `
+              <br><strong>Cash Received:</strong> PKR ${parseFloat(cashAmount).toFixed(2)}
+              <br><strong>Change:</strong> PKR ${changeAmount.toFixed(2)}
+            ` : ''}
+          </div>
+
+          <div class="footer">
+            <p>Thank you for choosing Zapeera!</p>
+            <p>Please keep this receipt for your records</p>
+            <p><strong>Important:</strong> Follow dosage instructions carefully.<br>
+            Consult your doctor if you have any questions.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    // Create a hidden iframe for printing (works in Electron)
+    const printFrame = document.createElement('iframe');
+    printFrame.style.position = 'fixed';
+    printFrame.style.right = '0';
+    printFrame.style.bottom = '0';
+    printFrame.style.width = '0';
+    printFrame.style.height = '0';
+    printFrame.style.border = 'none';
+    document.body.appendChild(printFrame);
+
+    const frameDoc = printFrame.contentWindow?.document;
+    if (frameDoc) {
+      frameDoc.open();
+      frameDoc.write(receiptHTML);
+      frameDoc.close();
+
+      // Wait for content to load, then print
+      printFrame.onload = () => {
+        setTimeout(() => {
+          try {
+            printFrame.contentWindow?.focus();
+            printFrame.contentWindow?.print();
+          } catch (e) {
+            console.error('Print error:', e);
+            // Fallback: Try window.open
+            const newWindow = window.open('', '_blank');
+            if (newWindow) {
+              newWindow.document.write(receiptHTML);
+              newWindow.document.close();
+              setTimeout(() => {
+                newWindow.print();
+                newWindow.close();
+              }, 500);
+            }
+          }
+          // Clean up iframe after printing
+          setTimeout(() => {
+            document.body.removeChild(printFrame);
+          }, 1000);
+        }, 300);
+      };
     }
   };
 
-  const downloadReceipt = () => {
+  const downloadReceipt = async () => {
     if (!currentReceipt) return;
 
     try {
       // Generate HTML content for the receipt
       const receiptHTML = generateReceiptHTML(currentReceipt);
+      const filename = `receipt-${currentReceipt.receiptNumber}.html`;
 
-      // Create a blob with the HTML content
-      const blob = new Blob([receiptHTML], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
+      // Check if running in Electron
+      if (window.electronAPI?.saveFile) {
+        // Use Electron's save dialog
+        const result = await window.electronAPI.saveFile({
+          content: receiptHTML,
+          filename: filename,
+          type: 'html'
+        });
 
-      // Create a temporary link element and trigger download
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `receipt-${currentReceipt.receiptNumber}.html`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+        if (result.success) {
+          alert(`Receipt saved to: ${result.filePath}`);
+        } else if (!result.canceled) {
+          throw new Error(result.error || 'Failed to save file');
+        }
+      } else {
+        // Fallback for browser: Use blob download
+        const blob = new Blob([receiptHTML], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
 
-      // Clean up the URL object
-      URL.revokeObjectURL(url);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        URL.revokeObjectURL(url);
+      }
     } catch (error) {
       console.error('Error downloading receipt:', error);
       alert('Error downloading receipt. Please try again.');
@@ -1743,7 +1805,7 @@ const POSInterface = () => {
       </head>
       <body>
         <div class="receipt-header">
-          <h1>MediBill Pulse Pharmacy</h1>
+          <h1>Zapeera Pharmacy</h1>
           <p>Your Health, Our Priority</p>
         </div>
 
@@ -1809,7 +1871,7 @@ const POSInterface = () => {
         </div>
 
         <div class="footer">
-          <p>Thank you for choosing MediBill Pulse Pharmacy! Please keep this receipt for your records</p>
+          <p>Thank you for choosing Zapeera Pharmacy! Please keep this receipt for your records</p>
           <div class="important-note">
             <strong>Important:</strong> Follow dosage instructions carefully. Consult your doctor if you have any questions.
           </div>
@@ -1827,7 +1889,7 @@ const POSInterface = () => {
 
     try {
       // Create a concise SMS message
-      const smsMessage = `MediBill Pulse Pharmacy Receipt
+      const smsMessage = `Zapeera Pharmacy Receipt
 Receipt: ${currentReceipt.receiptNumber}
 Total: PKR ${currentReceipt.total.toFixed(2)}
 Date: ${currentReceipt.date} ${currentReceipt.time}
@@ -1884,12 +1946,12 @@ Thank you for choosing us!`;
 
     try {
       // In a real implementation, you would call an email API service
-      const emailSubject = `Receipt from MediBill Pulse Pharmacy - ${currentReceipt.receiptNumber}`;
+      const emailSubject = `Receipt from Zapeera Pharmacy - ${currentReceipt.receiptNumber}`;
 
       const emailBody = `
 Dear ${currentReceipt.customer.name},
 
-Thank you for your purchase at MediBill Pulse Pharmacy!
+Thank you for your purchase at Zapeera Pharmacy!
 
 Receipt Details:
 - Receipt Number: ${currentReceipt.receiptNumber}
@@ -1914,11 +1976,11 @@ Please keep this receipt for your records.
 
 Important: Follow dosage instructions carefully. Consult your doctor if you have any questions.
 
-Thank you for choosing MediBill Pulse Pharmacy!
+Thank you for choosing Zapeera Pharmacy!
 Your Health, Our Priority
 
 Best regards,
-MediBill Pulse Pharmacy Team
+Zapeera Pharmacy Team
       `;
 
       // Create a mailto link with the email content
@@ -2097,7 +2159,9 @@ MediBill Pulse Pharmacy Team
         productId: item.productId,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
-        reason: refundReason || "Customer requested refund"
+        reason: refundReason || "Customer requested refund",
+        batchId: item.batchId || null, // Include batch ID for stock return
+        saleItemId: item.id || null
       }));
 
       const totalRefundAmount = originalSale.totalAmount;
@@ -2361,7 +2425,7 @@ Sale amount has been deducted from reports.`);
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search by medicine name, barcode, or batch..."
+                  placeholder="Search by name, formula, or barcode..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10 h-12"
@@ -2556,13 +2620,26 @@ Sale amount has been deducted from reports.`);
 
           {currentReceipt && (
             <div className="space-y-6 print:p-6">
+              {/* Receipt Number - Clickable to Copy */}
+              <div
+                className="text-center bg-gray-100 p-3 rounded-lg cursor-pointer hover:bg-gray-200 transition-colors group"
+                onClick={() => {
+                  navigator.clipboard.writeText(currentReceipt.receiptNumber);
+                  alert(`Receipt number copied: ${currentReceipt.receiptNumber}`);
+                }}
+              >
+                <p className="text-xs text-gray-500 mb-1">Click to copy receipt number</p>
+                <p className="text-xl font-bold text-gray-900 font-mono group-hover:text-blue-600">
+                  {currentReceipt.receiptNumber}
+                </p>
+              </div>
+
               {/* Receipt Header */}
               <div className="text-center border-b pb-4">
-                <h2 className="text-2xl font-bold text-primary">MediBill Pulse Pharmacy</h2>
+                <h2 className="text-2xl font-bold text-primary">Zapeera Pharmacy</h2>
                 <p className="text-muted-foreground">Your Health, Our Priority</p>
                 <div className="flex justify-between text-sm mt-4">
                   <div>
-                    <p><strong>Receipt:</strong> {currentReceipt.receiptNumber}</p>
                     <p><strong>Date:</strong> {currentReceipt.date}</p>
                   </div>
                   <div>
@@ -2644,7 +2721,7 @@ Sale amount has been deducted from reports.`);
 
               {/* Footer */}
               <div className="text-center text-sm text-muted-foreground border-t pt-4">
-                <p>Thank you for choosing MediBill Pulse Pharmacy!</p>
+                <p>Thank you for choosing Zapeera Pharmacy!</p>
                 <p>Please keep this receipt for your records</p>
                 <p className="mt-2">
                   <strong>Important:</strong> Follow dosage instructions carefully.
@@ -2758,7 +2835,7 @@ Sale amount has been deducted from reports.`);
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search by medicine name, barcode, or SKU..."
+                    placeholder="Search by name, formula, or barcode..."
                     value={invoiceSearchQuery}
                     onChange={(e) => setInvoiceSearchQuery(e.target.value)}
                     className="pl-10 h-12 text-base"

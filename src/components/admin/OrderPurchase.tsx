@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { apiService } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 import { Checkbox } from "@/components/ui/checkbox";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -79,6 +80,7 @@ interface Branch {
 
 const OrderPurchase = () => {
   const { user: currentUser } = useAuth();
+  const navigate = useNavigate();
   const [batches, setBatches] = useState<Batch[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -174,11 +176,11 @@ const OrderPurchase = () => {
 
         setBatches(batchesData);
       } else {
-        setError("Failed to load batches");
+        setError(response.message || "Failed to load batches");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error loading batches:", err);
-      setError("Failed to load batches");
+      setError(err?.message || "Failed to load batches");
     } finally {
       setIsLoading(false);
     }
@@ -262,6 +264,22 @@ const OrderPurchase = () => {
 
   const handleAddNewBatch = () => {
     setShowNewBatchDialog(true);
+  };
+
+  // Add new batch for the same product - navigates to Batches page with product info
+  const handleAddBatchForProduct = (batch: Batch) => {
+    // Store the product info in sessionStorage so Batches page can pre-fill the form
+    sessionStorage.setItem('prefillBatchProduct', JSON.stringify({
+      productId: batch.productId,
+      productName: batch.productName,
+      supplier: batch.supplier,
+      branchId: batch.branch.id,
+      branchName: batch.branch.name,
+      unitPrice: batch.unitPrice,
+      minStock: batch.minStock,
+    }));
+    // Navigate to Batches page using React Router
+    navigate('/batches?addNew=true');
   };
 
   const getStockStatus = (batch: Batch) => {
@@ -680,6 +698,17 @@ const OrderPurchase = () => {
                           {batch.branch.name}
                         </TableCell>
                         <TableCell className="text-center">
+                          <div className="flex gap-2 justify-center">
+                            <Button
+                              onClick={() => handleAddBatchForProduct(batch)}
+                              size="sm"
+                              variant="outline"
+                              className="text-purple-600 hover:text-purple-700 hover:bg-purple-50 border-purple-200"
+                              title="Add New Batch for this Product"
+                            >
+                              <Plus className="h-4 w-4 mr-1" />
+                              Add Batch
+                            </Button>
                           <Button
                             onClick={() => handleRestockBatch(batch)}
                             size="sm"
@@ -688,6 +717,7 @@ const OrderPurchase = () => {
                             <RotateCcw className="h-4 w-4 mr-1" />
                             Restock
                           </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );

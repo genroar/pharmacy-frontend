@@ -64,9 +64,11 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
 
     try {
       // Convert type to uppercase for backend compatibility
+      // Replace hyphen with underscore for NON-MEDICAL -> NON_MEDICAL
+      const typeForBackend = formData.type.toUpperCase().replace('-', '_') as 'MEDICAL' | 'NON_MEDICAL' | 'GENERAL';
       const formDataForBackend = {
         ...formData,
-        type: formData.type.toUpperCase() as 'MEDICAL' | 'NON_MEDICAL' | 'GENERAL'
+        type: typeForBackend
       };
       console.log('🔍 CategoryForm - Sending data to backend:', formDataForBackend);
       await onSubmit(formDataForBackend);

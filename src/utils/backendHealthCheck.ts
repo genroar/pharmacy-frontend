@@ -5,10 +5,56 @@
 
 const BACKEND_CHECK_TIMEOUT = 60000; // 60 seconds
 const BACKEND_CHECK_INTERVAL = 2000; // Check every 2 seconds
-const MAX_RETRIES = 30; // Maximum number of retries (30 * 2 = 60 seconds total)
+
+// Helper function to detect Windows platform
+function isWindowsPlatform(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.navigator?.platform?.includes('Win') ||
+         (window as any).electronAPI?.platform === 'win32' ||
+         (window as any).electronAPI?.getPlatform?.() === 'win32';
+}
+
+// Helper function to detect if running in production (packaged app)
+function isProductionMode(): boolean {
+  if (typeof window === 'undefined') return false;
+  return (window as any).electronAPI?.isPackaged === true ||
+         !(window as any).electronAPI; // If no electronAPI, assume production
+}
+
+// Maximum retries - more for production EXE builds
+function getMaxRetries(): number {
+  const isWin = isWindowsPlatform();
+  const isProd = isProductionMode();
+
+  if (isProd && isWin) {
+    return 60; // Windows EXE: 60 retries = 120 seconds total
+  } else if (isProd) {
+    return 50; // Production (non-Windows): 50 retries = 100 seconds
+  } else {
+    return 40; // Dev: 40 retries = 80 seconds
+  }
+}
+
+const MAX_RETRIES = getMaxRetries();
 
 // For Electron, wait a bit longer initially as backend might be starting
-const INITIAL_WAIT_MS = 3000; // Wait 3 seconds before first check in Electron
+// Windows EXE in production needs significantly more time due to slower startup
+function getInitialWaitTime(): number {
+  const isWin = isWindowsPlatform();
+  const isProd = isProductionMode();
+
+  if (isProd && isWin) {
+    return 15000; // Windows EXE: 15 seconds
+  } else if (isProd) {
+    return 10000; // Production (non-Windows): 10 seconds
+  } else if (isWin) {
+    return 8000;  // Dev Windows: 8 seconds
+  } else {
+    return 5000;  // Dev others: 5 seconds
+  }
+}
+
+const INITIAL_WAIT_MS = getInitialWaitTime();
 
 /**
  * Check if backend is healthy
@@ -23,7 +69,9 @@ export async function checkBackendHealth(baseUrl: string): Promise<boolean> {
     healthUrl = `${healthUrl}/health`;
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // Increased to 5 seconds for slower connections
+    // Windows EXE may need more time for backend to respond
+    const healthCheckTimeout = isWindowsPlatform() ? 10000 : 5000; // Windows: 10 seconds, others: 5 seconds
+    const timeoutId = setTimeout(() => controller.abort(), healthCheckTimeout);
 
     try {
       const response = await fetch(healthUrl, {
@@ -53,11 +101,19 @@ export async function checkBackendHealth(baseUrl: string): Promise<boolean> {
       clearTimeout(timeoutId);
 
       // Network errors are expected when backend is starting
-      if (fetchError.name === 'AbortError' || fetchError.name === 'TypeError') {
-        // These are expected - backend might not be ready yet
+      if (fetchError.name === 'AbortError') {
+        // Timeout - backend might not be ready yet
+        console.log(`[Backend Health] Health check timed out for ${healthUrl} (backend may still be starting)`);
         return false;
       }
-      throw fetchError;
+      if (fetchError.name === 'TypeError' || fetchError.message?.includes('Failed to fetch') || fetchError.message?.includes('NetworkError')) {
+        // Network error - backend might not be ready yet
+        console.log(`[Backend Health] Network error for ${healthUrl} (backend may not be running yet)`);
+        return false;
+      }
+      // Log other errors for debugging
+      console.warn(`[Backend Health] Unexpected error:`, fetchError.message);
+      return false;
     }
   } catch (error: any) {
     // Ignore abort errors (timeouts) - they're expected
@@ -86,7 +142,7 @@ export async function waitForBackend(
       attempts++;
 
       if (onProgress) {
-        onProgress(attempts, MAX_RETRIES);
+        onProgress(attempts, getMaxRetries());
       }
 
       const isHealthy = await checkBackendHealth(baseUrl);
@@ -97,11 +153,21 @@ export async function waitForBackend(
         return;
       }
 
-      if (attempts >= MAX_RETRIES) {
-        const totalTime = (attempts * BACKEND_CHECK_INTERVAL + (isElectron ? INITIAL_WAIT_MS : 0)) / 1000;
+      const maxRetries = getMaxRetries();
+      if (attempts >= maxRetries) {
+        const totalTime = (attempts * BACKEND_CHECK_INTERVAL + (isElectron ? getInitialWaitTime() : 0)) / 1000;
+        const healthUrl = baseUrl.replace('/api', '/health');
         console.error(`[Backend Health] ❌ Backend not ready after ${attempts} attempts (${totalTime} seconds)`);
-        console.error(`[Backend Health] Checked URL: ${baseUrl.replace('/api', '/health')}`);
-        reject(new Error(`Backend not available after ${totalTime} seconds. Please check if the backend server is running.`));
+        console.error(`[Backend Health] Checked URL: ${healthUrl}`);
+        console.error(`[Backend Health] 💡 Troubleshooting:`);
+        console.error(`[Backend Health]    1. Check if backend is running: curl ${healthUrl}`);
+        if (!isProductionMode()) {
+          console.error(`[Backend Health]    2. In dev mode, build backend: cd backend-pharmachy && npm run build`);
+          console.error(`[Backend Health]    3. Or run backend separately: cd backend-pharmachy && npm run dev`);
+        }
+        console.error(`[Backend Health]    4. Check logs: ~/.zapeera/logs/backend-*.log`);
+        console.error(`[Backend Health]    5. Check Electron console for backend startup messages`);
+        reject(new Error(`Backend not available after ${totalTime} seconds. Please check if the backend server is running on port 5001.`));
         return;
       }
 
@@ -111,8 +177,14 @@ export async function waitForBackend(
 
     // In Electron, wait a bit before first check to give backend time to start
     if (isElectron && attempts === 0) {
-      console.log(`[Backend Health] ⏳ Waiting ${INITIAL_WAIT_MS}ms for backend to start...`);
-      setTimeout(checkHealth, INITIAL_WAIT_MS);
+      const waitTime = getInitialWaitTime();
+      const isWin = isWindowsPlatform();
+      const isProd = isProductionMode();
+      const platformInfo = isProd
+        ? (isWin ? 'Windows EXE (Production)' : 'Production')
+        : (isWin ? 'Windows (Dev)' : 'Dev');
+      console.log(`[Backend Health] ⏳ Waiting ${waitTime}ms for backend to start (${platformInfo})...`);
+      setTimeout(checkHealth, waitTime);
     } else {
       // Start checking immediately
       checkHealth();

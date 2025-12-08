@@ -3,7 +3,7 @@ import AppSidebar from "@/components/layout/AppSidebar";
 import { RoleBasedSidebar } from "@/components/layout/RoleBasedSidebar";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { Bell, Menu, LogOut, User, Building2, ShoppingCart, UserCircle, Building, ChevronDown } from "lucide-react";
+import { Bell, Menu, LogOut, User, Building2, ShoppingCart, UserCircle, Building, ChevronDown, Wifi, WifiOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/AdminContext";
@@ -31,35 +31,39 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const { selectedBranch, selectedBranchId, selectedCompanyId, setSelectedCompanyId, setSelectedBranchId, allCompanies, allBranches } = useAdmin();
   const navigate = useNavigate();
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  // Monitor online/offline status
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const handleCompanySwitch = (companyId: string) => {
     setSelectedCompanyId(companyId);
-    // Clear branch selection to show all branches data by default
-    setSelectedBranchId(null);
-    // Clear branch selection from localStorage
-    if (user?.id) {
-      localStorage.removeItem(`selected_branch_${user.id}`);
-    }
-    // Optionally refresh the page or reload data
-    window.location.reload();
+    // Note: AdminContext's handleSetSelectedCompanyId already clears branch selection
+    // No need to reload - React state updates will trigger re-renders
+    console.log('🏢 Company switched to:', companyId);
   };
 
   const handleBranchSwitch = (branchId: string) => {
     if (branchId === 'all') {
       // Clear branch selection
       setSelectedBranchId(null);
-      if (user?.id) {
-        localStorage.removeItem(`selected_branch_${user.id}`);
-      }
     } else {
       // Set branch selection
       setSelectedBranchId(branchId);
-      if (user?.id) {
-        localStorage.setItem(`selected_branch_${user.id}`, branchId);
-      }
     }
-    // Optionally refresh the page or reload data
-    window.location.reload();
+    // No need to reload - React state updates will trigger re-renders
+    console.log('🏢 Branch switched to:', branchId);
   };
   const [isCollapsed, setIsCollapsed] = useState(() => {
     // Initialize from localStorage if available
@@ -97,20 +101,32 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           <RoleBasedSidebar />
 
           <div className={`flex-1 flex flex-col h-full transition-all duration-300 ${isCollapsed ? 'ml-16' : 'ml-64'}`}>
-            {/* Header with New Sale button for all users */}
+            {/* Header with New Sale button and Online/Offline status */}
             <div className="px-4 py-2 bg-blue-50 border-b border-blue-100 flex items-center justify-between sticky top-0 z-10">
-              <div className="text-sm flex text-blue-900">
-              <Button
+              <div className="flex items-center gap-3">
+                <Button
                   onClick={() => navigate('/create-invoice')}
                   className="bg-[#1D4ED8] hover:bg-[#0a2470] text-white px-4 py-1.5 rounded-md font-medium text-sm shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-2"
                 >
                   New Sale
                 </Button>
-                {/* {(user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') ? (
-                  <>Current branch: <span className="font-semibold">{selectedBranch?.name || 'All branches'}</span></>
-                ) : (
-                  <>Welcome, <span className="font-semibold">{user?.name || 'User'}</span></>
-                )} */}
+
+                {/* Online/Offline Status Badge */}
+                <Badge
+                  variant="outline"
+                  className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium ${
+                    isOnline
+                      ? 'bg-green-50 text-green-700 border-green-300'
+                      : 'bg-orange-50 text-orange-700 border-orange-300'
+                  }`}
+                >
+                  {isOnline ? (
+                    <Wifi className="w-3.5 h-3.5" />
+                  ) : (
+                    <WifiOff className="w-3.5 h-3.5" />
+                  )}
+                  {isOnline ? 'Online' : 'Offline'}
+                </Badge>
               </div>
               <div className="flex items-center space-x-3">
 

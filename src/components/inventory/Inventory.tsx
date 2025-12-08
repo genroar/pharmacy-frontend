@@ -466,20 +466,12 @@ const Inventory = () => {
         setError('⚠️ Backend server is not running. Please start the server and refresh the page.');
       } else {
         console.error('❌ Failed to load inventory data:', err);
-        setError('Failed to load inventory data');
+        setError('Failed to load inventory data. Please check your connection and try again.');
 
-        // Set fallback data when server is not available
+        // Clear data - do NOT set fallback/demo data
         setProducts([]);
-        setCategories([
-          { id: 'cat_001', name: 'Pain Relief' },
-          { id: 'cat_002', name: 'Antibiotics' },
-          { id: 'cat_003', name: 'Vitamins' },
-          { id: 'cat_004', name: 'Cold & Flu' },
-          { id: 'cat_005', name: 'Digestive Health' }
-        ]);
-        setSuppliers([
-          { id: 'sup_001', name: 'Default Supplier', contactPerson: 'John Doe', phone: '+92 300 1234567', email: 'contact@supplier.com', address: '123 Supplier St', isActive: true }
-        ]);
+        setCategories([]);
+        setSuppliers([]);
         setManufacturers([]);
       }
     } finally {

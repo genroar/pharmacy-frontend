@@ -31,12 +31,15 @@ import {
   Edit,
   Trash2,
   Eye,
+  EyeOff,
   Loader2,
   UserCheck,
   UserX
 } from "lucide-react";
 import { apiService } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAdmin } from "@/contexts/AdminContext";
+import { toast } from "@/hooks/use-toast";
 
 interface User {
   id: string;
@@ -63,6 +66,7 @@ interface Branch {
 
 const UserManagement = () => {
   const { user: currentUser } = useAuth();
+  const { selectedCompanyId, selectedBranchId } = useAdmin();
   const [users, setUsers] = useState<User[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -77,6 +81,16 @@ const UserManagement = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedBranch, setSelectedBranch] = useState("all");
   const [selectedRole, setSelectedRole] = useState("all");
+
+  // Password visibility toggle
+  const [showPassword, setShowPassword] = useState(false);
+  const [showEditPassword, setShowEditPassword] = useState(false);
+
+  // Password validation state
+  const [passwordStrength, setPasswordStrength] = useState({
+    minLength: false,
+    hasNumber: false
+  });
 
   // Define available roles based on current user's role
   const getAvailableRoles = () => {
@@ -106,11 +120,29 @@ const UserManagement = () => {
     password: ""
   });
 
-  // Load data on component mount
+  // Password validation function
+  const validatePassword = (password: string) => {
+    const minLength = password.length >= 6;
+    const hasNumber = /\d/.test(password);
+
+    setPasswordStrength({
+      minLength,
+      hasNumber
+    });
+
+    return minLength;
+  };
+
+  // Check if password is valid
+  const isPasswordValid = () => {
+    return passwordStrength.minLength;
+  };
+
+  // Load data on component mount and when company/branch selection changes
   useEffect(() => {
     loadUsers();
     loadBranches();
-  }, []);
+  }, [selectedCompanyId, selectedBranchId]);
 
   const loadUsers = async () => {
     try {
@@ -123,100 +155,75 @@ const UserManagement = () => {
         return;
       }
 
-      const branchId = currentUser?.branchId || currentUser?.branch?.id;
       const currentUserId = currentUser?.id;
       const currentUserRole = currentUser?.role;
 
-      // Note: Loading all users, not filtering by branch
+      // Use apiService which automatically includes X-Company-ID and X-Branch-ID headers
+      console.log('Loading users via apiService with context headers');
 
-      // Try to make a direct API call to get users
-      try {
-        const token = localStorage.getItem('token');
-        console.log('Making direct API call with token:', token ? 'Present' : 'Missing');
+      const response = await apiService.getUsers({ page: 1, limit: 100 });
 
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/users?page=1&limit=100`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+      if (response.success && response.data && response.data.users) {
+        const usersData = response.data.users.map((user: any) => ({
+          id: user.id,
+          username: user.username,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          branchId: user.branchId,
+          companyId: user.companyId,
+          branch: user.branch,
+          createdBy: user.createdBy,
+          isActive: user.isActive,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt
+        }));
+
+        // Debug logging
+        console.log('Current user data:', {
+          currentUserId,
+          currentUserRole,
+          currentUserCreatedBy: currentUser?.createdBy
+        });
+        console.log('All users data:', usersData.map((u: User) => ({
+          id: u.id,
+          username: u.username,
+          role: u.role,
+          createdBy: u.createdBy,
+          companyId: u.companyId
+        })));
+
+        // Filter users based on current user's role
+        // Note: Backend already filters by createdBy, so we only need to filter by role
+        const filteredUsers = usersData.filter((user: User) => {
+          // If current user is ADMIN, only show MANAGER and CASHIER
+          if (currentUserRole === 'ADMIN') {
+            const isCorrectRole = user.role === 'MANAGER' || user.role === 'CASHIER';
+            console.log(`User ${user.username}: role=${user.role}, isCorrectRole=${isCorrectRole}`);
+            return isCorrectRole;
           }
+
+          // If current user is SUPERADMIN, show all roles
+          if (currentUserRole === 'SUPERADMIN') {
+            return user.role === 'ADMIN' || user.role === 'MANAGER' || user.role === 'CASHIER';
+          }
+
+          // Default: show MANAGER and CASHIER
+          return user.role === 'MANAGER' || user.role === 'CASHIER';
         });
 
+        setUsers(filteredUsers);
 
-        if (response.ok) {
-          const data = await response.json();
-
-          if (data.success && data.data && data.data.users) {
-            const usersData = data.data.users.map((user: any) => ({
-              id: user.id,
-              username: user.username,
-              name: user.name,
-              email: user.email,
-              role: user.role,
-              branchId: user.branchId,
-              companyId: user.companyId,
-              branch: user.branch,
-              createdBy: user.createdBy,
-              isActive: user.isActive,
-              createdAt: user.createdAt,
-              updatedAt: user.updatedAt
-            }));
-
-            // Debug logging
-            console.log('Current user data:', {
-              currentUserId,
-              currentUserRole,
-              currentUserCreatedBy: currentUser?.createdBy
-            });
-            console.log('All users data:', usersData.map(u => ({
-              id: u.id,
-              username: u.username,
-              role: u.role,
-              createdBy: u.createdBy,
-              companyId: u.companyId
-            })));
-
-            // Filter users based on current user's role
-            // Note: Backend already filters by createdBy, so we only need to filter by role
-            const filteredUsers = usersData.filter((user: User) => {
-              // If current user is ADMIN, only show MANAGER and CASHIER
-              if (currentUserRole === 'ADMIN') {
-                const isCorrectRole = user.role === 'MANAGER' || user.role === 'CASHIER';
-                console.log(`User ${user.username}: role=${user.role}, isCorrectRole=${isCorrectRole}`);
-                return isCorrectRole;
-              }
-
-              // If current user is SUPERADMIN, show all roles
-              if (currentUserRole === 'SUPERADMIN') {
-                return user.role === 'ADMIN' || user.role === 'MANAGER' || user.role === 'CASHIER';
-              }
-
-              // Default: show MANAGER and CASHIER
-              return user.role === 'MANAGER' || user.role === 'CASHIER';
-            });
-
-            setUsers(filteredUsers);
-
-            if (filteredUsers.length === 0) {
-              setError(`Found ${usersData.length} users but none are MANAGER or CASHIER roles. Only ${usersData.map(u => u.role).join(', ')} roles found.`);
-            }
-          } else {
-            console.error('API response not successful:', data);
-            setError(data.message || "Failed to load users");
-          }
-        } else {
-          const errorData = await response.json();
-          console.error('API call failed:', errorData);
-          setError(`API Error: ${errorData.message || 'Failed to load users'}`);
+        if (filteredUsers.length === 0) {
+          setError(`Found ${usersData.length} users but none are MANAGER or CASHIER roles. Only ${usersData.map((u: User) => u.role).join(', ')} roles found.`);
         }
-      } catch (apiError) {
-        console.error('Direct API call failed:', apiError);
-        setError("Failed to load users. Please check your connection and try again.");
+      } else {
+        console.error('API response not successful:', response);
+        setError(response.message || "Failed to load users");
       }
-
     } catch (error) {
       console.error('Error loading users:', error);
-      setError("Failed to load users. Please try again.");
+      setError("Failed to load users. Please check your connection and try again.");
     } finally {
       setIsLoading(false);
     }
@@ -258,8 +265,15 @@ const UserManagement = () => {
       return;
     }
 
+    // Validate password
+    if (!validatePassword(newUser.password)) {
+      setError("Password must be at least 6 characters long!");
+      return;
+    }
+
     try {
       setIsLoading(true);
+      setError("");
 
       // Use the selected branch ID from the form, or null for SUPERADMIN creating ADMIN
       const branchId = isSuperAdminCreatingAdmin ? null : newUser.branchId;
@@ -267,7 +281,7 @@ const UserManagement = () => {
       console.log('Creating user with data:', {
         username: newUser.username,
         email: newUser.email,
-        password: newUser.password,
+        password: '***hidden***',
         name: newUser.name,
         role: newUser.role,
         branchId: branchId,
@@ -284,9 +298,16 @@ const UserManagement = () => {
       });
 
       if (response.success && response.data) {
-        setSuccess(`User created successfully! Username: ${newUser.username}, Password: ${newUser.password}`);
+        toast({
+          title: "✅ User Created Successfully!",
+          description: `User "${newUser.username}" has been created and can now login.`,
+          duration: 5000,
+        });
+        setSuccess(`User created successfully! Username: ${newUser.username}`);
         setError("");
         setNewUser({ name: "", email: "", username: "", branchId: "", role: "", password: "" });
+        setPasswordStrength({ minLength: false, hasNumber: false });
+        setShowPassword(false);
         setIsCreateDialogOpen(false);
 
         // Reset search and filter states
@@ -298,11 +319,46 @@ const UserManagement = () => {
         await loadUsers();
       } else {
         console.error('Create user failed:', response);
-        setError(response.message || 'Failed to create user');
+        const errorMsg = response.message || 'Failed to create user';
+
+        // Check if it's a "user exists" error
+        if (errorMsg.toLowerCase().includes('already exists') || (response as any).code === 'USER_EXISTS') {
+          toast({
+            title: "⚠️ User Already Exists",
+            description: errorMsg,
+            variant: "destructive",
+            duration: 5000,
+          });
+        } else {
+          toast({
+            title: "❌ Failed to Create User",
+            description: errorMsg,
+            variant: "destructive",
+            duration: 5000,
+          });
+        }
+        setError(errorMsg);
       }
     } catch (error: any) {
       console.error('Error creating user:', error);
       const errorMessage = error?.response?.data?.message || error?.message || 'Failed to create user';
+
+      // Check if it's a "user exists" error
+      if (errorMessage.toLowerCase().includes('already exists')) {
+        toast({
+          title: "⚠️ User Already Exists",
+          description: errorMessage,
+          variant: "destructive",
+          duration: 5000,
+        });
+      } else {
+        toast({
+          title: "❌ Error",
+          description: errorMessage,
+          variant: "destructive",
+          duration: 5000,
+        });
+      }
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -561,14 +617,41 @@ const UserManagement = () => {
                 )}
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="password" className="text-right">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={newUser.password}
-                    onChange={(e) => setNewUser({...newUser, password: e.target.value})}
-                    className="col-span-3"
-                    placeholder="Enter temporary password"
-                  />
+                  <div className="col-span-3 space-y-2">
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        value={newUser.password}
+                        onChange={(e) => {
+                          setNewUser({...newUser, password: e.target.value});
+                          validatePassword(e.target.value);
+                        }}
+                        className="pr-10"
+                        placeholder="Enter temporary password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    {/* Password Strength Indicator */}
+                    {newUser.password && (
+                      <div className="space-y-1">
+                        <div className={`flex items-center text-xs ${passwordStrength.minLength ? 'text-green-600' : 'text-gray-500'}`}>
+                          <div className={`w-2 h-2 rounded-full mr-2 ${passwordStrength.minLength ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                          At least 6 characters
+                        </div>
+                        <div className={`flex items-center text-xs ${passwordStrength.hasNumber ? 'text-green-600' : 'text-gray-500'}`}>
+                          <div className={`w-2 h-2 rounded-full mr-2 ${passwordStrength.hasNumber ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                          Contains a number (recommended)
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
               <DialogFooter>
@@ -947,14 +1030,23 @@ const UserManagement = () => {
               <Label htmlFor="edit-password" className="text-right">
                 Password
               </Label>
-              <Input
-                id="edit-password"
-                type="password"
-                value={newUser.password}
-                onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                className="col-span-3"
-                placeholder="Enter new password (optional)"
-              />
+              <div className="col-span-3 relative">
+                <Input
+                  id="edit-password"
+                  type={showEditPassword ? "text" : "password"}
+                  value={newUser.password}
+                  onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                  className="pr-10"
+                  placeholder="Enter new password (optional)"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowEditPassword(!showEditPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showEditPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit-role" className="text-right">

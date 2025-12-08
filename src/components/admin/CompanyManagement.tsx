@@ -75,7 +75,7 @@ interface Company {
 
 const CompanyManagement = () => {
   const { user } = useAuth();
-  const { setSelectedCompanyId } = useAdmin();
+  const { setSelectedCompanyId, refreshCompanies: refreshGlobalCompanies, refreshBranches: refreshGlobalBranches } = useAdmin();
   const navigate = useNavigate();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
@@ -237,6 +237,9 @@ const CompanyManagement = () => {
           email: ''
         });
         loadCompanies();
+        // Refresh global companies to update dropdown instantly
+        await refreshGlobalCompanies();
+        console.log('✅ Company created and global dropdown updated');
       }
     } catch (error: any) {
       console.error('Error creating company:', error);
@@ -300,6 +303,9 @@ const CompanyManagement = () => {
           email: ''
         });
         loadCompanies();
+        // Refresh global companies to update dropdown instantly
+        await refreshGlobalCompanies();
+        console.log('✅ Company updated and global dropdown updated');
       }
     } catch (error: any) {
       console.error('Error updating company:', error);
@@ -335,6 +341,10 @@ const CompanyManagement = () => {
           description: "Company deleted successfully",
         });
         loadCompanies();
+        // Refresh global companies and branches to update dropdowns instantly
+        await refreshGlobalCompanies();
+        await refreshGlobalBranches();
+        console.log('✅ Company deleted and global dropdowns updated');
       }
     } catch (error: any) {
       console.error('Error deleting company:', error);

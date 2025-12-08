@@ -171,7 +171,7 @@ const Categories = () => {
       if (response.success) {
         toast({
           title: "Category Added",
-          description: "Category has been added successfully.",
+          description: "Category has been saved to database successfully.",
         });
         setShowAddDialog(false);
         setFormData({
@@ -184,70 +184,20 @@ const Categories = () => {
         });
         loadCategories();
       } else {
-        // For demo purposes, add to local state if API fails
-        const newCategory: Category = {
-          id: Date.now().toString(),
-          name: formData.name,
-          description: formData.description,
-          type: formData.type,
-          parentId: formData.parentId || undefined,
-          isActive: true,
-          productCount: 0,
-          color: formData.color,
-          icon: formData.icon,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          _count: { products: 0 }
-        };
-
-        setCategories(prev => [...(Array.isArray(prev) ? prev : []), newCategory]);
-
+        // Show error - do NOT use demo mode
         toast({
-          title: "Category Added",
-          description: "Category has been added successfully (demo mode).",
-        });
-        setShowAddDialog(false);
-        setFormData({
-          name: '',
-          description: '',
-          type: 'GENERAL',
-          parentId: '',
-          color: '#3B82F6',
-          icon: 'Package'
+          title: "Error",
+          description: response.message || "Failed to add category. Please try again.",
+          variant: "destructive",
         });
       }
     } catch (err) {
       console.error('Error adding category:', err);
-      // For demo purposes, add to local state if API fails
-      const newCategory: Category = {
-        id: Date.now().toString(),
-        name: formData.name,
-        description: formData.description,
-        type: formData.type,
-        parentId: formData.parentId || undefined,
-        isActive: true,
-        productCount: 0,
-        color: formData.color,
-        icon: formData.icon,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        _count: { products: 0 }
-      };
-
-      setCategories(prev => [...(Array.isArray(prev) ? prev : []), newCategory]);
-
+      // Show error - do NOT use demo mode
       toast({
-        title: "Category Added",
-        description: "Category has been added successfully (demo mode).",
-      });
-      setShowAddDialog(false);
-      setFormData({
-        name: '',
-        description: '',
-        type: 'GENERAL',
-        parentId: '',
-        color: '#3B82F6',
-        icon: 'Package'
+        title: "Error",
+        description: "Failed to add category. Please check your connection and try again.",
+        variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
@@ -326,33 +276,24 @@ const Categories = () => {
       if (response.success) {
         toast({
           title: "Category Deleted",
-          description: "Category has been deleted successfully.",
+          description: "Category has been deleted from database successfully.",
         });
         loadCategories();
       } else {
-        // Handle API error response
-        if (response.message?.includes('existing products')) {
+        // Show error - do NOT use demo mode
           toast({
-            title: "Cannot Delete Category",
-            description: "This category cannot be deleted because it contains products. Please move or delete all products first.",
+          title: "Error",
+          description: response.message || "Failed to delete category. Please try again.",
             variant: "destructive",
           });
-        } else {
-          // For demo purposes, remove from local state if API fails
-          setCategories(prev => (Array.isArray(prev) ? prev : []).filter(cat => cat.id !== categoryId));
-          toast({
-            title: "Category Deleted",
-            description: "Category has been deleted successfully (demo mode).",
-          });
-        }
       }
     } catch (err) {
       console.error('Error deleting category:', err);
-      // For demo purposes, remove from local state if API fails
-      setCategories(prev => (Array.isArray(prev) ? prev : []).filter(cat => cat.id !== categoryId));
+      // Show error - do NOT use demo mode
       toast({
-        title: "Category Deleted",
-        description: "Category has been deleted successfully (demo mode).",
+        title: "Error",
+        description: "Failed to delete category. Please check your connection and try again.",
+        variant: "destructive",
       });
     } finally {
       setIsDeleting(null);
@@ -427,7 +368,6 @@ const Categories = () => {
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
             Manage product categories and organize your inventory • {Array.isArray(categories) ? categories.length : 0} categories total
-            {!Array.isArray(categories) || categories.length === 0 ? ' • Demo mode with sample data' : ''}
           </p>
         </div>
 

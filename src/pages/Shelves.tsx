@@ -6,7 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Search, Plus, Edit, Trash2, Package, MapPin, AlertTriangle, Grid3X3, List } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiService } from '@/services/api';
@@ -38,10 +37,9 @@ const Shelves: React.FC = () => {
   const [editingShelf, setEditingShelf] = useState<Shelf | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
 
-  // Form state
+  // Form state - simplified to just name and location
   const [formData, setFormData] = useState({
     name: '',
-    description: '',
     location: ''
   });
 
@@ -91,14 +89,13 @@ const Shelves: React.FC = () => {
       setIsSubmitting(true);
       const response = await apiService.createShelf({
         name: formData.name.trim(),
-        description: formData.description.trim() || undefined,
         location: formData.location.trim() || undefined
       });
 
       if (response.success) {
         toast.success('Shelf created successfully');
         setIsCreateDialogOpen(false);
-        setFormData({ name: '', description: '', location: '' });
+        setFormData({ name: '', location: '' });
         loadShelves();
       } else {
         toast.error(response.message || 'Failed to create shelf');
@@ -118,7 +115,6 @@ const Shelves: React.FC = () => {
       setIsSubmitting(true);
       const response = await apiService.updateShelf(editingShelf.id, {
         name: formData.name.trim(),
-        description: formData.description.trim() || undefined,
         location: formData.location.trim() || undefined
       });
 
@@ -126,7 +122,7 @@ const Shelves: React.FC = () => {
         toast.success('Shelf updated successfully');
         setIsEditDialogOpen(false);
         setEditingShelf(null);
-        setFormData({ name: '', description: '', location: '' });
+        setFormData({ name: '', location: '' });
         loadShelves();
       } else {
         toast.error(response.message || 'Failed to update shelf');
@@ -168,14 +164,13 @@ const Shelves: React.FC = () => {
     setEditingShelf(shelf);
     setFormData({
       name: shelf.name,
-      description: shelf.description || '',
       location: shelf.location || ''
     });
     setIsEditDialogOpen(true);
   };
 
   const resetForm = () => {
-    setFormData({ name: '', description: '', location: '' });
+    setFormData({ name: '', location: '' });
     setEditingShelf(null);
   };
 
@@ -337,22 +332,12 @@ const Shelves: React.FC = () => {
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="name">Name *</Label>
+                <Label htmlFor="name">Shelf Name *</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Enter shelf name"
-                />
-              </div>
-              <div>
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Enter description"
-                  rows={3}
+                  placeholder="e.g., Shelf A1, Rack 1"
                 />
               </div>
               <div>
@@ -361,14 +346,14 @@ const Shelves: React.FC = () => {
                   id="location"
                   value={formData.location}
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  placeholder="Enter location (e.g., Warehouse A, Room 101)"
+                  placeholder="e.g., Warehouse A, Room 101"
                 />
               </div>
-              <div className="flex justify-end space-x-2">
+              <div className="flex justify-end space-x-2 pt-2">
                 <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleAddShelf} disabled={isSubmitting}>
+                <Button onClick={handleAddShelf} disabled={isSubmitting || !formData.name.trim()}>
                   {isSubmitting ? 'Adding...' : 'Add Shelf'}
                 </Button>
               </div>
@@ -507,22 +492,12 @@ const Shelves: React.FC = () => {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="edit-name">Name *</Label>
+              <Label htmlFor="edit-name">Shelf Name *</Label>
               <Input
                 id="edit-name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Enter shelf name"
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-description">Description</Label>
-              <Textarea
-                id="edit-description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Enter description"
-                rows={3}
+                placeholder="e.g., Shelf A1, Rack 1"
               />
             </div>
             <div>
@@ -531,14 +506,14 @@ const Shelves: React.FC = () => {
                 id="edit-location"
                 value={formData.location}
                 onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                placeholder="Enter location (e.g., Warehouse A, Room 101)"
+                placeholder="e.g., Warehouse A, Room 101"
               />
             </div>
-            <div className="flex justify-end space-x-2">
+            <div className="flex justify-end space-x-2 pt-2">
               <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleEditShelf} disabled={isSubmitting}>
+              <Button onClick={handleEditShelf} disabled={isSubmitting || !formData.name.trim()}>
                 {isSubmitting ? 'Updating...' : 'Update Shelf'}
               </Button>
             </div>

@@ -3,13 +3,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
   User,
   Lock,
   Eye,
   EyeOff,
   Mail,
-  Building
+  Building,
+  CheckCircle,
+  Phone
 } from "lucide-react";
 import { apiService } from "@/services/api";
 import { useNavigate, Link } from "react-router-dom";
@@ -42,6 +45,7 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
   const [usernameError, setUsernameError] = useState("");
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false); // NEW: Success dialog
   const [passwordStrength, setPasswordStrength] = useState({
     hasUpperCase: false,
     hasLowerCase: false,
@@ -76,10 +80,10 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
 
   // Check if password meets all requirements
   const isPasswordValid = () => {
-    return passwordStrength.hasUpperCase && 
-           passwordStrength.hasLowerCase && 
-           passwordStrength.hasNumber && 
-           passwordStrength.hasSpecialChar && 
+    return passwordStrength.hasUpperCase &&
+           passwordStrength.hasLowerCase &&
+           passwordStrength.hasNumber &&
+           passwordStrength.hasSpecialChar &&
            passwordStrength.minLength;
   };
 
@@ -140,28 +144,25 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
         // No branchId or branchData needed - admin will create companies from dashboard
       });
 
-      if (response.success && response.data) {
-        const { user, token } = response.data;
+      if (response.success) {
+        // NEW: Show success dialog - DO NOT auto-login
+        // Account is inactive until SuperAdmin activates it
+        console.log('✅ Account created successfully - pending activation');
+        setShowSuccessDialog(true);
+        setSuccess("Account created successfully!");
 
-        // Automatically log in the user (even though they're disabled)
-        login({
-          id: user.id,
-          name: user.name,
-          role: user.role as 'SUPERADMIN' | 'ADMIN' | 'MANAGER' | 'CASHIER',
-          branchId: user.branchId,
-          isActive: (user as any).isActive || false,
-          username: user.username,
-          email: (user as any).email
+        // Clear form
+        setFormData({
+          username: "",
+          email: "",
+          password: "",
+          confirmPassword: "",
+          name: "",
+          branchName: "",
+          branchAddress: "",
+          branchPhone: ""
         });
-
-        setSuccess("Admin account created successfully! Your account is pending activation.");
-
-        // Redirect to Zapeera screen where they'll see the disabled account message
-        console.log('🔍 AdminSignupForm: Redirecting to /zapeera with user:', user);
-        setTimeout(() => {
-          console.log('🔍 AdminSignupForm: Navigating to /zapeera');
-          navigate('/zapeera');
-        }, 1500);
+        setStep(1);
       } else {
         setError(response.message || "Registration failed");
 
@@ -274,14 +275,69 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
     }
   };
 
+  // Handle dialog close - redirect to login
+  const handleSuccessDialogClose = () => {
+    setShowSuccessDialog(false);
+    if (onNavigateToLogin) {
+      onNavigateToLogin();
+    } else {
+      navigate('/login');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0c2c8a] to-[#153186] flex">
+      {/* Success Dialog - Account Pending Activation */}
+      <Dialog open={showSuccessDialog} onOpenChange={handleSuccessDialogClose}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                <CheckCircle className="w-10 h-10 text-green-600" />
+              </div>
+              <DialogTitle className="text-xl font-bold text-gray-900">
+                Account Created Successfully! 🎉
+              </DialogTitle>
+              <DialogDescription className="mt-4 text-gray-600">
+                <p className="mb-4">
+                  Thank you for creating your account!
+                </p>
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+                  <p className="text-amber-800 font-medium mb-2">
+                    ⚠️ Account Activation Required
+                  </p>
+                  <p className="text-amber-700 text-sm">
+                    Your account is pending activation. Please contact the SuperAdmin to activate your account before you can login.
+                  </p>
+                </div>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-blue-800 font-medium mb-2 flex items-center justify-center">
+                    <Phone className="w-4 h-4 mr-2" />
+                    Contact SuperAdmin
+                  </p>
+                  <p className="text-blue-700 text-lg font-bold">
+                    +92 310 7100663
+                  </p>
+                </div>
+              </DialogDescription>
+            </div>
+          </DialogHeader>
+          <div className="mt-4">
+            <Button
+              onClick={handleSuccessDialogClose}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              Go to Login Page
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       {/* Left Side - Welcome Content */}
       <div className="hidden lg:flex lg:w-2/5 relative">
         <div className="flex justify-center w-[100%] items-center text-white p-8 relative z-10">
           <div className="text-center w-[100%] flex flex-col items-center justify-center space-y-6">
             <div className="text-center flex flex-col items-center ">
-              <div className="w-[70px] h-[70px] text-[50px] flex items-center justify-center bg-white text-blue-900 rounded-full font-bold"><img src=" /images/favicon.png" alt="logo" className="w-10 object-cover" /></div>
+              <div className="w-[70px] h-[70px] text-[50px] flex items-center justify-center bg-white text-blue-900 rounded-full font-bold"><img src={`${import.meta.env.BASE_URL}images/favicon.png`} alt="logo" className="w-10 object-cover" /></div>
                <h1 className="text-2xl font-bold text-white/90 mb-2">Zapeera</h1>
                <div className="w-16 h-0.5 bg-white/30 mx-auto"></div>
              </div>

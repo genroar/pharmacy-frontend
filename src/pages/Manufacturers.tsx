@@ -97,10 +97,16 @@ const Manufacturers: React.FC = () => {
         return;
       }
 
-      const response = await apiService.createManufacturer({
-        name: formData.name.trim(),
-        description: formData.description.trim() || undefined
-      });
+      // Clean up form data - convert empty strings to undefined for optional fields
+      const cleanedFormData: { name: string; description?: string } = {
+        name: formData.name.trim()
+      };
+
+      if (formData.description?.trim()) {
+        cleanedFormData.description = formData.description.trim();
+      }
+
+      const response = await apiService.createManufacturer(cleanedFormData);
 
       if (response.success) {
         toast.success('Manufacturer created successfully');
@@ -124,10 +130,16 @@ const Manufacturers: React.FC = () => {
     try {
       setIsSubmitting(true);
 
-      const response = await apiService.updateManufacturer(editingManufacturer.id, {
-        name: formData.name.trim(),
-        description: formData.description.trim() || undefined
-      });
+      // Clean up form data - convert empty strings to undefined for optional fields
+      const cleanedFormData: { name: string; description?: string } = {
+        name: formData.name.trim()
+      };
+
+      if (formData.description?.trim()) {
+        cleanedFormData.description = formData.description.trim();
+      }
+
+      const response = await apiService.updateManufacturer(editingManufacturer.id, cleanedFormData);
 
       if (response.success) {
         toast.success('Manufacturer updated successfully');

@@ -195,46 +195,46 @@ const Invoices = () => {
           console.log('Sale customer data:', sale.customer);
           console.log('Sale items data:', sale.items);
           return {
-          id: sale.id,
-          invoiceNumber: sale.id, // Using sale ID as invoice number
-          customerId: sale.customerId,
-          userId: sale.userId,
-          branchId: sale.branchId,
-          subtotal: sale.subtotal,
-          discountAmount: sale.discountAmount,
-          discountPercentage: sale.discountPercentage,
-          totalAmount: sale.totalAmount,
-          paymentMethod: sale.paymentMethod,
-          paymentStatus: sale.paymentStatus,
-          status: sale.status,
-          saleDate: sale.saleDate,
-          createdAt: sale.createdAt,
-          updatedAt: sale.updatedAt,
-          customer: sale.customer ? {
-            id: sale.customer.id,
-            name: sale.customer.name,
-            phone: sale.customer.phone,
-            email: sale.customer.email,
-            address: sale.customer.address
-          } : null,
-          user: sale.user,
-          branch: sale.branch,
-          items: (sale.items || []).map((item: any) => ({
-            id: item.id,
-            productId: item.productId,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            totalPrice: item.totalPrice,
-            product: {
-              id: item.product?.id || item.productId,
-              name: item.product?.name || 'Unknown Product',
-              unitType: item.product?.unitType || 'Item',
-              sku: item.product?.sku || '',
-              description: item.product?.description || ''
-            }
-          })),
-          receipts: sale.receipts || [],
-          receiptNumber: sale.receipts?.[0]?.receiptNumber || sale.id
+            id: sale.id,
+            invoiceNumber: sale.id, // Using sale ID as invoice number
+            customerId: sale.customerId,
+            userId: sale.userId,
+            branchId: sale.branchId,
+            subtotal: sale.subtotal,
+            discountAmount: sale.discountAmount,
+            discountPercentage: sale.discountPercentage,
+            totalAmount: sale.totalAmount,
+            paymentMethod: sale.paymentMethod,
+            paymentStatus: sale.paymentStatus,
+            status: sale.status,
+            saleDate: sale.saleDate,
+            createdAt: sale.createdAt,
+            updatedAt: sale.updatedAt,
+            customer: sale.customer ? {
+              id: sale.customer.id,
+              name: sale.customer.name,
+              phone: sale.customer.phone,
+              email: sale.customer.email,
+              address: sale.customer.address
+            } : null,
+            user: sale.user,
+            branch: sale.branch,
+            items: (sale.items || []).map((item: any) => ({
+              id: item.id,
+              productId: item.productId,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              totalPrice: item.totalPrice,
+              product: {
+                id: item.product?.id || item.productId,
+                name: item.product?.name || 'Unknown Product',
+                unitType: item.product?.unitType || 'Item',
+                sku: item.product?.sku || '',
+                description: item.product?.description || ''
+              }
+            })),
+            receipts: sale.receipts || [],
+            receiptNumber: sale.receipts?.[0]?.receiptNumber || sale.id
           };
         });
         console.log('Transformed invoices:', transformedInvoices);
@@ -414,15 +414,15 @@ const Invoices = () => {
         const updatedInvoices = invoices.map(inv =>
           inv.id === editingInvoice.id
             ? {
-                ...inv,
-                discountPercentage: response.data.discountPercentage,
-                discountAmount: response.data.discountAmount,
-                totalAmount: response.data.totalAmount,
-                paymentStatus: response.data.paymentStatus,
-                status: response.data.status,
-                saleDate: response.data.saleDate,
-                updatedAt: response.data.updatedAt
-              }
+              ...inv,
+              discountPercentage: response.data.discountPercentage,
+              discountAmount: response.data.discountAmount,
+              totalAmount: response.data.totalAmount,
+              paymentStatus: response.data.paymentStatus,
+              status: response.data.status,
+              saleDate: response.data.saleDate,
+              updatedAt: response.data.updatedAt
+            }
             : inv
         );
 
@@ -748,13 +748,16 @@ const Invoices = () => {
     const items = (invoice.items || []).map(item => {
       console.log('Mapping item for refund:', item);
       console.log('Item product:', item.product);
+      console.log('Item batchId:', item.batchId);
       return {
         productId: item.productId,
         productName: item.product?.name || 'Unknown Product',
         maxQuantity: item.quantity,
         quantity: 0, // Start with 0 quantity for refund
         unitPrice: item.unitPrice,
-        reason: "Customer requested refund"
+        reason: "Customer requested refund",
+        batchId: item.batchId || null, // Include batch ID for stock return
+        saleItemId: item.id || null
       };
     });
 
@@ -803,9 +806,11 @@ const Invoices = () => {
           productId: item.productId,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
-          reason: item.reason
+          reason: item.reason,
+          batchId: item.batchId || null, // Include batch ID for stock return
+          saleItemId: item.saleItemId || null
         })),
-        refundedBy: selectedInvoice.user.id
+        refundedBy: user?.id || selectedInvoice.user?.id
       };
 
       const response = await apiService.createRefund(refundData);
@@ -998,9 +1003,20 @@ const Invoices = () => {
         {/* Invoices List */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Receipt className="w-5 h-5 text-[#0c2c8a]" />
-              <span>Invoice List</span>
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-[7px]">
+                <Receipt className="w-5 h-5 text-[#0c2c8a]" />
+                <span>Invoice List</span>
+              </div>
+              {/* Total Revenue Display */}
+              {filteredInvoices.length > 0 && (
+                <div className="text-center py-4">
+                  <div className="text-sm text-gray-600">
+                    Total Revenue: <span className="font-semibold text-green-600">PKR {totalRevenue.toFixed(2)}</span>
+                    <span className="text-gray-500 ml-2">({totalInvoices} invoice{totalInvoices !== 1 ? 's' : ''})</span>
+                  </div>
+                </div>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -1130,15 +1146,7 @@ const Invoices = () => {
           </CardContent>
         </Card>
 
-        {/* Total Revenue Display */}
-        {filteredInvoices.length > 0 && (
-          <div className="text-center py-4">
-            <div className="text-sm text-gray-600">
-              Total Revenue: <span className="font-semibold text-green-600">PKR {totalRevenue.toFixed(2)}</span>
-              <span className="text-gray-500 ml-2">({totalInvoices} invoice{totalInvoices !== 1 ? 's' : ''})</span>
-            </div>
-          </div>
-        )}
+
 
         {/* Invoice Details Dialog */}
         <Dialog open={isInvoiceDialogOpen} onOpenChange={setIsInvoiceDialogOpen}>
@@ -1346,51 +1354,51 @@ const Invoices = () => {
                       </div>
                     ) : (
                       refundItems.map((item, index) => (
-                      <div key={item.productId} className="border rounded-lg p-4 space-y-3">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <h4 className="font-medium">{item.productName}</h4>
-                            <p className="text-sm text-muted-foreground">
-                              Unit Price: PKR {item.unitPrice.toFixed(2)}
-                            </p>
+                        <div key={item.productId} className="border rounded-lg p-4 space-y-3">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <h4 className="font-medium">{item.productName}</h4>
+                              <p className="text-sm text-muted-foreground">
+                                Unit Price: PKR {item.unitPrice.toFixed(2)}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm text-muted-foreground">
+                                Max: {item.maxQuantity} units
+                              </p>
+                            </div>
                           </div>
-                          <div className="text-right">
-                            <p className="text-sm text-muted-foreground">
-                              Max: {item.maxQuantity} units
-                            </p>
-                          </div>
-                        </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Quantity to Refund</label>
-                            <Input
-                              type="number"
-                              min="0"
-                              max={item.maxQuantity}
-                              value={item.quantity}
-                              onChange={(e) => handleRefundItemChange(index, 'quantity', parseInt(e.target.value) || 0)}
-                            />
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">Quantity to Refund</label>
+                              <Input
+                                type="number"
+                                min="0"
+                                max={item.maxQuantity}
+                                value={item.quantity}
+                                onChange={(e) => handleRefundItemChange(index, 'quantity', parseInt(e.target.value) || 0)}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">Reason</label>
+                              <Input
+                                value={item.reason}
+                                onChange={(e) => handleRefundItemChange(index, 'reason', e.target.value)}
+                                placeholder="Reason for this item..."
+                              />
+                            </div>
                           </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Reason</label>
-                            <Input
-                              value={item.reason}
-                              onChange={(e) => handleRefundItemChange(index, 'reason', e.target.value)}
-                              placeholder="Reason for this item..."
-                            />
-                          </div>
-                        </div>
 
-                        <div className="flex justify-between items-center pt-2 border-t">
-                          <span className="text-sm text-muted-foreground">
-                            Total Refund Amount:
-                          </span>
-                          <span className="font-medium">
-                            PKR {(item.quantity * item.unitPrice).toFixed(2)}
-                          </span>
+                          <div className="flex justify-between items-center pt-2 border-t">
+                            <span className="text-sm text-muted-foreground">
+                              Total Refund Amount:
+                            </span>
+                            <span className="font-medium">
+                              PKR {(item.quantity * item.unitPrice).toFixed(2)}
+                            </span>
+                          </div>
                         </div>
-                      </div>
                       ))
                     )}
                   </div>
@@ -1473,64 +1481,64 @@ const Invoices = () => {
                       )}
                     </div>
 
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Sale Date</label>
+                      <Input
+                        type="date"
+                        value={editFormData.saleDate}
+                        onChange={(e) => setEditFormData({
+                          ...editFormData,
+                          saleDate: e.target.value
+                        })}
+                      />
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Sale Date</label>
+                    <label className="text-sm font-medium">Payment Status</label>
+                    <Select
+                      value={editFormData.paymentStatus}
+                      onValueChange={(value) => setEditFormData({
+                        ...editFormData,
+                        paymentStatus: value
+                      })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select payment status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="COMPLETED">
+                          <div className="flex items-center space-x-2">
+                            <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                            <span>Paid (Completed)</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="PENDING">
+                          <div className="flex items-center space-x-2">
+                            <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
+                            <span>Unpaid (Pending)</span>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      {editFormData.paymentStatus === 'COMPLETED'
+                        ? 'Invoice will be marked as paid and completed'
+                        : 'Invoice will be marked as unpaid/pending'}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Notes (Optional)</label>
                     <Input
-                      type="date"
-                      value={editFormData.saleDate}
+                      value={editFormData.notes}
                       onChange={(e) => setEditFormData({
                         ...editFormData,
-                        saleDate: e.target.value
+                        notes: e.target.value
                       })}
+                      placeholder="Add any notes about this invoice..."
                     />
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Payment Status</label>
-                  <Select
-                    value={editFormData.paymentStatus}
-                    onValueChange={(value) => setEditFormData({
-                      ...editFormData,
-                      paymentStatus: value
-                    })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select payment status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="COMPLETED">
-                        <div className="flex items-center space-x-2">
-                          <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                          <span>Paid (Completed)</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="PENDING">
-                        <div className="flex items-center space-x-2">
-                          <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
-                          <span>Unpaid (Pending)</span>
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    {editFormData.paymentStatus === 'COMPLETED'
-                      ? 'Invoice will be marked as paid and completed'
-                      : 'Invoice will be marked as unpaid/pending'}
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Notes (Optional)</label>
-                  <Input
-                    value={editFormData.notes}
-                    onChange={(e) => setEditFormData({
-                      ...editFormData,
-                      notes: e.target.value
-                    })}
-                    placeholder="Add any notes about this invoice..."
-                  />
-                </div>
                 </div>
 
                 {/* New Totals Preview */}

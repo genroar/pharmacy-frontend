@@ -74,9 +74,10 @@ const Reports = () => {
   // Export functionality for managers
   const exportReports = async () => {
     try {
+      const activeSales = realSalesData.filter((sale: any) => sale.status !== 'REFUNDED');
       const csvData = [
         ['Report Type', 'Period', 'Revenue', 'Sales Count', 'Products', 'Users'],
-        ['Sales Report', selectedPeriod, formatCurrency(realSalesData.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0)), realSalesData.length.toString(), realProductsData.length.toString(), realUsersData.length.toString()],
+        ['Sales Report', selectedPeriod, formatCurrency(activeSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0)), activeSales.length.toString(), realProductsData.length.toString(), realUsersData.length.toString()],
         ['Branch Performance', 'All Branches', formatCurrency(allBranches.reduce((sum, branch) => sum + (branch.revenue || 0), 0)), allBranches.reduce((sum, branch) => sum + (branch.salesCount || 0), 0).toString(), allBranches.reduce((sum, branch) => sum + (branch.productsCount || 0), 0).toString(), allBranches.reduce((sum, branch) => sum + (branch.usersCount || 0), 0).toString()]
       ];
 
@@ -847,9 +848,9 @@ const Reports = () => {
 
   const currentData = useMemo(() => getCurrentData(), [getCurrentData]);
 
-  // Calculate branch-specific statistics
+  // Calculate branch-specific statistics (excluding REFUNDED sales)
   const getBranchStats = useCallback((branchId: string) => {
-    const branchSales = realSalesData.filter((sale: any) => sale.branchId === branchId);
+    const branchSales = realSalesData.filter((sale: any) => sale.branchId === branchId && sale.status !== 'REFUNDED');
     const branchProducts = realProductsData.filter((product: any) => product.branchId === branchId);
     const branchUsers = realUsersData.filter((user: any) => user.branchId === branchId);
 
@@ -951,7 +952,7 @@ const Reports = () => {
                     <p className="text-sm font-medium text-blue-600">Total Revenue</p>
                     <p className="text-2xl font-bold text-blue-900">
                       {formatCurrency(
-                        realSalesData.reduce((sum: number, sale: any) => sum + (sale.totalAmount || 0), 0)
+                        realSalesData.filter((sale: any) => sale.status !== 'REFUNDED').reduce((sum: number, sale: any) => sum + (sale.totalAmount || 0), 0)
                       )}
                     </p>
                   </div>
@@ -1002,7 +1003,7 @@ const Reports = () => {
                 <h3 className="text-lg font-semibold text-foreground">Branch Performance Details</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {allBranches.map((branch: any, index: number) => {
-                    const branchSales = realSalesData.filter((sale: any) => sale.branchId === branch.id);
+                    const branchSales = realSalesData.filter((sale: any) => sale.branchId === branch.id && sale.status !== 'REFUNDED');
                     const branchProducts = realProductsData.filter((product: any) => product.branchId === branch.id);
                     const branchUsers = realUsersData.filter((user: any) => user.branchId === branch.id);
                     const branchRevenue = branchSales.reduce((sum: number, sale: any) => sum + (sale.totalAmount || 0), 0);
@@ -1084,7 +1085,7 @@ const Reports = () => {
                     <div>
                       <p className="text-sm font-medium text-blue-600">Total Revenue</p>
                       <p className="text-2xl font-bold text-blue-900">
-                        {formatCurrency(realSalesData.reduce((sum: number, sale: any) => sum + (sale.totalAmount || 0), 0))}
+                        {formatCurrency(realSalesData.filter((sale: any) => sale.status !== 'REFUNDED').reduce((sum: number, sale: any) => sum + (sale.totalAmount || 0), 0))}
                       </p>
                     </div>
                     <DollarSign className="w-8 h-8 text-blue-500" />
@@ -1135,7 +1136,7 @@ const Reports = () => {
                 <h3 className="text-lg font-semibold text-foreground">Branch Performance Details</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {allBranches.map((branch: any, index: number) => {
-                    const branchSales = realSalesData.filter((sale: any) => sale.branchId === branch.id);
+                    const branchSales = realSalesData.filter((sale: any) => sale.branchId === branch.id && sale.status !== 'REFUNDED');
                     const branchProducts = realProductsData.filter((product: any) => product.branchId === branch.id);
                     const branchUsers = realUsersData.filter((user: any) => user.branchId === branch.id);
                     const branchRevenue = branchSales.reduce((sum: number, sale: any) => sum + (sale.totalAmount || 0), 0);
@@ -1828,7 +1829,7 @@ const Reports = () => {
                       <p className="text-sm text-blue-600">Per transaction</p>
                     </div>
                     <p className="text-lg font-bold text-blue-900">
-                      {formatCurrency(realSalesData.length > 0 ? realSalesData.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0) / realSalesData.length : 0)}
+                      {formatCurrency(realSalesData.filter((s: any) => s.status !== 'REFUNDED').length > 0 ? realSalesData.filter((s: any) => s.status !== 'REFUNDED').reduce((sum, sale) => sum + (sale.totalAmount || 0), 0) / realSalesData.filter((s: any) => s.status !== 'REFUNDED').length : 0)}
                     </p>
                   </div>
                   <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">

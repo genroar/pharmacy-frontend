@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { apiService } from '@/services/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAdmin } from '@/contexts/AdminContext';
 
 interface Branch {
   id: string;
@@ -64,6 +65,7 @@ interface User {
 
 const BranchManagement = () => {
   const { user } = useAuth();
+  const { refreshBranches: refreshGlobalBranches, refreshCompanies: refreshGlobalCompanies } = useAdmin();
   const [branches, setBranches] = useState<Branch[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -174,6 +176,9 @@ const BranchManagement = () => {
         setNewBranch({ name: "", address: "", phone: "", email: "", companyId: "" });
         setIsCreateDialogOpen(false);
         await loadBranches();
+        // Refresh global branches to update dropdown instantly
+        await refreshGlobalBranches();
+        console.log('✅ Branch created and global dropdown updated');
         setError("");
       } else {
         setError(response.message || 'Failed to create branch');
@@ -203,6 +208,9 @@ const BranchManagement = () => {
         setEditingBranch(null);
         setIsEditDialogOpen(false);
         await loadBranches();
+        // Refresh global branches to update dropdown instantly
+        await refreshGlobalBranches();
+        console.log('✅ Branch updated and global dropdown updated');
         setError("");
       } else {
         setError(response.message || 'Failed to update branch');
@@ -226,6 +234,9 @@ const BranchManagement = () => {
         setDeletingBranch(null);
         setIsDeleteDialogOpen(false);
         await loadBranches();
+        // Refresh global branches to update dropdown instantly
+        await refreshGlobalBranches();
+        console.log('✅ Branch deleted and global dropdown updated');
         setError("");
       } else {
         setError(response.message || 'Failed to delete branch');

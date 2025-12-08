@@ -87,7 +87,7 @@ ${user?.name || 'User'}`;
         {/* Logo */}
         <div className="px-4 py-[1px] border-b border-gray-200">
           <div className="flex items-center space-x-3">
-              <img src=" /images/logo.png" alt="logo" className="w-45 object-cover" />
+              <img src={`${import.meta.env.BASE_URL}images/logo.png`} alt="logo" className="w-45 object-cover" />
           </div>
         </div>
 

@@ -44,6 +44,7 @@ import {
 import { apiService } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/AdminContext";
+import { SyncStatusBadge } from "@/components/SyncStatusIndicator";
 
 const AdminDashboard = () => {
 
@@ -160,9 +161,10 @@ const AdminDashboard = () => {
         const sales = salesResponse.data.sales || [];
         setRealSalesData(sales);
 
-        // Calculate real revenue and total sales
-        const totalRevenue = sales.reduce((sum: number, sale: any) => sum + (sale.totalAmount || 0), 0);
-        const totalSalesCount = sales.length;
+        // Calculate real revenue and total sales (EXCLUDING REFUNDED sales)
+        const activeSales = sales.filter((sale: any) => sale.status !== 'REFUNDED');
+        const totalRevenue = activeSales.reduce((sum: number, sale: any) => sum + (sale.totalAmount || 0), 0);
+        const totalSalesCount = activeSales.length;
         setRealRevenue(totalRevenue);
         setRealTotalSales(totalSalesCount);
 
@@ -171,7 +173,7 @@ const AdminDashboard = () => {
           totalRevenue: totalRevenue,
           totalSales: totalSalesCount,
           totalUsers: 0, // Will be set after users are loaded
-          recentSales: sales.slice(0, 10), // Show last 10 sales
+          recentSales: sales.slice(0, 10), // Show last 10 sales (including refunded for visibility)
           lowStockProducts: [] // Will be set after products are loaded
         });
       } else {
@@ -303,11 +305,13 @@ const AdminDashboard = () => {
       };
     }
 
+    // Filter by branch AND exclude REFUNDED sales from revenue calculation
     const filteredSales = realSalesData.filter(sale => sale.branchId === selectedBranchId);
+    const activeSales = filteredSales.filter(sale => sale.status !== 'REFUNDED');
     const filteredProducts = realProductsData.filter(product => product.branchId === selectedBranchId);
     const filteredUsers = allUsers.filter(user => user.branchId === selectedBranchId);
-    const filteredRevenue = filteredSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
-    const filteredTotalSales = filteredSales.length;
+    const filteredRevenue = activeSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+    const filteredTotalSales = activeSales.length;
 
     return {
       sales: filteredSales,
@@ -559,26 +563,28 @@ const AdminDashboard = () => {
     <div className="p-6 space-y-6 bg-background rounded-[20px] min-h-screen">
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">
-            {selectedCompany
-              ? `${selectedCompany.name} Dashboard`
-              : selectedBranchId
-              ? `${globalSelectedBranch?.name} Dashboard`
-              : currentUser?.role === 'ADMIN'
-              ? 'Admin Dashboard'
-              : 'Super Admin Dashboard'}
-          </h1>
-          <p className="text-muted-foreground text-sm mt-[5pxf]">
-            {selectedBranchId
-              ? `Overview of ${globalSelectedBranch?.name} branch operations`
-              : selectedCompany
-              ? `Overview of ${selectedCompany.name}'s branches, revenue, users, and products`
-              : currentUser?.role === 'ADMIN'
-                ? 'Overview of all your branches, revenue, users, and products'
-                : 'Complete overview of all pharmacy operations'
-            }
-          </p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">
+              {selectedCompany
+                ? `${selectedCompany.name} Dashboard`
+                : selectedBranchId
+                ? `${globalSelectedBranch?.name} Dashboard`
+                : currentUser?.role === 'ADMIN'
+                ? 'Admin Dashboard'
+                : 'Super Admin Dashboard'}
+            </h1>
+            <p className="text-muted-foreground text-sm mt-[5pxf]">
+              {selectedBranchId
+                ? `Overview of ${globalSelectedBranch?.name} branch operations`
+                : selectedCompany
+                ? `Overview of ${selectedCompany.name}'s branches, revenue, users, and products`
+                : currentUser?.role === 'ADMIN'
+                  ? 'Overview of all your branches, revenue, users, and products'
+                  : 'Complete overview of all pharmacy operations'
+              }
+            </p>
+          </div>
         </div>
         <div className="flex items-center space-x-4">
         {/* Company Selector */}

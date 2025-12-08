@@ -416,6 +416,47 @@ const Batches = () => {
     loadBatches();
   }, [loadBatches]);
 
+  // Check for prefill data from Order Purchase page
+  useEffect(() => {
+    const prefillData = sessionStorage.getItem('prefillBatchProduct');
+    const urlParams = new URLSearchParams(window.location.search);
+    const shouldAddNew = urlParams.get('addNew') === 'true';
+
+    if (prefillData && shouldAddNew) {
+      try {
+        const data = JSON.parse(prefillData);
+        // Find the product to get its ID
+        const matchingProduct = products.find(p => p.id === data.productId);
+        // Find the supplier by name
+        const matchingSupplier = suppliers.find(s => s.name === data.supplier);
+
+        if (matchingProduct || data.productId) {
+          setFormData(prev => ({
+            ...prev,
+            productId: data.productId || '',
+            supplierId: matchingSupplier?.id || '',
+            supplierName: data.supplier || '',
+            costPricePerUnit: data.unitPrice || 0,
+            sellingPricePerUnit: data.unitPrice || 0, // Default sell price to cost
+            minStockLevel: data.minStock || 10,
+          }));
+          setShowAddModal(true);
+          toast({
+            title: "➕ Add New Batch",
+            description: `Creating new batch for "${data.productName}"`,
+          });
+        }
+        // Clear the prefill data
+        sessionStorage.removeItem('prefillBatchProduct');
+        // Clear URL param
+        window.history.replaceState({}, '', '/batches');
+      } catch (error) {
+        console.error('Error parsing prefill data:', error);
+        sessionStorage.removeItem('prefillBatchProduct');
+      }
+    }
+  }, [products, suppliers, toast]);
+
   // Close filter dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -694,6 +735,36 @@ const Batches = () => {
       totalBoxes: 0,
       unitsPerBox: 1,
       minStockLevel: 10,
+    });
+  };
+
+  // Add new batch for the same product (pre-fills product and supplier)
+  const handleAddBatchForProduct = (batch: Batch) => {
+    // Pre-fill form with product and supplier info from the existing batch
+    setFormData({
+      batchNo: '', // Empty - user needs to enter new batch number
+      productId: batch.productId,
+      supplierId: batch.supplierId || '',
+      supplierName: batch.supplierName || '',
+      expireDate: '',
+      productionDate: '',
+      shelfId: batch.shelfId || '',
+      shelfName: batch.shelfName || '',
+      // Copy pricing from existing batch as default
+      costPricePerUnit: batch.costPricePerUnit || 0,
+      costPricePerBox: batch.costPricePerBox || 0,
+      sellingPricePerUnit: batch.sellingPricePerUnit || 0,
+      sellingPricePerBox: batch.sellingPricePerBox || 0,
+      stockQuantity: 0, // New batch starts with 0
+      totalBoxes: 0,
+      unitsPerBox: batch.unitsPerBox || 1,
+      minStockLevel: batch.minStockLevel || 10,
+    });
+    setEditingBatch(null); // Make sure we're not in edit mode
+    setShowAddModal(true);
+    toast({
+      title: "➕ Add New Batch",
+      description: `Creating new batch for "${batch.product.name}"`,
     });
   };
 
@@ -1266,6 +1337,15 @@ const Batches = () => {
                           <Button
                             variant="outline"
                             size="sm"
+                            onClick={() => handleAddBatchForProduct(batch)}
+                            className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                            title="Add New Batch for this Product"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => handleRestock(batch)}
                             className="text-blue-600 hover:text-blue-700"
                             title="Restock"
@@ -1639,6 +1719,14 @@ const Batches = () => {
   );
 };
 
+// Link Icon Component
+const LinkIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400">
+    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+  </svg>
+);
+
 // Batch Form Component
 interface BatchFormProps {
   formData: any;
@@ -1669,6 +1757,75 @@ const BatchForm: React.FC<BatchFormProps> = ({
   setIsProductDialogOpen,
   setIsShelfDialogOpen
 }) => {
+  // Calculate total stock (units) from boxes
+  const totalStockUnits = (formData.totalBoxes || 0) * (formData.unitsPerBox || 1);
+
+  // Handle cost price per unit change - auto calculate box price
+  const handleCostPerUnitChange = (value: number) => {
+    const unitsPerBox = formData.unitsPerBox || 1;
+    setFormData({
+      ...formData,
+      costPricePerUnit: value,
+      costPricePerBox: value * unitsPerBox
+    });
+  };
+
+  // Handle cost price per box change - auto calculate unit price
+  const handleCostPerBoxChange = (value: number) => {
+    const unitsPerBox = formData.unitsPerBox || 1;
+    setFormData({
+      ...formData,
+      costPricePerBox: value,
+      costPricePerUnit: unitsPerBox > 0 ? value / unitsPerBox : 0
+    });
+  };
+
+  // Handle sell price per unit change - auto calculate box price
+  const handleSellPerUnitChange = (value: number) => {
+    const unitsPerBox = formData.unitsPerBox || 1;
+    setFormData({
+      ...formData,
+      sellingPricePerUnit: value,
+      sellingPricePerBox: value * unitsPerBox
+    });
+  };
+
+  // Handle sell price per box change - auto calculate unit price
+  const handleSellPerBoxChange = (value: number) => {
+    const unitsPerBox = formData.unitsPerBox || 1;
+    setFormData({
+      ...formData,
+      sellingPricePerBox: value,
+      sellingPricePerUnit: unitsPerBox > 0 ? value / unitsPerBox : 0
+    });
+  };
+
+  // Handle units per box change - recalculate all prices and stock
+  const handleUnitsPerBoxChange = (value: number) => {
+    const unitsPerBox = value || 1;
+    const totalBoxes = formData.totalBoxes || 0;
+
+    // Keep unit prices, recalculate box prices
+    setFormData({
+      ...formData,
+      unitsPerBox: unitsPerBox,
+      stockQuantity: totalBoxes * unitsPerBox,
+      costPricePerBox: (formData.costPricePerUnit || 0) * unitsPerBox,
+      sellingPricePerBox: (formData.sellingPricePerUnit || 0) * unitsPerBox
+    });
+  };
+
+  // Handle total boxes change - recalculate stock quantity
+  const handleTotalBoxesChange = (value: number) => {
+    const totalBoxes = value || 0;
+    const unitsPerBox = formData.unitsPerBox || 1;
+    setFormData({
+      ...formData,
+      totalBoxes: totalBoxes,
+      stockQuantity: totalBoxes * unitsPerBox
+    });
+  };
+
   return (
     <div className="space-y-6">
 
@@ -1799,127 +1956,102 @@ const BatchForm: React.FC<BatchFormProps> = ({
         </div>
       </div>
 
-      {/* Pricing Information */}
-      <div className="space-y-4">
-        <h4 className="text-sm font-semibold text-gray-700 border-b pb-2">Pricing & Stock Information</h4>
+      {/* Stock & Pricing - Clean Simple Layout */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="space-y-2">
+          <Label>Total Boxes <span className="text-red-500">*</span></Label>
+          <Input
+            type="number"
+            placeholder="Add no. of boxes"
+            value={formData.totalBoxes || ''}
+            onChange={(e) => handleTotalBoxesChange(parseInt(e.target.value) || 0)}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Units per Box <span className="text-red-500">*</span></Label>
+          <Input
+            type="number"
+            placeholder="Add no. of units per box"
+            value={formData.unitsPerBox || ''}
+            onChange={(e) => handleUnitsPerBoxChange(parseInt(e.target.value) || 1)}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Total Stock</Label>
+          <Input
+            type="number"
+            value={totalStockUnits}
+            readOnly
+            className="bg-gray-100 cursor-not-allowed"
+          />
+        </div>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="costPricePerUnit">Cost Price per Unit (PKR) *</Label>
+      {/* Pricing Row - Connected Inputs */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Cost Price - Connected Inputs */}
+        <div className="space-y-2">
+          <Label>Cost Price <span className="text-red-500">*</span></Label>
+          <div className="flex items-center">
             <Input
-              id="costPricePerUnit"
               type="number"
               step="0.01"
-              placeholder="e.g., 3.50"
-              value={formData.costPricePerUnit}
-              onChange={(e) => {
-                const costPricePerUnit = parseFloat(e.target.value) || 0;
-                const unitsPerBox = formData.unitsPerBox || 1;
-                setFormData({
-                  ...formData,
-                  costPricePerUnit: costPricePerUnit,
-                  costPricePerBox: costPricePerUnit * unitsPerBox
-                });
-              }}
+              placeholder="Units Price"
+              value={formData.costPricePerUnit || ''}
+              onChange={(e) => handleCostPerUnitChange(parseFloat(e.target.value) || 0)}
+              className="rounded-r-none border-r-0 focus:z-10"
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="costPricePerBox">Cost Price per Box (PKR) <span className="text-red-500">*</span></Label>
+            <div className="flex items-center justify-center w-10 h-9 bg-gray-100 border border-gray-200">
+              <LinkIcon />
+            </div>
             <Input
-              id="costPricePerBox"
               type="number"
               step="0.01"
-              placeholder="e.g., 350.00"
-              value={formData.costPricePerBox}
-              onChange={(e) => setFormData({ ...formData, costPricePerBox: parseFloat(e.target.value) || 0 })}
+              placeholder="Boxes Price"
+              value={formData.costPricePerBox || ''}
+              onChange={(e) => handleCostPerBoxChange(parseFloat(e.target.value) || 0)}
+              className="rounded-l-none border-l-0 focus:z-10"
             />
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="sellingPricePerUnit">Selling Price per Unit (PKR) *</Label>
+        {/* Sell Price - Connected Inputs */}
+        <div className="space-y-2">
+          <Label>Sell Price <span className="text-red-500">*</span></Label>
+          <div className="flex items-center">
             <Input
-              id="sellingPricePerUnit"
               type="number"
               step="0.01"
-              placeholder="e.g., 5.00"
-              value={formData.sellingPricePerUnit}
-              onChange={(e) => {
-                const sellingPricePerUnit = parseFloat(e.target.value) || 0;
-                const unitsPerBox = formData.unitsPerBox || 1;
-                setFormData({
-                  ...formData,
-                  sellingPricePerUnit: sellingPricePerUnit,
-                  sellingPricePerBox: sellingPricePerUnit * unitsPerBox
-                });
-              }}
+              placeholder="Units Price"
+              value={formData.sellingPricePerUnit || ''}
+              onChange={(e) => handleSellPerUnitChange(parseFloat(e.target.value) || 0)}
+              className="rounded-r-none border-r-0 focus:z-10"
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="sellingPricePerBox">Selling Price per Box (PKR) <span className="text-red-500">*</span></Label>
+            <div className="flex items-center justify-center w-10 h-9 bg-gray-100 border border-gray-200">
+              <LinkIcon />
+            </div>
             <Input
-              id="sellingPricePerBox"
               type="number"
               step="0.01"
-              placeholder="e.g., 500.00"
-              value={formData.sellingPricePerBox}
-              onChange={(e) => setFormData({ ...formData, sellingPricePerBox: parseFloat(e.target.value) || 0 })}
+              placeholder="Boxes Price"
+              value={formData.sellingPricePerBox || ''}
+              onChange={(e) => handleSellPerBoxChange(parseFloat(e.target.value) || 0)}
+              className="rounded-l-none border-l-0 focus:z-10"
             />
           </div>
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="stockQuantity">Stock Quantity (Units) *</Label>
-            <Input
-              id="stockQuantity"
-              type="number"
-              placeholder="e.g., 100"
-              value={formData.stockQuantity}
-              onChange={(e) => setFormData({ ...formData, stockQuantity: parseInt(e.target.value) || 0 })}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="unitsPerBox">Units per Box <span className="text-red-500">*</span></Label>
-            <Input
-              id="unitsPerBox"
-              type="number"
-              placeholder="e.g., 10"
-              value={formData.unitsPerBox}
-              onChange={(e) => {
-                const unitsPerBox = parseInt(e.target.value) || 1;
-                const costPricePerUnit = formData.costPricePerUnit || 0;
-                const sellingPricePerUnit = formData.sellingPricePerUnit || 0;
-                setFormData({
-                  ...formData,
-                  unitsPerBox: unitsPerBox,
-                  costPricePerBox: costPricePerUnit * unitsPerBox,
-                  sellingPricePerBox: sellingPricePerUnit * unitsPerBox
-                });
-              }}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="totalBoxes">Total Boxes <span className="text-red-500">*</span></Label>
-            <Input
-              id="totalBoxes"
-              type="number"
-              placeholder="e.g., 50"
-              value={formData.totalBoxes}
-              onChange={(e) => setFormData({ ...formData, totalBoxes: parseInt(e.target.value) || 0 })}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="minStockLevel">Minimum Stock Level <span className="text-red-500">*</span></Label>
-            <Input
-              id="minStockLevel"
-              type="number"
-              placeholder="e.g., 10"
-              value={formData.minStockLevel}
-              onChange={(e) => setFormData({ ...formData, minStockLevel: parseInt(e.target.value) || 10 })}
-            />
-          </div>
+      {/* Min Stock Level */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="space-y-2">
+          <Label>Min Stock Level <span className="text-red-500">*</span></Label>
+          <Input
+            type="number"
+            placeholder="e.g., 10"
+            value={formData.minStockLevel}
+            onChange={(e) => setFormData({ ...formData, minStockLevel: parseInt(e.target.value) || 10 })}
+          />
         </div>
       </div>
 
@@ -1954,7 +2086,15 @@ const SupplierForm: React.FC<SupplierFormProps> = ({ onSuccess, onCancel }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await apiService.createSupplier(formData);
+      // Clean up form data - convert empty strings to undefined for optional fields
+      const cleanedFormData = {
+        name: formData.name.trim(),
+        contactPerson: formData.contactPerson.trim(),
+        phone: formData.phone.trim(),
+        email: formData.email?.trim() || undefined,
+        address: formData.address?.trim() || undefined
+      };
+      const response = await apiService.createSupplier(cleanedFormData);
       if (response.success) {
         onSuccess(response.data);
       }
@@ -2218,14 +2358,16 @@ interface ShelfFormProps {
 const ShelfForm: React.FC<ShelfFormProps> = ({ onSuccess, onCancel }) => {
   const [formData, setFormData] = useState({
     name: '',
-    description: '',
     location: ''
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await apiService.createShelf(formData);
+      const response = await apiService.createShelf({
+        name: formData.name.trim(),
+        location: formData.location.trim() || undefined
+      });
       if (response.success) {
         onSuccess(response.data);
       }
@@ -2242,15 +2384,8 @@ const ShelfForm: React.FC<ShelfFormProps> = ({ onSuccess, onCancel }) => {
           id="shelfName"
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          placeholder="e.g., Shelf A1, Rack 1"
           required
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="shelfDescription">Description</Label>
-        <Input
-          id="shelfDescription"
-          value={formData.description}
-          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
         />
       </div>
       <div className="space-y-2">
@@ -2259,13 +2394,14 @@ const ShelfForm: React.FC<ShelfFormProps> = ({ onSuccess, onCancel }) => {
           id="shelfLocation"
           value={formData.location}
           onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+          placeholder="e.g., Warehouse A, Room 101"
         />
       </div>
       <div className="flex justify-end gap-2 pt-4">
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit">
+        <Button type="submit" disabled={!formData.name.trim()}>
           Add Shelf
         </Button>
       </div>

@@ -144,9 +144,13 @@ const Suppliers = () => {
     try {
       setIsSubmitting(true);
 
-      // Clean up form data - remove empty manufacturerId
+      // Clean up form data - convert empty strings to undefined for optional fields
       const cleanedFormData = {
-        ...formData,
+        name: formData.name.trim(),
+        contactPerson: formData.contactPerson.trim(),
+        phone: formData.phone.trim(),
+        email: formData.email?.trim() || undefined,
+        address: formData.address?.trim() || undefined,
         manufacturerId: formData.manufacturerId || undefined
       };
       console.log('🔍 Form data being sent:', cleanedFormData);
@@ -193,9 +197,13 @@ const Suppliers = () => {
     try {
       setIsSubmitting(true);
 
-      // Clean up form data - remove empty manufacturerId
+      // Clean up form data - convert empty strings to undefined for optional fields
       const cleanedFormData = {
-        ...formData,
+        name: formData.name.trim(),
+        contactPerson: formData.contactPerson.trim(),
+        phone: formData.phone.trim(),
+        email: formData.email?.trim() || undefined,
+        address: formData.address?.trim() || undefined,
         manufacturerId: formData.manufacturerId || undefined
       };
       console.log('🔍 Editing supplier:', editingSupplier.id);

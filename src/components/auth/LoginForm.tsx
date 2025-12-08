@@ -250,7 +250,7 @@ const LoginForm = ({ onLogin, onNavigateToSignup }: LoginFormProps) => {
         <div className="flex justify-center w-[100%] items-center text-white p-8 relative z-10">
           <div className="text-center w-[100%] flex flex-col items-center justify-center space-y-6">
             <div className="text-center flex flex-col items-center ">
-              <div className="w-[70px] h-[70px] text-[50px] flex items-center justify-center bg-white text-blue-900 rounded-full font-bold"><img src=" /images/favicon.png" alt="logo" className="w-10 object-cover" /></div>
+              <div className="w-[70px] h-[70px] text-[50px] flex items-center justify-center bg-white text-blue-900 rounded-full font-bold"><img src={`${import.meta.env.BASE_URL}images/favicon.png`} alt="logo" className="w-10 object-cover" /></div>
               <h1 className="text-2xl font-bold text-white/90 mb-2">Zapeera</h1>
               <div className="w-16 h-0.5 bg-white/30 mx-auto"></div>
             </div>

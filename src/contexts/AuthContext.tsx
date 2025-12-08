@@ -134,8 +134,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       localStorage.removeItem(`admin_welcome_seen_${currentUser.id}`);
     }
 
-    // Force redirect to login page
-    window.location.href = '/login';
+    // Navigation to login will be handled by ProtectedRoute or AuthStatus component
+    // Do NOT use window.location.href as it breaks file:// URLs in Electron
   }, [user]);
 
   // Listen for authentication required events
@@ -147,9 +147,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     };
 
+    // Handle session expired due to login from another device
+    const handleSessionExpiredAnotherDevice = (event: CustomEvent) => {
+      console.log('🔒 Session expired - user logged in from another device');
+      if (isAuthenticated) {
+        // Show alert before logout
+        alert('⚠️ Session Expired\n\nYou have been logged out because your account was accessed from another device.\n\nOnly one active session is allowed per user.');
+        logout();
+      }
+    };
+
+    // Handle account deactivation
+    const handleAccountDeactivated = (event: CustomEvent) => {
+      console.log('🔒 Account deactivated');
+      if (isAuthenticated) {
+        alert('⚠️ Account Deactivated\n\nYour account has been deactivated. Please contact the SuperAdmin to reactivate your account.\n\nContact: +92 310 7100663');
+        logout();
+      }
+    };
+
     window.addEventListener('authRequired', handleAuthRequired as EventListener);
+    window.addEventListener('sessionExpiredAnotherDevice', handleSessionExpiredAnotherDevice as EventListener);
+    window.addEventListener('accountDeactivated', handleAccountDeactivated as EventListener);
+
     return () => {
       window.removeEventListener('authRequired', handleAuthRequired as EventListener);
+      window.removeEventListener('sessionExpiredAnotherDevice', handleSessionExpiredAnotherDevice as EventListener);
+      window.removeEventListener('accountDeactivated', handleAccountDeactivated as EventListener);
     };
   }, [isAuthenticated, logout]);
 
