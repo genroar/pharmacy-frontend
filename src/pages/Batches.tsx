@@ -1958,19 +1958,19 @@ const BatchForm: React.FC<BatchFormProps> = ({
 
       {/* Stock & Pricing - Clean Simple Layout */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="space-y-2">
+          <div className="space-y-2">
           <Label>Total Boxes <span className="text-red-500">*</span></Label>
-          <Input
-            type="number"
+            <Input
+              type="number"
             placeholder="Add no. of boxes"
             value={formData.totalBoxes || ''}
             onChange={(e) => handleTotalBoxesChange(parseInt(e.target.value) || 0)}
-          />
-        </div>
-        <div className="space-y-2">
+            />
+          </div>
+          <div className="space-y-2">
           <Label>Units per Box <span className="text-red-500">*</span></Label>
-          <Input
-            type="number"
+            <Input
+              type="number"
             placeholder="Add no. of units per box"
             value={formData.unitsPerBox || ''}
             onChange={(e) => handleUnitsPerBoxChange(parseInt(e.target.value) || 1)}
@@ -1983,14 +1983,14 @@ const BatchForm: React.FC<BatchFormProps> = ({
             value={totalStockUnits}
             readOnly
             className="bg-gray-100 cursor-not-allowed"
-          />
+            />
+          </div>
         </div>
-      </div>
 
       {/* Pricing Row - Connected Inputs */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Cost Price - Connected Inputs */}
-        <div className="space-y-2">
+          <div className="space-y-2">
           <Label>Cost Price <span className="text-red-500">*</span></Label>
           <div className="flex items-center">
             <Input
@@ -2003,7 +2003,7 @@ const BatchForm: React.FC<BatchFormProps> = ({
             />
             <div className="flex items-center justify-center w-10 h-9 bg-gray-100 border border-gray-200">
               <LinkIcon />
-            </div>
+          </div>
             <Input
               type="number"
               step="0.01"
@@ -2016,7 +2016,7 @@ const BatchForm: React.FC<BatchFormProps> = ({
         </div>
 
         {/* Sell Price - Connected Inputs */}
-        <div className="space-y-2">
+          <div className="space-y-2">
           <Label>Sell Price <span className="text-red-500">*</span></Label>
           <div className="flex items-center">
             <Input
@@ -2029,7 +2029,7 @@ const BatchForm: React.FC<BatchFormProps> = ({
             />
             <div className="flex items-center justify-center w-10 h-9 bg-gray-100 border border-gray-200">
               <LinkIcon />
-            </div>
+          </div>
             <Input
               type="number"
               step="0.01"
@@ -2039,19 +2039,19 @@ const BatchForm: React.FC<BatchFormProps> = ({
               className="rounded-l-none border-l-0 focus:z-10"
             />
           </div>
-        </div>
+          </div>
       </div>
 
       {/* Min Stock Level */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="space-y-2">
+          <div className="space-y-2">
           <Label>Min Stock Level <span className="text-red-500">*</span></Label>
-          <Input
-            type="number"
-            placeholder="e.g., 10"
-            value={formData.minStockLevel}
-            onChange={(e) => setFormData({ ...formData, minStockLevel: parseInt(e.target.value) || 10 })}
-          />
+            <Input
+              type="number"
+              placeholder="e.g., 10"
+              value={formData.minStockLevel}
+              onChange={(e) => setFormData({ ...formData, minStockLevel: parseInt(e.target.value) || 10 })}
+            />
         </div>
       </div>
 

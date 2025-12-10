@@ -620,191 +620,191 @@ const CreateInvoice = () => {
 
     // Generate receipt HTML content
     const receiptHTML = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Pharmacy Receipt - ${currentReceipt.receiptNumber}</title>
-        <style>
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Pharmacy Receipt - ${currentReceipt.receiptNumber}</title>
+          <style>
           * { box-sizing: border-box; }
-          body {
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            line-height: 1.4;
-            margin: 0;
-            padding: 20px;
-            background: white;
-            color: black;
+            body {
+              font-family: 'Courier New', monospace;
+              font-size: 12px;
+              line-height: 1.4;
+              margin: 0;
+              padding: 20px;
+              background: white;
+              color: black;
             width: 300px;
-          }
-          .receipt-header {
-            text-align: center;
-            border-bottom: 2px solid #000;
-            padding-bottom: 10px;
-            margin-bottom: 15px;
-          }
-          .receipt-header h1 {
-            margin: 0;
+            }
+            .receipt-header {
+              text-align: center;
+              border-bottom: 2px solid #000;
+              padding-bottom: 10px;
+              margin-bottom: 15px;
+            }
+            .receipt-header h1 {
+              margin: 0;
             font-size: 16px;
-            font-weight: bold;
-          }
-          .receipt-header p {
-            margin: 5px 0;
+              font-weight: bold;
+            }
+            .receipt-header p {
+              margin: 5px 0;
+              font-size: 10px;
+            }
+            .receipt-info {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 15px;
             font-size: 10px;
-          }
-          .receipt-info {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 15px;
-            font-size: 10px;
-          }
-          .customer-info {
-            margin-bottom: 15px;
+            }
+            .customer-info {
+              margin-bottom: 15px;
             padding: 8px;
-            background: #f5f5f5;
-            border: 1px solid #ddd;
+              background: #f5f5f5;
+              border: 1px solid #ddd;
             font-size: 10px;
-          }
-          .customer-info h3 {
-            margin: 0 0 5px 0;
+            }
+            .customer-info h3 {
+              margin: 0 0 5px 0;
             font-size: 11px;
-          }
-          .items {
-            margin-bottom: 15px;
-          }
-          .items h3 {
-            margin: 0 0 10px 0;
+            }
+            .items {
+              margin-bottom: 15px;
+            }
+            .items h3 {
+              margin: 0 0 10px 0;
             font-size: 11px;
-            border-bottom: 1px solid #000;
-            padding-bottom: 5px;
-          }
-          .item {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 8px;
-            padding: 5px 0;
-            border-bottom: 1px dotted #ccc;
-          }
-          .item-name {
-            font-weight: bold;
+              border-bottom: 1px solid #000;
+              padding-bottom: 5px;
+            }
+            .item {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 8px;
+              padding: 5px 0;
+              border-bottom: 1px dotted #ccc;
+            }
+            .item-name {
+              font-weight: bold;
             font-size: 11px;
-          }
-          .item-details {
+            }
+            .item-details {
             font-size: 9px;
-            color: #666;
-            margin-top: 2px;
-          }
-          .item-price {
-            text-align: right;
-            font-weight: bold;
+              color: #666;
+              margin-top: 2px;
+            }
+            .item-price {
+              text-align: right;
+              font-weight: bold;
             font-size: 11px;
-          }
-          .totals {
-            border-top: 2px solid #000;
-            padding-top: 10px;
-            margin-top: 15px;
-          }
-          .total-line {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 5px;
+            }
+            .totals {
+              border-top: 2px solid #000;
+              padding-top: 10px;
+              margin-top: 15px;
+            }
+            .total-line {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 5px;
             font-size: 11px;
-          }
-          .total-final {
-            font-weight: bold;
-            font-size: 14px;
-            border-top: 1px solid #000;
-            padding-top: 5px;
-            margin-top: 10px;
-          }
-          .payment-info {
-            margin-top: 15px;
+            }
+            .total-final {
+              font-weight: bold;
+              font-size: 14px;
+              border-top: 1px solid #000;
+              padding-top: 5px;
+              margin-top: 10px;
+            }
+            .payment-info {
+              margin-top: 15px;
             padding: 8px;
-            background: #f0f0f0;
-            border: 1px solid #ccc;
+              background: #f0f0f0;
+              border: 1px solid #ccc;
             font-size: 10px;
-          }
-          .footer {
-            text-align: center;
-            margin-top: 20px;
+            }
+            .footer {
+              text-align: center;
+              margin-top: 20px;
             font-size: 9px;
-            color: #666;
-          }
-          @media print {
+              color: #666;
+            }
+            @media print {
             body { margin: 0; padding: 10px; width: 100%; }
             @page { size: 80mm auto; margin: 0; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="receipt-header">
+            }
+          </style>
+        </head>
+        <body>
+          <div class="receipt-header">
           <h1>Zapeera Pharmacy</h1>
-          <p>Your Health, Our Priority</p>
-        </div>
-
-        <div class="receipt-info">
-          <div>
-            <strong>Receipt:</strong> ${currentReceipt.receiptNumber}<br>
-            <strong>Date:</strong> ${currentReceipt.date}
+            <p>Your Health, Our Priority</p>
           </div>
-          <div>
-            <strong>Time:</strong> ${currentReceipt.time}<br>
-            <strong>Cashier:</strong> ${currentReceipt.cashier}
-          </div>
-        </div>
 
-        ${currentReceipt.customer ? `
-        <div class="customer-info">
-          <h3>Customer Information</h3>
-          <strong>Name:</strong> ${currentReceipt.customer.name}<br>
-          <strong>Phone:</strong> ${currentReceipt.customer.phone}<br>
-          ${currentReceipt.customer.email ? `<strong>Email:</strong> ${currentReceipt.customer.email}<br>` : ''}
-          ${currentReceipt.customer.address ? `<strong>Address:</strong> ${currentReceipt.customer.address}` : ''}
-        </div>
-        ` : ''}
-
-        <div class="items">
-          <h3>Items Purchased:</h3>
-          ${currentReceipt.items.map(item => `
-            <div class="item">
-              <div>
-                <div class="item-name">${item.name}</div>
-                <div class="item-details">${item.quantity} ${item.unitType} × PKR ${item.unitPrice.toFixed(2)}</div>
-                ${item.instructions ? `<div class="item-details">${item.instructions}</div>` : ''}
-              </div>
-              <div class="item-price">PKR ${item.totalPrice.toFixed(2)}</div>
+          <div class="receipt-info">
+            <div>
+              <strong>Receipt:</strong> ${currentReceipt.receiptNumber}<br>
+              <strong>Date:</strong> ${currentReceipt.date}
             </div>
-          `).join('')}
-        </div>
-
-        <div class="totals">
-          <div class="total-line">
-            <span>Subtotal:</span>
-            <span>PKR ${currentReceipt.subtotal.toFixed(2)}</span>
+            <div>
+              <strong>Time:</strong> ${currentReceipt.time}<br>
+              <strong>Cashier:</strong> ${currentReceipt.cashier}
+            </div>
           </div>
-          ${currentReceipt.discountPercentage && currentReceipt.discountPercentage > 0 ? `
-          <div class="total-line" style="color: #16a34a;">
-            <span>Discount (${currentReceipt.discountPercentage}%):</span>
-            <span>-PKR ${currentReceipt.discountAmount?.toFixed(2) || '0.00'}</span>
+
+          ${currentReceipt.customer ? `
+          <div class="customer-info">
+            <h3>Customer Information</h3>
+            <strong>Name:</strong> ${currentReceipt.customer.name}<br>
+            <strong>Phone:</strong> ${currentReceipt.customer.phone}<br>
+            ${currentReceipt.customer.email ? `<strong>Email:</strong> ${currentReceipt.customer.email}<br>` : ''}
+            ${currentReceipt.customer.address ? `<strong>Address:</strong> ${currentReceipt.customer.address}` : ''}
           </div>
           ` : ''}
-          <div class="total-line total-final">
-            <span>TOTAL:</span>
-            <span>PKR ${currentReceipt.total.toFixed(2)}</span>
+
+          <div class="items">
+            <h3>Items Purchased:</h3>
+            ${currentReceipt.items.map(item => `
+              <div class="item">
+                <div>
+                  <div class="item-name">${item.name}</div>
+                  <div class="item-details">${item.quantity} ${item.unitType} × PKR ${item.unitPrice.toFixed(2)}</div>
+                  ${item.instructions ? `<div class="item-details">${item.instructions}</div>` : ''}
+                </div>
+                <div class="item-price">PKR ${item.totalPrice.toFixed(2)}</div>
+              </div>
+            `).join('')}
           </div>
-        </div>
 
-        <div class="payment-info">
-          <strong>Payment Method:</strong> ${currentReceipt.paymentMethod.toUpperCase()}<br>
-          <strong>Status:</strong> ${currentReceipt.paymentStatus}
-        </div>
+          <div class="totals">
+            <div class="total-line">
+              <span>Subtotal:</span>
+              <span>PKR ${currentReceipt.subtotal.toFixed(2)}</span>
+            </div>
+            ${currentReceipt.discountPercentage && currentReceipt.discountPercentage > 0 ? `
+            <div class="total-line" style="color: #16a34a;">
+              <span>Discount (${currentReceipt.discountPercentage}%):</span>
+              <span>-PKR ${currentReceipt.discountAmount?.toFixed(2) || '0.00'}</span>
+            </div>
+            ` : ''}
+            <div class="total-line total-final">
+              <span>TOTAL:</span>
+              <span>PKR ${currentReceipt.total.toFixed(2)}</span>
+            </div>
+          </div>
 
-        <div class="footer">
+          <div class="payment-info">
+            <strong>Payment Method:</strong> ${currentReceipt.paymentMethod.toUpperCase()}<br>
+            <strong>Status:</strong> ${currentReceipt.paymentStatus}
+          </div>
+
+          <div class="footer">
           <p>Thank you for choosing Zapeera!</p>
           <p>For any queries, contact us</p>
-          <p>Your Health, Our Priority</p>
-        </div>
-      </body>
-    </html>
+            <p>Your Health, Our Priority</p>
+          </div>
+        </body>
+      </html>
     `;
 
     // Create a hidden iframe for printing (works in Electron)
@@ -825,7 +825,7 @@ const CreateInvoice = () => {
 
       // Wait for content to load, then print
       printFrame.onload = () => {
-        setTimeout(() => {
+      setTimeout(() => {
           try {
             printFrame.contentWindow?.focus();
             printFrame.contentWindow?.print();
@@ -839,8 +839,8 @@ const CreateInvoice = () => {
               setTimeout(() => {
                 newWindow.print();
                 newWindow.close();
-              }, 500);
-            }
+      }, 500);
+    }
           }
           // Clean up iframe after printing
           setTimeout(() => {
@@ -878,22 +878,22 @@ const CreateInvoice = () => {
         }
       } else {
         // Fallback for browser: Use blob download
-        const blob = new Blob([receiptHTML], { type: 'text/html' });
-        const url = URL.createObjectURL(blob);
+      const blob = new Blob([receiptHTML], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
 
-        const link = document.createElement('a');
-        link.href = url;
+      const link = document.createElement('a');
+      link.href = url;
         link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
 
-        URL.revokeObjectURL(url);
+      URL.revokeObjectURL(url);
 
-        toast({
-          title: "Receipt Downloaded",
-          description: "Receipt has been downloaded successfully!",
-        });
+      toast({
+        title: "Receipt Downloaded",
+        description: "Receipt has been downloaded successfully!",
+      });
       }
     } catch (error) {
       console.error('Error downloading receipt:', error);

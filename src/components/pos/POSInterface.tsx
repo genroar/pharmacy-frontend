@@ -1417,195 +1417,195 @@ const POSInterface = () => {
 
     // Generate receipt HTML content
     const receiptHTML = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Pharmacy Receipt - ${currentReceipt.receiptNumber}</title>
-        <style>
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Pharmacy Receipt - ${currentReceipt.receiptNumber}</title>
+          <style>
           * { box-sizing: border-box; }
-          body {
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            line-height: 1.4;
-            margin: 0;
-            padding: 20px;
-            background: white;
-            color: black;
+            body {
+              font-family: 'Courier New', monospace;
+              font-size: 12px;
+              line-height: 1.4;
+              margin: 0;
+              padding: 20px;
+              background: white;
+              color: black;
             width: 300px;
-          }
-          .receipt {
-            max-width: 300px;
-            margin: 0 auto;
-          }
-          .header {
-            text-align: center;
-            border-bottom: 2px solid #000;
-            padding-bottom: 10px;
-            margin-bottom: 15px;
-          }
-          .header h1 {
+            }
+            .receipt {
+              max-width: 300px;
+              margin: 0 auto;
+            }
+            .header {
+              text-align: center;
+              border-bottom: 2px solid #000;
+              padding-bottom: 10px;
+              margin-bottom: 15px;
+            }
+            .header h1 {
             font-size: 16px;
-            margin: 0;
-            font-weight: bold;
-          }
-          .header p {
-            font-size: 10px;
-            margin: 5px 0;
-          }
-          .receipt-info {
-            display: flex;
-            justify-content: space-between;
-            font-size: 10px;
-            margin-bottom: 15px;
-          }
-          .customer-info {
-            border: 1px solid #000;
-            padding: 8px;
-            margin-bottom: 15px;
-            font-size: 10px;
-          }
-          .customer-info h3 {
-            margin: 0 0 5px 0;
+              margin: 0;
+              font-weight: bold;
+            }
+            .header p {
+              font-size: 10px;
+              margin: 5px 0;
+            }
+            .receipt-info {
+              display: flex;
+              justify-content: space-between;
+              font-size: 10px;
+              margin-bottom: 15px;
+            }
+            .customer-info {
+              border: 1px solid #000;
+              padding: 8px;
+              margin-bottom: 15px;
+              font-size: 10px;
+            }
+            .customer-info h3 {
+              margin: 0 0 5px 0;
+              font-size: 11px;
+              font-weight: bold;
+            }
+            .items {
+              margin-bottom: 15px;
+            }
+            .item {
+              display: flex;
+              justify-content: space-between;
+              padding: 3px 0;
+              border-bottom: 1px dotted #ccc;
+            }
+            .item-name {
+              flex: 1;
+              font-weight: bold;
             font-size: 11px;
-            font-weight: bold;
-          }
-          .items {
-            margin-bottom: 15px;
-          }
-          .item {
-            display: flex;
-            justify-content: space-between;
-            padding: 3px 0;
-            border-bottom: 1px dotted #ccc;
-          }
-          .item-name {
-            flex: 1;
-            font-weight: bold;
+            }
+            .item-details {
+              font-size: 9px;
+              color: #666;
+            }
+            .item-price {
+              font-weight: bold;
             font-size: 11px;
-          }
-          .item-details {
-            font-size: 9px;
-            color: #666;
-          }
-          .item-price {
-            font-weight: bold;
+            }
+            .totals {
+              border-top: 2px solid #000;
+              padding-top: 10px;
+              margin-top: 15px;
+            }
+            .total-line {
+              display: flex;
+              justify-content: space-between;
+              padding: 2px 0;
             font-size: 11px;
-          }
-          .totals {
-            border-top: 2px solid #000;
-            padding-top: 10px;
-            margin-top: 15px;
-          }
-          .total-line {
-            display: flex;
-            justify-content: space-between;
-            padding: 2px 0;
-            font-size: 11px;
-          }
-          .total-final {
-            font-weight: bold;
-            font-size: 14px;
-            border-top: 1px solid #000;
-            padding-top: 5px;
-            margin-top: 5px;
-          }
-          .payment-info {
-            border: 1px solid #000;
-            padding: 8px;
-            margin: 15px 0;
-            font-size: 10px;
-          }
-          .footer {
-            text-align: center;
-            font-size: 9px;
-            margin-top: 20px;
-            border-top: 1px solid #000;
-            padding-top: 10px;
-          }
-          @media print {
+            }
+            .total-final {
+              font-weight: bold;
+              font-size: 14px;
+              border-top: 1px solid #000;
+              padding-top: 5px;
+              margin-top: 5px;
+            }
+            .payment-info {
+              border: 1px solid #000;
+              padding: 8px;
+              margin: 15px 0;
+              font-size: 10px;
+            }
+            .footer {
+              text-align: center;
+              font-size: 9px;
+              margin-top: 20px;
+              border-top: 1px solid #000;
+              padding-top: 10px;
+            }
+            @media print {
             body { margin: 0; padding: 10px; width: 100%; }
-            .receipt { max-width: none; }
+              .receipt { max-width: none; }
             @page { size: 80mm auto; margin: 0; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="receipt">
-          <div class="header">
+            }
+          </style>
+        </head>
+        <body>
+          <div class="receipt">
+            <div class="header">
             <h1>Zapeera Pharmacy</h1>
-            <p>Your Health, Our Priority</p>
-          </div>
-
-          <div class="receipt-info">
-            <div>
-              <strong>Receipt:</strong> ${currentReceipt.receiptNumber}<br>
-              <strong>Date:</strong> ${currentReceipt.date}
+              <p>Your Health, Our Priority</p>
             </div>
-            <div>
-              <strong>Time:</strong> ${currentReceipt.time}<br>
-              <strong>Cashier:</strong> ${currentReceipt.cashier}
-            </div>
-          </div>
 
-          ${currentReceipt.customer ? `
-          <div class="customer-info">
-            <h3>Customer Information</h3>
-            <strong>Name:</strong> ${currentReceipt.customer.name}<br>
-            <strong>Phone:</strong> ${currentReceipt.customer.phone}<br>
-            ${currentReceipt.customer.email ? `<strong>Email:</strong> ${currentReceipt.customer.email}<br>` : ''}
-            ${currentReceipt.customer.address ? `<strong>Address:</strong> ${currentReceipt.customer.address}` : ''}
-          </div>
-          ` : ''}
-
-          <div class="items">
-            <h3>Items Purchased:</h3>
-            ${currentReceipt.items.map(item => `
-              <div class="item">
-                <div>
-                  <div class="item-name">${item.name}</div>
-                  <div class="item-details">${item.quantity} ${item.unitType} × PKR ${item.unitPrice.toFixed(2)}</div>
-                  ${item.instructions ? `<div class="item-details">${item.instructions}</div>` : ''}
-                </div>
-                <div class="item-price">PKR ${item.totalPrice.toFixed(2)}</div>
+            <div class="receipt-info">
+              <div>
+                <strong>Receipt:</strong> ${currentReceipt.receiptNumber}<br>
+                <strong>Date:</strong> ${currentReceipt.date}
               </div>
-            `).join('')}
-          </div>
-
-          <div class="totals">
-            <div class="total-line">
-              <span>Subtotal:</span>
-              <span>PKR ${currentReceipt.subtotal.toFixed(2)}</span>
+              <div>
+                <strong>Time:</strong> ${currentReceipt.time}<br>
+                <strong>Cashier:</strong> ${currentReceipt.cashier}
+              </div>
             </div>
-            ${currentReceipt.discountPercentage && currentReceipt.discountPercentage > 0 ? `
-            <div class="total-line" style="color: #16a34a;">
-              <span>Discount (${currentReceipt.discountPercentage}%):</span>
-              <span>-PKR ${currentReceipt.discountAmount?.toFixed(2) || '0.00'}</span>
+
+            ${currentReceipt.customer ? `
+            <div class="customer-info">
+              <h3>Customer Information</h3>
+              <strong>Name:</strong> ${currentReceipt.customer.name}<br>
+              <strong>Phone:</strong> ${currentReceipt.customer.phone}<br>
+              ${currentReceipt.customer.email ? `<strong>Email:</strong> ${currentReceipt.customer.email}<br>` : ''}
+              ${currentReceipt.customer.address ? `<strong>Address:</strong> ${currentReceipt.customer.address}` : ''}
             </div>
             ` : ''}
-            <div class="total-line total-final">
-              <span>TOTAL:</span>
-              <span>PKR ${currentReceipt.total.toFixed(2)}</span>
+
+            <div class="items">
+              <h3>Items Purchased:</h3>
+              ${currentReceipt.items.map(item => `
+                <div class="item">
+                  <div>
+                    <div class="item-name">${item.name}</div>
+                    <div class="item-details">${item.quantity} ${item.unitType} × PKR ${item.unitPrice.toFixed(2)}</div>
+                    ${item.instructions ? `<div class="item-details">${item.instructions}</div>` : ''}
+                  </div>
+                  <div class="item-price">PKR ${item.totalPrice.toFixed(2)}</div>
+                </div>
+              `).join('')}
             </div>
-          </div>
 
-          <div class="payment-info">
-            <strong>Payment Method:</strong> ${currentReceipt.paymentMethod.toUpperCase()}<br>
-            <strong>Status:</strong> ${currentReceipt.paymentStatus}
-            ${selectedPayment === 'cash' && changeAmount > 0 ? `
-              <br><strong>Cash Received:</strong> PKR ${parseFloat(cashAmount).toFixed(2)}
-              <br><strong>Change:</strong> PKR ${changeAmount.toFixed(2)}
-            ` : ''}
-          </div>
+            <div class="totals">
+              <div class="total-line">
+                <span>Subtotal:</span>
+                <span>PKR ${currentReceipt.subtotal.toFixed(2)}</span>
+              </div>
+              ${currentReceipt.discountPercentage && currentReceipt.discountPercentage > 0 ? `
+              <div class="total-line" style="color: #16a34a;">
+                <span>Discount (${currentReceipt.discountPercentage}%):</span>
+                <span>-PKR ${currentReceipt.discountAmount?.toFixed(2) || '0.00'}</span>
+              </div>
+              ` : ''}
+              <div class="total-line total-final">
+                <span>TOTAL:</span>
+                <span>PKR ${currentReceipt.total.toFixed(2)}</span>
+              </div>
+            </div>
 
-          <div class="footer">
+            <div class="payment-info">
+              <strong>Payment Method:</strong> ${currentReceipt.paymentMethod.toUpperCase()}<br>
+              <strong>Status:</strong> ${currentReceipt.paymentStatus}
+              ${selectedPayment === 'cash' && changeAmount > 0 ? `
+                <br><strong>Cash Received:</strong> PKR ${parseFloat(cashAmount).toFixed(2)}
+                <br><strong>Change:</strong> PKR ${changeAmount.toFixed(2)}
+              ` : ''}
+            </div>
+
+            <div class="footer">
             <p>Thank you for choosing Zapeera!</p>
-            <p>Please keep this receipt for your records</p>
-            <p><strong>Important:</strong> Follow dosage instructions carefully.<br>
-            Consult your doctor if you have any questions.</p>
+              <p>Please keep this receipt for your records</p>
+              <p><strong>Important:</strong> Follow dosage instructions carefully.<br>
+              Consult your doctor if you have any questions.</p>
+            </div>
           </div>
-        </div>
-      </body>
-      </html>
+        </body>
+        </html>
     `;
 
     // Create a hidden iframe for printing (works in Electron)
@@ -1626,7 +1626,7 @@ const POSInterface = () => {
 
       // Wait for content to load, then print
       printFrame.onload = () => {
-        setTimeout(() => {
+      setTimeout(() => {
           try {
             printFrame.contentWindow?.focus();
             printFrame.contentWindow?.print();
@@ -1640,8 +1640,8 @@ const POSInterface = () => {
               setTimeout(() => {
                 newWindow.print();
                 newWindow.close();
-              }, 500);
-            }
+      }, 500);
+    }
           }
           // Clean up iframe after printing
           setTimeout(() => {
@@ -1676,17 +1676,17 @@ const POSInterface = () => {
         }
       } else {
         // Fallback for browser: Use blob download
-        const blob = new Blob([receiptHTML], { type: 'text/html' });
-        const url = URL.createObjectURL(blob);
+      const blob = new Blob([receiptHTML], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
 
-        const link = document.createElement('a');
-        link.href = url;
+      const link = document.createElement('a');
+      link.href = url;
         link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
 
-        URL.revokeObjectURL(url);
+      URL.revokeObjectURL(url);
       }
     } catch (error) {
       console.error('Error downloading receipt:', error);
