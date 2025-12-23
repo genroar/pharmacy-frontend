@@ -663,6 +663,16 @@ const POSInterface = () => {
   };
 
   const addToCart = (product: Product, quantity: number, unitType: string) => {
+    // Show prescription warning if product requires prescription
+    if (product.requiresPrescription) {
+      toast({
+        title: "⚠️ Prescription Required",
+        description: `"${product.name}" requires a valid doctor's prescription before sale. Please verify the prescription.`,
+        variant: "destructive",
+        duration: 5000,
+      });
+    }
+
     const existingItem = cart.find(item =>
       item.name === product.name && item.unitType === unitType
     );
@@ -1420,7 +1430,7 @@ const POSInterface = () => {
         <!DOCTYPE html>
         <html>
         <head>
-          <title>Pharmacy Receipt - ${currentReceipt.receiptNumber}</title>
+          <title>Receipt - ${currentReceipt.receiptNumber}</title>
           <style>
           * { box-sizing: border-box; }
             body {
@@ -1532,7 +1542,7 @@ const POSInterface = () => {
         <body>
           <div class="receipt">
             <div class="header">
-            <h1>Zapeera Pharmacy</h1>
+            <h1>Zapeera</h1>
               <p>Your Health, Our Priority</p>
             </div>
 
@@ -1805,7 +1815,7 @@ const POSInterface = () => {
       </head>
       <body>
         <div class="receipt-header">
-          <h1>Zapeera Pharmacy</h1>
+          <h1>Zapeera</h1>
           <p>Your Health, Our Priority</p>
         </div>
 
@@ -1871,7 +1881,7 @@ const POSInterface = () => {
         </div>
 
         <div class="footer">
-          <p>Thank you for choosing Zapeera Pharmacy! Please keep this receipt for your records</p>
+          <p>Thank you for choosing Zapeera! Please keep this receipt for your records</p>
           <div class="important-note">
             <strong>Important:</strong> Follow dosage instructions carefully. Consult your doctor if you have any questions.
           </div>
@@ -1889,7 +1899,7 @@ const POSInterface = () => {
 
     try {
       // Create a concise SMS message
-      const smsMessage = `Zapeera Pharmacy Receipt
+      const smsMessage = `Zapeera Receipt
 Receipt: ${currentReceipt.receiptNumber}
 Total: PKR ${currentReceipt.total.toFixed(2)}
 Date: ${currentReceipt.date} ${currentReceipt.time}
@@ -1946,12 +1956,12 @@ Thank you for choosing us!`;
 
     try {
       // In a real implementation, you would call an email API service
-      const emailSubject = `Receipt from Zapeera Pharmacy - ${currentReceipt.receiptNumber}`;
+      const emailSubject = `Receipt from Zapeera - ${currentReceipt.receiptNumber}`;
 
       const emailBody = `
 Dear ${currentReceipt.customer.name},
 
-Thank you for your purchase at Zapeera Pharmacy!
+Thank you for your purchase at Zapeera!
 
 Receipt Details:
 - Receipt Number: ${currentReceipt.receiptNumber}
@@ -1976,11 +1986,11 @@ Please keep this receipt for your records.
 
 Important: Follow dosage instructions carefully. Consult your doctor if you have any questions.
 
-Thank you for choosing Zapeera Pharmacy!
+Thank you for choosing Zapeera!
 Your Health, Our Priority
 
 Best regards,
-Zapeera Pharmacy Team
+Zapeera Team
       `;
 
       // Create a mailto link with the email content
@@ -2398,7 +2408,7 @@ Sale amount has been deducted from reports.`);
             <div className="flex items-center justify-between">
             <CardTitle className="flex items-center space-x-2">
               <Search className="w-5 h-5 text-[#0c2c8a]" />
-              <span>Pharmacy Product Search</span>
+              <span>Product Search</span>
             </CardTitle>
               <div className="flex space-x-2">
                 <Button
@@ -2526,9 +2536,17 @@ Sale amount has been deducted from reports.`);
                 </div>
               ) : (
                 filteredProducts.map((product) => (
-                  <Card key={product.id} className="cursor-pointer hover:shadow-medium transition-shadow">
+                  <Card key={product.id} className={`cursor-pointer hover:shadow-medium transition-shadow ${product.requiresPrescription ? 'border-amber-300 bg-amber-50/30' : ''}`}>
                     <CardContent className="p-4">
                       <div className="space-y-3">
+                        {/* Prescription Badge */}
+                        {product.requiresPrescription && (
+                          <div className="flex items-center justify-center gap-1 bg-amber-100 text-amber-800 text-xs font-medium px-2 py-1 rounded-full">
+                            <AlertCircle className="w-3 h-3" />
+                            Prescription Required
+                          </div>
+                        )}
+
                         {/* Product Name */}
                         <div className="text-center">
                           <h4 className="font-medium text-sm text-foreground mb-2">{product.name}</h4>
@@ -2541,6 +2559,16 @@ Sale amount has been deducted from reports.`);
                             {product.stock} left
                           </Badge>
                         </div>
+
+                        {/* Prescription Required Badge below price */}
+                        {product.requiresPrescription && (
+                          <div className="mt-2 flex justify-center">
+                            <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-xs px-2 py-1">
+                              <AlertCircle className="w-3 h-3 mr-1" />
+                              Rx Required
+                            </Badge>
+                          </div>
+                        )}
 
                       </div>
                     </CardContent>
@@ -2592,7 +2620,7 @@ Sale amount has been deducted from reports.`);
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
-              <span>Pharmacy Receipt</span>
+              <span>Receipt</span>
               <div className="flex space-x-2">
                 <Button variant="outline" size="sm" onClick={printReceipt}>
                   <Printer className="w-4 h-4 mr-2" />
@@ -2636,7 +2664,7 @@ Sale amount has been deducted from reports.`);
 
               {/* Receipt Header */}
               <div className="text-center border-b pb-4">
-                <h2 className="text-2xl font-bold text-primary">Zapeera Pharmacy</h2>
+                <h2 className="text-2xl font-bold text-primary">Zapeera</h2>
                 <p className="text-muted-foreground">Your Health, Our Priority</p>
                 <div className="flex justify-between text-sm mt-4">
                   <div>
@@ -2721,7 +2749,7 @@ Sale amount has been deducted from reports.`);
 
               {/* Footer */}
               <div className="text-center text-sm text-muted-foreground border-t pt-4">
-                <p>Thank you for choosing Zapeera Pharmacy!</p>
+                <p>Thank you for choosing Zapeera!</p>
                 <p>Please keep this receipt for your records</p>
                 <p className="mt-2">
                   <strong>Important:</strong> Follow dosage instructions carefully.
@@ -2859,10 +2887,18 @@ Sale amount has been deducted from reports.`);
                             </div>
                           </div>
 
-                          {/* Price */}
-                          <span className="text-sm font-bold text-primary whitespace-nowrap">
-                            PKR {product.price}
-                          </span>
+                          {/* Price and Prescription Badge */}
+                          <div className="flex flex-col items-end">
+                            <span className="text-sm font-bold text-primary whitespace-nowrap">
+                              PKR {product.price}
+                            </span>
+                            {product.requiresPrescription && (
+                              <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px] px-1.5 py-0.5 mt-1">
+                                <AlertCircle className="w-2.5 h-2.5 mr-0.5" />
+                                Rx
+                              </Badge>
+                            )}
+                          </div>
 
                           {/* Quantity Input */}
                           <Input

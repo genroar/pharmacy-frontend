@@ -103,11 +103,11 @@ const ManagerUserManagement = () => {
         );
         setUsers(cashierUsers);
       } else {
-        setError("Failed to load users");
+        setError("Failed to load staff");
       }
     } catch (err) {
       console.error("Error loading users:", err);
-      setError("Failed to load users");
+      setError("Failed to load staff");
     } finally {
       setIsLoading(false);
     }
@@ -142,7 +142,7 @@ const ManagerUserManagement = () => {
       });
 
       if (response.success) {
-        setSuccess("User created successfully");
+        setSuccess("Staff created successfully");
         setIsCreateDialogOpen(false);
         setNewUser({
           name: "",
@@ -154,11 +154,11 @@ const ManagerUserManagement = () => {
         });
         loadUsers();
       } else {
-        setError(response.message || "Failed to create user");
+        setError(response.message || "Failed to create staff");
       }
     } catch (err) {
       console.error("Error creating user:", err);
-      setError("Failed to create user");
+      setError("Failed to create staff");
     }
   };
 
@@ -169,16 +169,16 @@ const ManagerUserManagement = () => {
 
       const response = await apiService.deleteUser(userId);
       if (response.success) {
-        setSuccess("User deleted successfully");
+        setSuccess("Staff deleted successfully");
         setIsDeleteDialogOpen(false);
         setSelectedUser(null);
         loadUsers();
       } else {
-        setError(response.message || "Failed to delete user");
+        setError(response.message || "Failed to delete staff");
       }
     } catch (err) {
       console.error("Error deleting user:", err);
-      setError("Failed to delete user");
+      setError("Failed to delete staff");
     }
   };
 
@@ -195,11 +195,11 @@ const ManagerUserManagement = () => {
         setSuccess(`User ${!currentStatus ? 'activated' : 'deactivated'} successfully`);
         loadUsers();
       } else {
-        setError(response.message || "Failed to update user status");
+        setError(response.message || "Failed to update staff status");
       }
     } catch (err) {
       console.error("Error updating user status:", err);
-      setError("Failed to update user status");
+      setError("Failed to update staff status");
     }
   };
 
@@ -351,7 +351,7 @@ const ManagerUserManagement = () => {
                           Cancel
                         </Button>
                         <Button onClick={handleCreateUser}>
-                          Create User
+                          Create Staff
                         </Button>
                       </div>
                     </div>
@@ -492,11 +492,11 @@ const ManagerUserManagement = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Delete User Dialog */}
+        {/* Delete Staff Dialog */}
         <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Delete User</DialogTitle>
+              <DialogTitle>Delete Staff</DialogTitle>
             </DialogHeader>
             {selectedUser && (
               <div className="space-y-4">
@@ -515,7 +515,7 @@ const ManagerUserManagement = () => {
                     variant="destructive"
                     onClick={() => handleDeleteUser(selectedUser.id)}
                   >
-                    Delete User
+                    Delete Staff
                   </Button>
                 </div>
               </div>

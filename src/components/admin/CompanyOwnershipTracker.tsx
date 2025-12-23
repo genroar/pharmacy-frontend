@@ -157,7 +157,7 @@ const CompanyOwnershipTracker = () => {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Search companies, admins, or emails..."
+              placeholder="Search businesses, admins, or emails..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -277,7 +277,7 @@ const CompanyOwnershipTracker = () => {
                   </div>
                   <div className="text-center p-2 bg-green-50 rounded">
                     <p className="text-2xl font-bold text-green-600">{item.usersCount}</p>
-                    <p className="text-xs text-gray-600">Users</p>
+                    <p className="text-xs text-gray-600">Staff</p>
                   </div>
                 </div>
 
@@ -311,7 +311,7 @@ const CompanyOwnershipTracker = () => {
           <p className="text-muted-foreground">
             {searchQuery || filterRole !== "all"
               ? "Try adjusting your search criteria"
-              : "No companies have been created yet"
+              : "No businesses have been created yet"
             }
           </p>
         </div>

@@ -121,7 +121,7 @@ const ZapeeraDashboard = () => {
 
     // Basic validation
     if (!formData.name.trim()) {
-      setFormErrors({ name: 'Company name is required' });
+      setFormErrors({ name: 'Business name is required' });
       setIsSubmitting(false);
       return;
     }
@@ -131,7 +131,7 @@ const ZapeeraDashboard = () => {
       if (response.success) {
         toast({
           title: "Success",
-          description: "Company created successfully!",
+          description: "Business created successfully!",
         });
 
         // Reset form
@@ -149,7 +149,7 @@ const ZapeeraDashboard = () => {
       } else {
         toast({
           title: "Error",
-          description: response.message || "Failed to create company",
+          description: response.message || "Failed to create business",
           variant: "destructive",
         });
       }
@@ -157,7 +157,7 @@ const ZapeeraDashboard = () => {
       console.error('Error creating company:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to create company",
+        description: error.message || "Failed to create business",
         variant: "destructive",
       });
     } finally {
@@ -186,24 +186,8 @@ const ZapeeraDashboard = () => {
   };
 
   const handleScheduleDemo = () => {
-    // Open email client to schedule a demo call
-    const subject = "Schedule Demo Call - Zapeera";
-    const body = `Hello,
-
-I would like to schedule a demo call to learn more about Zapeera.
-
-Please let me know your available time slots.
-
-Best regards,
-${user?.name || 'User'}`;
-
-    const emailUrl = `mailto:support@zapeera.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.open(emailUrl, '_blank');
-  };
-
-  const handleExploreDemo = () => {
-    // Implement demo business exploration
-    console.log("Explore demo business clicked");
+    // Redirect to Zapeera contact page
+    window.open('https://zapeera.com/contact', '_blank');
   };
 
   const handleContactSupport = () => {
@@ -435,12 +419,6 @@ ${currentUser?.name || 'User'}`;
               >
                 Schedule a Demo Call
               </button>
-              <button
-                onClick={handleExploreDemo}
-                className="text-blue-600 hover:text-blue-700 font-medium"
-              >
-                Explore Demo Business
-              </button>
             </div>
           </div>
 
@@ -514,7 +492,7 @@ ${currentUser?.name || 'User'}`;
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className={`mt-1 ${formErrors.name ? 'border-red-500' : ''}`}
-                placeholder="Enter company name"
+                placeholder="Enter business name"
               />
               {formErrors.name && (
                 <p className="text-red-500 text-xs mt-1">{formErrors.name}</p>
@@ -530,7 +508,7 @@ ${currentUser?.name || 'User'}`;
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 className="mt-1"
-                placeholder="Enter company description"
+                placeholder="Enter business description"
                 rows={3}
               />
             </div>
@@ -545,7 +523,7 @@ ${currentUser?.name || 'User'}`;
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                 className="mt-1"
-                placeholder="Enter company address"
+                placeholder="Enter business address"
               />
             </div>
 
@@ -591,7 +569,7 @@ ${currentUser?.name || 'User'}`;
                 disabled={isSubmitting}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2"
               >
-                {isSubmitting ? 'Creating...' : 'Create Company'}
+                {isSubmitting ? 'Creating...' : 'Create Business'}
               </Button>
             </DialogFooter>
           </form>

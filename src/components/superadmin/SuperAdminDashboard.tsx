@@ -278,74 +278,74 @@ const SuperAdminDashboard = () => {
         {
           id: '1',
           type: 'admin_created',
-          message: 'New pharmacy registered',
-          details: 'PharmacyFinder pharmacy joined the platform',
+          message: 'New business registered',
+          details: 'TechSolutions business joined the platform',
           timestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-          adminName: 'PharmacyFinder'
+          adminName: 'TechSolutions'
         },
         {
           id: '2',
           type: 'subscription_updated',
           message: 'Subscription plan upgraded',
-          details: 'PharmacyFinder subscribed to Enterprise plan',
+          details: 'TechSolutions subscribed to Enterprise plan',
           timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-          adminName: 'PharmacyFinder'
+          adminName: 'TechSolutions'
         },
         {
           id: '3',
           type: 'branch_added',
           message: 'New branch added',
-          details: 'Johar Town branch added by PharmacyFinder pharmacy',
+          details: 'Johar Town branch added by TechSolutions business',
           timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-          adminName: 'PharmacyFinder'
+          adminName: 'TechSolutions'
         },
         {
           id: '4',
           type: 'payment_received',
           message: 'Payment received',
-          details: 'PKR 20,000 from MediCare Pharmacy',
+          details: 'PKR 20,000 from RetailPro Store',
           timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
-          adminName: 'MediCare Pharmacy'
+          adminName: 'RetailPro Store'
         },
         {
           id: '5',
           type: 'user_registered',
           message: 'New user registered',
-          details: 'Pharmacist added to City Pharmacy',
+          details: 'Staff member added to City Store',
           timestamp: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
-          adminName: 'City Pharmacy'
+          adminName: 'City Store'
         },
         {
           id: '6',
           type: 'admin_created',
-          message: 'New pharmacy registered',
-          details: 'HealthPlus Pharmacy joined the platform',
+          message: 'New business registered',
+          details: 'HealthPlus Store joined the platform',
           timestamp: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
-          adminName: 'HealthPlus Pharmacy'
+          adminName: 'HealthPlus Store'
         },
         {
           id: '7',
           type: 'subscription_updated',
           message: 'Subscription plan downgraded',
-          details: 'MediCare Pharmacy downgraded to Basic plan',
+          details: 'RetailPro Store downgraded to Basic plan',
           timestamp: new Date(Date.now() - 18 * 60 * 60 * 1000).toISOString(),
-          adminName: 'MediCare Pharmacy'
+          adminName: 'RetailPro Store'
         },
         {
           id: '8',
           type: 'branch_added',
           message: 'New branch added',
-          details: 'Gulberg branch added by City Pharmacy',
+          details: 'Gulberg branch added by City Store',
           timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-          adminName: 'City Pharmacy'
+          adminName: 'City Store'
         },
         {
           id: '9',
           type: 'payment_received',
           message: 'Payment received',
-          details: 'PKR 5,000 from HealthPlus Pharmacy',
+          details: 'PKR 5,000 from HealthPlus Store',
           timestamp: new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString(),
-          adminName: 'HealthPlus Pharmacy'
+          adminName: 'HealthPlus Store'
         },
         {
           id: '10',
@@ -368,7 +368,7 @@ const SuperAdminDashboard = () => {
       } else {
         toast({
           title: "Error",
-          description: "Failed to load users",
+          description: "Failed to load staff",
           variant: "destructive",
         });
       }
@@ -376,7 +376,7 @@ const SuperAdminDashboard = () => {
       console.error('Error loading admin users:', error);
       toast({
         title: "Error",
-        description: "Failed to load users",
+        description: "Failed to load staff",
         variant: "destructive",
       });
     } finally {
@@ -430,7 +430,7 @@ const SuperAdminDashboard = () => {
       } else {
         toast({
           title: "Error",
-          description: "Failed to update user status",
+          description: "Failed to update staff status",
           variant: "destructive",
         });
       }
@@ -438,7 +438,7 @@ const SuperAdminDashboard = () => {
       console.error('Error updating user status:', error);
       toast({
         title: "Error",
-        description: "Failed to update user status",
+        description: "Failed to update staff status",
         variant: "destructive",
       });
     }
@@ -565,7 +565,7 @@ const SuperAdminDashboard = () => {
         (!newAdmin.name ? 'Name, ' : '') +
         (!newAdmin.email ? 'Email, ' : '') +
         (!newAdmin.phone ? 'Phone, ' : '') +
-        (!newAdmin.company ? 'Company, ' : '') +
+        (!newAdmin.company ? 'Business, ' : '') +
         (!newAdmin.password ? 'Password' : '')
       );
       return;
@@ -668,7 +668,7 @@ const SuperAdminDashboard = () => {
 
   const sidebarItems = [
     { id: 'overview', label: 'Dashboard', icon: BarChart3 },
-    { id: 'admins', label: 'Companies Management', icon: Users },
+    { id: 'admins', label: 'Businesses Management', icon: Users },
     { id: 'users', label: 'User Analytics', icon: PieChart },
     { id: 'payments', label: 'subscription & billing', icon: CreditCard },
     { id: 'settings', label: 'Settings', icon: Settings }
@@ -894,10 +894,10 @@ const SuperAdminDashboard = () => {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="adminCompany">Company Name *</Label>
+                        <Label htmlFor="adminCompany">Business Name *</Label>
                         <Input
                           id="adminCompany"
-                          placeholder="Enter company name"
+                          placeholder="Enter business name"
                           value={newAdmin.company}
                           onChange={(e) => setNewAdmin({ ...newAdmin, company: e.target.value })}
                         />
@@ -1241,7 +1241,7 @@ const SuperAdminDashboard = () => {
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
-                      placeholder="Search admins by name, company, or email..."
+                      placeholder="Search admins by name, business, or email..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="pl-10"
@@ -1744,7 +1744,7 @@ const SuperAdminDashboard = () => {
             <Tabs defaultValue="overview" className="w-full">
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="users">Users ({users.length})</TabsTrigger>
+                <TabsTrigger value="users">Staff ({users.length})</TabsTrigger>
                 <TabsTrigger value="branches">Branches</TabsTrigger>
               </TabsList>
 
@@ -1967,7 +1967,7 @@ const SuperAdminDashboard = () => {
                           <div className="grid grid-cols-3 gap-2 pt-2 border-t">
                             <div className="text-center">
                               <p className="text-lg font-bold text-[#0C2C8A]">{branch._count?.users || 0}</p>
-                              <p className="text-xs text-muted-foreground">Users</p>
+                              <p className="text-xs text-muted-foreground">Staff</p>
                             </div>
                             <div className="text-center">
                               <p className="text-lg font-bold text-[#0C2C8A]">{branch._count?.products || 0}</p>

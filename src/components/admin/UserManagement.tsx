@@ -62,6 +62,7 @@ interface User {
 interface Branch {
   id: string;
   name: string;
+  companyId?: string;
 }
 
 const UserManagement = () => {
@@ -219,11 +220,11 @@ const UserManagement = () => {
         }
       } else {
         console.error('API response not successful:', response);
-        setError(response.message || "Failed to load users");
+        setError(response.message || "Failed to load staff");
       }
     } catch (error) {
       console.error('Error loading users:', error);
-      setError("Failed to load users. Please check your connection and try again.");
+      setError("Failed to load staff. Please check your connection and try again.");
     } finally {
       setIsLoading(false);
     }
@@ -236,8 +237,10 @@ const UserManagement = () => {
         const branchesData = Array.isArray(response.data) ? response.data : response.data.branches;
         setBranches(branchesData.map((branch: any) => ({
           id: branch.id,
-          name: branch.name
+          name: branch.name,
+          companyId: branch.companyId || branch.company?.id
         })));
+        console.log('📍 Loaded branches for staff filtering:', branchesData.length, 'selectedCompanyId:', selectedCompanyId, 'selectedBranchId:', selectedBranchId);
       }
     } catch (error) {
       console.error('Error loading branches:', error);
@@ -249,11 +252,20 @@ const UserManagement = () => {
                          user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.username.toLowerCase().includes(searchTerm.toLowerCase());
 
+    // Filter by local branch dropdown selection
     const matchesBranch = selectedBranch === "all" || user.branch?.name === selectedBranch;
 
     const matchesRole = selectedRole === "all" || user.role === selectedRole;
 
-    return matchesSearch && matchesBranch && matchesRole;
+    // Filter by global context - company and branch from header dropdown
+    // If a company is selected in header, only show users from that company's branches
+    const matchesGlobalCompany = !selectedCompanyId || user.branch?.id === undefined ||
+      branches.some(b => b.id === user.branchId);
+
+    // If a branch is selected in header, only show users from that specific branch
+    const matchesGlobalBranch = !selectedBranchId || user.branchId === selectedBranchId;
+
+    return matchesSearch && matchesBranch && matchesRole && matchesGlobalBranch;
   });
 
   const handleCreateUser = async () => {
@@ -299,8 +311,8 @@ const UserManagement = () => {
 
       if (response.success && response.data) {
         toast({
-          title: "✅ User Created Successfully!",
-          description: `User "${newUser.username}" has been created and can now login.`,
+          title: "✅ Staff Created Successfully!",
+          description: `Staff "${newUser.username}" has been created and can now login.`,
           duration: 5000,
         });
         setSuccess(`User created successfully! Username: ${newUser.username}`);
@@ -319,19 +331,19 @@ const UserManagement = () => {
         await loadUsers();
       } else {
         console.error('Create user failed:', response);
-        const errorMsg = response.message || 'Failed to create user';
+        const errorMsg = response.message || 'Failed to create staff';
 
         // Check if it's a "user exists" error
         if (errorMsg.toLowerCase().includes('already exists') || (response as any).code === 'USER_EXISTS') {
           toast({
-            title: "⚠️ User Already Exists",
+            title: "⚠️ Staff Already Exists",
             description: errorMsg,
             variant: "destructive",
             duration: 5000,
           });
         } else {
           toast({
-            title: "❌ Failed to Create User",
+            title: "❌ Failed to Create Staff",
             description: errorMsg,
             variant: "destructive",
             duration: 5000,
@@ -341,12 +353,12 @@ const UserManagement = () => {
       }
     } catch (error: any) {
       console.error('Error creating user:', error);
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to create user';
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to create staff';
 
       // Check if it's a "user exists" error
       if (errorMessage.toLowerCase().includes('already exists')) {
         toast({
-          title: "⚠️ User Already Exists",
+          title: "⚠️ Staff Already Exists",
           description: errorMessage,
           variant: "destructive",
           duration: 5000,
@@ -422,11 +434,11 @@ const UserManagement = () => {
         setIsDeleteDialogOpen(false);
         setSelectedUser(null);
       } else {
-        setError(response.message || 'Failed to delete user');
+        setError(response.message || 'Failed to delete staff');
       }
     } catch (error: any) {
       console.error('Error deleting user:', error);
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to delete user';
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to delete staff';
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -446,11 +458,11 @@ const UserManagement = () => {
           u.id === user.id ? { ...u, isActive: !u.isActive } : u
         ));
       } else {
-        setError(response.message || 'Failed to update user status');
+        setError(response.message || 'Failed to update staff status');
       }
     } catch (error: any) {
       console.error('Error updating user status:', error);
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to update user status';
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to update staff status';
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -496,11 +508,11 @@ const UserManagement = () => {
             : user
         ));
       } else {
-        setError(response.message || 'Failed to update user');
+        setError(response.message || 'Failed to update staff');
       }
     } catch (error: any) {
       console.error('Error updating user:', error);
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to update user';
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to update staff';
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -512,14 +524,29 @@ const UserManagement = () => {
       <div className="p-6 space-y-6 bg-background min-h-screen flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading users...</p>
+          <p className="text-muted-foreground">Loading staff...</p>
         </div>
       </div>
     );
   }
 
+  // Get the selected branch name from AdminContext
+  const selectedBranchFromContext = selectedBranchId
+    ? branches.find(b => b.id === selectedBranchId)?.name
+    : null;
+
   return (
     <div className="p-6 space-y-6 bg-background min-h-screen">
+      {/* Branch Context Info */}
+      {selectedBranchId && selectedBranchFromContext && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2">
+          <Building2 className="w-5 h-5 text-blue-600" />
+          <span className="text-blue-800">
+            Showing staff for: <strong>{selectedBranchFromContext}</strong>
+          </span>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -540,7 +567,7 @@ const UserManagement = () => {
               <DialogHeader>
                 <DialogTitle>Add New Staff</DialogTitle>
                 <DialogDescription>
-                  Add a new Staff to your pharmacy system. They will receive login credentials via email.
+                  Add a new Staff to your business. They will receive login credentials via email.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
@@ -659,7 +686,7 @@ const UserManagement = () => {
                   Cancel
                 </Button>
                 <Button className="text-white bg-blue-600 hover:bg-blue-700 shadow-md hover:shadow-lg transition-all duration-200" onClick={handleCreateUser}>
-                  Create User
+                  Create Staff
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -768,7 +795,7 @@ const UserManagement = () => {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">User</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Staff</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Username</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Role</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Branch</th>
@@ -781,7 +808,7 @@ const UserManagement = () => {
                 {filteredUsers.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-8 px-4 text-center text-muted-foreground">
-                      {users.length === 0 ? "No users found in this branch" : "No users match your search criteria"}
+                      {users.length === 0 ? "No staff found in this branch" : "No staff match your search criteria"}
                     </td>
                   </tr>
                 ) : (
@@ -834,7 +861,7 @@ const UserManagement = () => {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleViewUser(user)}
-                            title="View User Details"
+                            title="View Staff Details"
                           >
                             <Eye className="w-4 h-4" />
                           </Button>
@@ -842,7 +869,7 @@ const UserManagement = () => {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleEditUser(user)}
-                            title="Edit User"
+                            title="Edit Staff"
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
@@ -851,7 +878,7 @@ const UserManagement = () => {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleActivateUser(user)}
-                              title={user.isActive ? "Deactivate User" : "Activate User"}
+                              title={user.isActive ? "Deactivate Staff" : "Activate Staff"}
                               className={user.isActive ? "text-orange-600 hover:text-orange-700" : "text-green-600 hover:text-green-700"}
                             >
                               {user.isActive ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
@@ -862,7 +889,7 @@ const UserManagement = () => {
                             size="sm"
                             className="text-destructive hover:text-destructive"
                             onClick={() => handleDeleteUser(user)}
-                            title="Delete User"
+                            title="Delete Staff"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -983,7 +1010,7 @@ const UserManagement = () => {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Edit User</DialogTitle>
+            <DialogTitle>Edit Staff</DialogTitle>
             <DialogDescription>
               Update user information. Leave password empty to keep current password.
             </DialogDescription>
@@ -1092,7 +1119,7 @@ const UserManagement = () => {
             </Button>
             <Button onClick={handleUpdateUser} disabled={isLoading}>
               {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-              Update User
+              Update Staff
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1102,7 +1129,7 @@ const UserManagement = () => {
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Delete User</DialogTitle>
+            <DialogTitle>Delete Staff</DialogTitle>
             <DialogDescription>
               Are you sure you want to delete this user? This action cannot be undone.
             </DialogDescription>

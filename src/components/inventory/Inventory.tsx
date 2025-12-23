@@ -50,7 +50,7 @@ interface Product {
     name: string;
     type?: string; // Category type (MEDICAL, NON_MEDICAL, GENERAL)
   };
-  supplier: {
+  supplier?: {
     id: string;
     name: string;
   };
@@ -63,10 +63,29 @@ interface Product {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
-  batches?: any[]; // Batches for manufacturer filtering
+  batches?: {
+    id: string;
+    batchNo: string;
+    quantity: number;        // Current remaining quantity
+    totalBoxes?: number;     // Original boxes purchased
+    unitsPerBox?: number;    // Units per box
+    purchasePrice?: number;
+    sellingPrice?: number;
+    expireDate?: string;
+    supplierName?: string;
+    supplier?: {
+      id: string;
+      name: string;
+      manufacturer?: {
+        id: string;
+        name: string;
+      };
+    };
+  }[];
   // Batch-derived fields
   price?: number;
   stock?: number;
+  minStock?: number;
 }
 
 interface Category {
@@ -102,6 +121,10 @@ const Inventory = () => {
   const [selectedSupplier, setSelectedSupplier] = useState("all");
   const [showAllProducts, setShowAllProducts] = useState(true); // Show all products by default
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  // Stock filter checkboxes
+  const [showNoStock, setShowNoStock] = useState(false); // Products without any stock (never had stock)
+  const [showOutOfStock, setShowOutOfStock] = useState(false); // Products that are out of stock (stock = 0)
+  const [showLowStock, setShowLowStock] = useState(false); // Products with low stock (stock <= minStock)
   const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
   const [isCategoryManagementOpen, setIsCategoryManagementOpen] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -133,7 +156,8 @@ const Inventory = () => {
     name: "",
     categoryId: "",
     formula: "",
-    barcode: ""
+    barcode: "",
+    requiresPrescription: false
   });
 
   // Form state for creating new category
@@ -155,7 +179,7 @@ const Inventory = () => {
   useEffect(() => {
     console.log('🔄 Filters or search query changed, applying filters...');
     applyFilters();
-  }, [selectedCategory, selectedProductType, selectedManufacturer, selectedSupplier, allProducts, searchQuery]);
+  }, [selectedCategory, selectedProductType, selectedManufacturer, selectedSupplier, allProducts, searchQuery, showNoStock, showOutOfStock, showLowStock]);
 
   // Reload data when showAllProducts changes
   useEffect(() => {
@@ -263,13 +287,20 @@ const Inventory = () => {
         console.log('Regular user branch:', branchId);
       }
 
-      // Load products from database
-      const params: any = { limit: 1000 };
+      // Load products from database - fetch ALL products for filtering
+      const params: any = { limit: 10000 }; // High limit to get all products
       if (branchId) {
         params.branchId = branchId;
       }
 
       console.log('Calling getProducts API with params:', params);
+
+      // Force reset backend ready state to ensure we try embedded server
+      const isElectron = typeof window !== 'undefined' && typeof (window as any).electronAPI !== 'undefined';
+      if (isElectron) {
+        // Reset backend ready state to force re-check (will use embedded server)
+        apiService.resetBackendReady();
+      }
 
       const response = await apiService.getProducts(params);
 
@@ -282,7 +313,19 @@ const Inventory = () => {
       console.log('Response message:', response.message);
 
       if (response.success && response.data) {
-        const allProducts = response.data.products;
+        // Handle both response formats: { products: [...] } and direct array
+        const allProducts = Array.isArray(response.data)
+          ? response.data
+          : (response.data.products || []);
+
+        if (!Array.isArray(allProducts)) {
+          console.error('❌ Products data is not an array:', allProducts);
+          setError('Invalid products data format received from server');
+          setProducts([]);
+          setAllProducts([]);
+          return;
+        }
+
         console.log('Total products from API:', allProducts.length);
         console.log('All products:', allProducts);
 
@@ -458,15 +501,18 @@ const Inventory = () => {
         setManufacturers([]);
       }
 
-    } catch (err) {
-      console.error('Error loading data:', err);
+    } catch (err: any) {
+      console.error('❌ Error loading data:', err);
+      console.error('❌ Error message:', err?.message);
+      console.error('❌ Error stack:', err?.stack);
 
       // Check if it's a connection error
-      if (err.message && err.message.includes('Failed to fetch')) {
+      if (err?.message && err.message.includes('Failed to fetch')) {
         setError('⚠️ Backend server is not running. Please start the server and refresh the page.');
       } else {
-        console.error('❌ Failed to load inventory data:', err);
-        setError('Failed to load inventory data. Please check your connection and try again.');
+        const errorMessage = err?.message || 'Unknown error occurred';
+        console.error('❌ Failed to load inventory data:', errorMessage);
+        setError(`Failed to load inventory data: ${errorMessage}. Please check your connection and try again.`);
 
         // Clear data - do NOT set fallback/demo data
         setProducts([]);
@@ -516,9 +562,36 @@ const Inventory = () => {
 
   // Apply filters based on selected criteria
   const applyFilters = () => {
+    // IMPORTANT: Stock filters apply to ALL products from database first
+    // They are primary filters that work independently
     let filtered = [...allProducts];
 
-    // Filter by search query
+    // Stock-based filters (checkboxes) - Apply FIRST to all database products
+    if (showNoStock || showOutOfStock || showLowStock) {
+      filtered = filtered.filter(product => {
+        const stock = product.stock || 0;
+        const minStock = product.minStock || 10;
+
+        // Products without stock (no batches at all or never had stock)
+        if (showNoStock && stock === 0 && (!product.batches || product.batches.length === 0)) {
+          return true;
+        }
+
+        // Out of stock (stock = 0)
+        if (showOutOfStock && stock === 0) {
+          return true;
+        }
+
+        // Low stock (stock > 0 but <= minStock threshold)
+        if (showLowStock && stock > 0 && stock <= minStock) {
+          return true;
+        }
+
+        return false;
+      });
+    }
+
+    // Filter by search query (applies after stock filter)
     if (searchQuery) {
       filtered = filtered.filter(product =>
         product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -528,7 +601,7 @@ const Inventory = () => {
 
     // Filter by category
     if (selectedCategory !== "all") {
-      filtered = filtered.filter(product => product.category.id === selectedCategory);
+      filtered = filtered.filter(product => product.category?.id === selectedCategory);
     }
 
     // Filter by product type (from category type)
@@ -623,9 +696,12 @@ const Inventory = () => {
         branchId: branchId // Always include branchId
       };
 
-      // Create category via API
+      // CRITICAL: Create category - embedded server saves to SQLite FIRST
+      // Then optionally syncs to PostgreSQL backend (non-blocking)
       const response = await apiService.createCategory(categoryData);
 
+      // CRITICAL: Show success if SQLite save succeeded (response.success === true)
+      // This means data is saved locally, regardless of backend sync status
       if (response.success) {
         console.log('Category created successfully:', response.data);
 
@@ -651,20 +727,55 @@ const Inventory = () => {
           description: "Category created successfully!",
           variant: "default",
         });
-      } else {
+        return;
+      }
+
+      // Handle offline mode - embedded server saved to SQLite but backend sync failed
+      // This is still a success from user perspective (data is saved locally)
+      if (response.code === 'OFFLINE_MODE') {
+        // Data was saved to SQLite via embedded server
+        // Backend sync will happen later when backend is available
         toast({
-          title: "Creation Failed",
-          description: response.message || "Failed to create category",
+          title: "Category Added (Offline)",
+          description: "Category has been saved locally. It will sync when connection is restored.",
+        });
+        setLoading(false);
+        setIsCreateCategoryDialogOpen(false);
+        setNewCategory({ name: "", description: "", type: 'general', color: "#3B82F6" });
+        setTimeout(() => loadData(), 1000);
+        return;
+      }
+
+      // Only show error for actual failures (validation, database errors, etc.)
+      toast({
+        title: "Creation Failed",
+        description: response.message || "Failed to create category",
+        variant: "destructive",
+      });
+    } catch (error: any) {
+      console.error('Error creating category:', error);
+
+      // Check if error is a network/connection issue
+      const isNetworkError = error.message?.includes('fetch') ||
+                            error.message?.includes('Failed to fetch') ||
+                            error.message?.includes('NetworkError') ||
+                            error.name === 'TypeError';
+
+      if (isNetworkError) {
+        // Network error - embedded server might not be running
+        toast({
+          title: "Error",
+          description: "Cannot connect to local server. Please restart the application.",
+          variant: "destructive",
+        });
+      } else {
+        // Other errors (validation, auth, etc.) - show actual error
+        toast({
+          title: "Creation Error",
+          description: error.message || "Failed to create category. Please try again.",
           variant: "destructive",
         });
       }
-    } catch (error) {
-      console.error('Error creating category:', error);
-      toast({
-        title: "Creation Error",
-        description: "Failed to create category. Please try again.",
-        variant: "destructive",
-      });
     } finally {
       setLoading(false);
     }
@@ -695,36 +806,32 @@ const Inventory = () => {
 
       // Get branch ID - use user's branch or get first available branch
       let branchId = (user?.role === 'ADMIN' || user?.role === 'SUPERADMIN')
-        ? (selectedBranchId || user?.branchId || "")
-        : (user?.branchId || "default-branch");
+        ? (selectedBranchId || user?.branchId || null)
+        : (user?.branchId || null);
+
+      // If no branch, try to get the first available
       if (!branchId) {
-        const branchesResponse = await apiService.getBranches();
-        if (branchesResponse.success && branchesResponse.data?.branches?.length > 0) {
-          branchId = branchesResponse.data.branches[0].id;
+        try {
+          const branchesResponse = await apiService.getBranches();
+          if (branchesResponse.success && branchesResponse.data?.branches?.length > 0) {
+            branchId = branchesResponse.data.branches[0].id;
+          }
+        } catch (e) {
+          console.log('Could not fetch branches:', e);
         }
       }
 
-      if (!branchId) {
-        toast({
-          title: "No Branch Available",
-          description: "No branch available. Please contact administrator.",
-          variant: "destructive",
-        });
-        return;
-      }
+      // branchId can be null - backend will handle it
 
-      // Use default supplier - no need to fetch suppliers
-      const supplierId = 'default-supplier';
-
+      // Product data - stock/prices managed through batches, supplier is assigned at batch level
       const productData = {
         name: newMedicine.name,
         description: "",
         formula: newMedicine.formula || "",
         categoryId: newMedicine.categoryId,
-        supplierId: supplierId,
         branchId: branchId,
-        barcode: newMedicine.barcode || null,
-        requiresPrescription: false,
+        barcode: newMedicine.barcode || "",
+        requiresPrescription: newMedicine.requiresPrescription,
         isActive: true,
         minStock: 1,
         maxStock: 1000,
@@ -735,157 +842,216 @@ const Inventory = () => {
       console.log('Using branchId for product creation:', branchId);
       console.log('Using default branchId');
 
-      // Create product via API
+      // CRITICAL: Create product - embedded server saves to SQLite FIRST
+      // Then optionally syncs to PostgreSQL backend (non-blocking)
       const response = await apiService.createProduct(productData);
 
-      if (response.success) {
+      // CRITICAL: Show success if SQLite save succeeded (response.success === true)
+      // This means data is saved locally, regardless of backend sync status
+      if (response.success && response.data) {
         console.log('Product created successfully:', response.data);
+
+        // Transform the API response to match Product interface
+        const newProduct: Product = {
+          id: response.data.id,
+          name: response.data.name,
+          description: response.data.description || undefined,
+          formula: response.data.formula || undefined,
+          sku: response.data.sku,
+          category: response.data.category || { id: response.data.categoryId, name: 'Unknown' },
+          supplier: response.data.supplier || { id: '', name: 'Unknown' },
+          branch: response.data.branch || { id: response.data.branchId, name: 'Unknown' },
+          barcode: response.data.barcode || undefined,
+          requiresPrescription: response.data.requiresPrescription || false,
+          isActive: response.data.isActive !== undefined ? Boolean(response.data.isActive) : true,
+          createdAt: response.data.createdAt,
+          updatedAt: response.data.updatedAt || response.data.createdAt,
+          price: response.data.price || response.data.sellingPrice || 0,
+          stock: response.data.stock || response.data.quantity || 0,
+          minStock: response.data.minStock || 1,
+          batches: []
+        };
+
+        console.log('✅ Product created - Transforming to Product interface');
+        console.log('📦 New product data:', newProduct);
+        console.log('🔍 Current branch filter:', {
+          userRole: user?.role,
+          selectedBranchId,
+          userBranchId: user?.branchId,
+          productBranchId: newProduct.branch.id
+        });
+
+        // Immediately add the product to the state so it appears in the list
+        setAllProducts(prev => {
+          // Check if product already exists (avoid duplicates)
+          const exists = prev.some(p => p.id === newProduct.id);
+          if (exists) {
+            console.log('Product already exists in state, updating...');
+            return prev.map(p => p.id === newProduct.id ? newProduct : p);
+          }
+          console.log('Adding new product to state');
+          return [...prev, newProduct];
+        });
+
+        setProducts(prev => {
+          // Check if product already exists (avoid duplicates)
+          const exists = prev.some(p => p.id === newProduct.id);
+          if (exists) {
+            return prev.map(p => p.id === newProduct.id ? newProduct : p);
+          }
+
+          // Check branch filter - only show if product belongs to current branch
+          let shouldShow = true;
+
+          // Determine current branch filter
+          let currentBranchId: string | undefined;
+          if (user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') {
+            currentBranchId = selectedBranchId;
+          } else {
+            currentBranchId = user?.branchId;
+          }
+
+          // If branch filter is active, check if product matches
+          if (currentBranchId && newProduct.branch.id !== currentBranchId) {
+            console.log('Product branch does not match current filter:', {
+              productBranch: newProduct.branch.id,
+              currentBranch: currentBranchId
+            });
+            shouldShow = false;
+          }
+
+          // Apply search filter
+          if (shouldShow && searchQuery) {
+            const query = searchQuery.toLowerCase();
+            shouldShow = (
+              newProduct.name.toLowerCase().includes(query) ||
+              newProduct.barcode?.toLowerCase().includes(query)
+            );
+          }
+
+          // Apply stock filters
+          if (shouldShow) {
+            if (showOutOfStock && (newProduct.stock || 0) !== 0) {
+              shouldShow = false;
+            }
+            if (showLowStock && (newProduct.stock || 0) > (newProduct.minStock || 10)) {
+              shouldShow = false;
+            }
+            if (showNoStock && (newProduct.stock || 0) > 0) {
+              shouldShow = false;
+            }
+          }
+
+          if (shouldShow) {
+            console.log('Adding new product to displayed products list');
+            return [...prev, newProduct];
+          } else {
+            console.log('New product filtered out by current filters');
+          }
+          return prev;
+        });
 
         // Dispatch event to notify other components
         window.dispatchEvent(new CustomEvent('productCreated', {
-          detail: { product: response.data }
+          detail: { product: newProduct }
         }));
-
-        // Reload data to get the updated list - fetch products for the current branch
-        try {
-          const allProductsResponse = await apiService.getProducts({
-            limit: 1000,
-            branchId: branchId
-          });
-          console.log('Product reload response:', allProductsResponse);
-          if (allProductsResponse.success && allProductsResponse.data) {
-            const allProducts = allProductsResponse.data.products;
-            console.log('Products found after creation:', allProducts.length);
-
-            // If no products found with branch filter, try without branch filter
-            if (allProducts.length === 0) {
-              console.log('No products found with branch filter, trying without branch filter...');
-              const allProductsResponseNoFilter = await apiService.getProducts({ limit: 1000 });
-              if (allProductsResponseNoFilter.success && allProductsResponseNoFilter.data) {
-                const allProductsNoFilter = allProductsResponseNoFilter.data.products;
-                console.log('Total products (no filter):', allProductsNoFilter.length);
-
-                // Filter products by branchId manually
-                const branchFilteredProducts = allProductsNoFilter.filter(product =>
-                  product.branch.id === branchId
-                );
-                console.log('Manually filtered products for branch:', branchFilteredProducts.length);
-
-                // Use manually filtered products
-                const filteredProducts = branchFilteredProducts;
-
-                // Apply search and category filters
-                let finalFilteredProducts = filteredProducts;
-
-                if (searchQuery) {
-                  finalFilteredProducts = finalFilteredProducts.filter((product: any) =>
-                    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    product.barcode?.includes(searchQuery)
-                  );
-                }
-
-                if (selectedCategory !== "all") {
-                  finalFilteredProducts = finalFilteredProducts.filter((product: any) =>
-                    product.categoryId === selectedCategory
-                  );
-                }
-
-                // Apply pagination
-                const startIndex = (pagination.page - 1) * pagination.limit;
-                const endIndex = startIndex + pagination.limit;
-                const paginatedProducts = finalFilteredProducts.slice(startIndex, endIndex);
-
-                setProducts(paginatedProducts);
-                setPagination(prev => ({
-                  ...prev,
-                  total: finalFilteredProducts.length,
-                  pages: Math.ceil(finalFilteredProducts.length / prev.limit)
-                }));
-                console.log('✅ Products loaded successfully:', paginatedProducts.length, 'products');
-
-                console.log('Products updated after creation (manual filter):', paginatedProducts.length);
-                return;
-              }
-            }
-
-            // Apply search and category filters
-            let filteredProducts = allProducts;
-
-            if (searchQuery) {
-              filteredProducts = filteredProducts.filter((product: any) =>
-                product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                product.barcode?.includes(searchQuery)
-              );
-            }
-
-            if (selectedCategory !== "all") {
-              filteredProducts = filteredProducts.filter((product: any) =>
-                product.categoryId === selectedCategory
-              );
-            }
-
-            // Apply pagination
-            const startIndex = (pagination.page - 1) * pagination.limit;
-            const endIndex = startIndex + pagination.limit;
-            const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
-
-            console.log('Setting products after creation:', {
-              filteredProducts: filteredProducts.length,
-              paginatedProducts: paginatedProducts.length,
-              startIndex,
-              endIndex,
-              currentPage: pagination.page,
-              limit: pagination.limit
-            });
-
-            setProducts(paginatedProducts);
-            setPagination(prev => ({
-              ...prev,
-              total: filteredProducts.length,
-              pages: Math.ceil(filteredProducts.length / prev.limit)
-            }));
-          }
-        } catch (error) {
-          console.error('Error reloading data after product creation:', error);
-          await loadData();
-        }
-
-        // Force refresh after a short delay to ensure products are visible
-        setTimeout(async () => {
-          console.log('Force refreshing products after creation...');
-          await loadData();
-        }, 1000);
 
         // Reset form
         setNewMedicine({
           name: "",
           categoryId: "",
           formula: "",
-          barcode: ""
+          barcode: "",
+          requiresPrescription: false
         });
 
         setIsAddDialogOpen(false);
+        setLoading(false);
+
         toast({
           title: "Success",
           description: "Product added successfully!",
           variant: "default",
         });
-      } else {
+
+        // Reload data in background to ensure everything is in sync
+        // But don't wait for it - user already sees the product
+        setTimeout(() => {
+          loadData().catch(err => {
+            console.error('Error reloading data after product creation:', err);
+          });
+        }, 1000);
+        return;
+      }
+
+      // Handle offline mode - embedded server saved to SQLite but backend sync failed
+      // This is still a success from user perspective (data is saved locally)
+      if (response.code === 'OFFLINE_MODE') {
+        // Data was saved to SQLite via embedded server
+        // Backend sync will happen later when backend is available
         toast({
-          title: "Add Failed",
-          description: response.message || "Failed to add product",
+          title: "Product Added (Offline)",
+          description: "Product has been saved locally. It will sync when connection is restored.",
+        });
+        setIsAddDialogOpen(false);
+        setLoading(false);
+        setNewMedicine({ name: "", categoryId: "", barcode: "", formula: "", requiresPrescription: false });
+        // Reload to show the new product from SQLite
+        setTimeout(() => {
+          loadData().catch(err => {
+            console.error('Error reloading data after product creation (offline):', err);
+          });
+        }, 1000);
+        return;
+      }
+
+      // Only show error for actual failures (validation, database errors, etc.)
+      console.error('[Inventory] Product creation failed:', response);
+      console.error('[Inventory] Error message:', response.message);
+      console.error('[Inventory] Error code:', response.code);
+      console.error('[Inventory] Error details:', response.errors);
+
+      setLoading(false);
+      toast({
+        title: "Add Failed",
+        description: response.message || "Failed to add product. Please check console for details.",
+        variant: "destructive",
+      });
+    } catch (error: any) {
+      console.error('Error adding product:', error);
+
+      // Check if error is a network/connection issue
+      const isNetworkError = error.message?.includes('fetch') ||
+                            error.message?.includes('Failed to fetch') ||
+                            error.message?.includes('NetworkError') ||
+                            error.name === 'TypeError';
+
+      setLoading(false);
+
+      if (isNetworkError) {
+        // Network error - embedded server might not be running
+        // This is a critical issue in Electron mode
+        toast({
+          title: "Error",
+          description: "Cannot connect to local server. Please restart the application.",
+          variant: "destructive",
+        });
+      } else {
+        // Other errors (validation, auth, etc.) - show actual error
+        console.error('[Inventory] Product creation error:', error);
+        console.error('[Inventory] Error stack:', error.stack);
+        toast({
+          title: "Add Error",
+          description: error.message || "Failed to add product. Please check console for details and try again.",
           variant: "destructive",
         });
       }
-    } catch (error) {
-      console.error('Error adding product:', error);
-      toast({
-        title: "Add Error",
-        description: "Failed to add product. Please try again.",
-        variant: "destructive",
-      });
     } finally {
-      setLoading(false);
+      // Only reset dialog if it's still open (not already closed in success case)
+      // Don't reload data here - it's already handled in success/error cases
+      if (isAddDialogOpen) {
+        setIsAddDialogOpen(false);
+      }
     }
   };
 
@@ -893,9 +1059,10 @@ const Inventory = () => {
     setEditingProduct(product);
     setNewMedicine({
       name: product.name,
-      categoryId: product.category.id,
+      categoryId: product.category?.id || '',
       formula: product.formula || "",
-      barcode: product.barcode || ""
+      barcode: product.barcode || "",
+      requiresPrescription: product.requiresPrescription || false
     });
     setIsEditDialogOpen(true);
   };
@@ -929,10 +1096,10 @@ const Inventory = () => {
         formula: newMedicine.formula || "",
         sku: editingProduct.sku || "", // Add SKU field
         categoryId: newMedicine.categoryId,
-        supplierId: editingProduct.supplier.id,
-        branchId: editingProduct.branch.id,
+        supplierId: editingProduct.supplier?.id || "",
+        branchId: editingProduct.branch?.id || "",
         barcode: newMedicine.barcode || "",
-        requiresPrescription: editingProduct.requiresPrescription || false,
+        requiresPrescription: newMedicine.requiresPrescription, // Use form value
         isActive: editingProduct.isActive !== undefined ? editingProduct.isActive : true,
         minStock: 1,
         maxStock: 1000,
@@ -956,7 +1123,7 @@ const Inventory = () => {
         // Reload data to get the updated list - fetch products for the current branch
         try {
           const allProductsResponse = await apiService.getProducts({
-            limit: 1000,
+            limit: 10000,
             branchId: (user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') ? (selectedBranchId || user?.branchId || "") : (user?.branchId || "default-branch")
           });
           if (allProductsResponse.success && allProductsResponse.data) {
@@ -1002,7 +1169,8 @@ const Inventory = () => {
           name: "",
           categoryId: "",
           formula: "",
-          barcode: ""
+          barcode: "",
+          requiresPrescription: false
         });
 
         setIsEditDialogOpen(false);
@@ -1064,7 +1232,7 @@ const Inventory = () => {
         // Reload data to get the updated list - fetch products for the current branch
         try {
           const allProductsResponse = await apiService.getProducts({
-            limit: 1000,
+            limit: 10000,
             branchId: (user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') ? (selectedBranchId || user?.branchId || "") : (user?.branchId || "default-branch")
           });
           if (allProductsResponse.success && allProductsResponse.data) {
@@ -1221,8 +1389,8 @@ const Inventory = () => {
       // Create Excel data
       const excelData = products.map(product => ({
         'Product Name': product.name,
-        'Category': product.category.name,
-        'Supplier': product.supplier.name,
+        'Category': product.category?.name || 'Uncategorized',
+        'Supplier': product.supplier?.name || 'Unknown',
         'Formula': product.formula || '',
         'Price': `PKR ${product.price || 0}`,
         'Stock': `${product.stock || 0} units`,
@@ -1643,9 +1811,7 @@ const Inventory = () => {
           productData.categoryId = 'auto-create'; // Placeholder, backend will handle this
         }
 
-        // Use default supplier ID - no need to create or validate suppliers
-        let supplierId = 'default-supplier';
-        console.log(`Using default supplier for: ${productData.name}`);
+        // Supplier is assigned at batch level, not product level
 
         console.log('=== BULK IMPORT DEBUG ===');
         console.log(`Using branchId for product ${productData.name}:`, branchId);
@@ -1675,7 +1841,7 @@ const Inventory = () => {
           description: (productData.description || "").trim(),
           categoryId: productData.categoryId, // Use the categoryId we set (either existing or 'auto-create')
           categoryName: productData.categoryName, // Include categoryName for auto-creation
-          supplierId: supplierId, // Will be handled as default-supplier
+          // supplierId not needed - supplier is assigned at batch level
           branchId: branchId,
           costPrice: costPrice,
           sellingPrice: sellingPrice,
@@ -1794,7 +1960,7 @@ const Inventory = () => {
 
         try {
           const allProductsResponse = await apiService.getProducts({
-            limit: 1000,
+            limit: 10000,
             branchId: branchId
           });
           console.log('All products response after import:', allProductsResponse);
@@ -1808,7 +1974,7 @@ const Inventory = () => {
             if (allProducts.length === 0) {
               console.log('No products found with branch filter, trying without branch filter...');
               const allProductsResponseNoFilter = await apiService.getProducts({
-                limit: 1000
+                limit: 10000
               });
               console.log('All products response (no filter):', allProductsResponseNoFilter);
 
@@ -1819,7 +1985,7 @@ const Inventory = () => {
 
                 // Filter products by branchId manually
                 const branchFilteredProducts = allProductsNoFilter.filter(product =>
-                  product.branch.id === branchId
+                  product.branch?.id === branchId
                 );
                 console.log('Manually filtered products for branch:', branchFilteredProducts.length);
                 console.log('Branch IDs in products:', allProductsNoFilter.map(p => ({ name: p.name, branchId: p.branch.id })));
@@ -1941,7 +2107,7 @@ const Inventory = () => {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Inventory Management</h1>
-          <p className="text-muted-foreground text-sm mt-[5px]">Manage your pharmacy inventory</p>
+          <p className="text-muted-foreground text-sm mt-[5px]">Manage your business inventory</p>
         </div>
         <div className="flex items-center space-x-3">
           {/* Export/Import Buttons */}
@@ -2174,6 +2340,23 @@ const Inventory = () => {
                     </div>
                   </div>
 
+                  {/* Prescription Required Checkbox */}
+                  <div className="flex items-center space-x-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <input
+                      type="checkbox"
+                      id="requiresPrescription"
+                      checked={newMedicine.requiresPrescription}
+                      onChange={(e) => setNewMedicine({...newMedicine, requiresPrescription: e.target.checked})}
+                      className="w-5 h-5 text-amber-600 border-amber-300 rounded focus:ring-amber-500"
+                    />
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-5 h-5 text-amber-600" />
+                      <Label htmlFor="requiresPrescription" className="text-amber-800 font-medium cursor-pointer">
+                        Requires Doctor's Prescription
+                      </Label>
+                    </div>
+                  </div>
+
                 </div>
               </div>
 
@@ -2281,6 +2464,23 @@ const Inventory = () => {
                       >
                         Generate
                       </Button>
+                    </div>
+                  </div>
+
+                  {/* Prescription Required Checkbox */}
+                  <div className="flex items-center space-x-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <input
+                      type="checkbox"
+                      id="edit-requiresPrescription"
+                      checked={newMedicine.requiresPrescription}
+                      onChange={(e) => setNewMedicine({...newMedicine, requiresPrescription: e.target.checked})}
+                      className="w-5 h-5 text-amber-600 border-amber-300 rounded focus:ring-amber-500"
+                    />
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-5 h-5 text-amber-600" />
+                      <Label htmlFor="edit-requiresPrescription" className="text-amber-800 font-medium cursor-pointer">
+                        Requires Doctor's Prescription
+                      </Label>
                     </div>
                   </div>
                 </div>
@@ -2597,8 +2797,40 @@ const Inventory = () => {
               </SelectContent>
             </Select>
 
+            {/* Stock Filter Checkboxes */}
+            <div className="flex items-center gap-4 px-3 py-2 bg-gray-50 rounded-lg border">
+              <span className="text-sm font-medium text-muted-foreground">Stock:</span>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showNoStock}
+                  onChange={(e) => setShowNoStock(e.target.checked)}
+                  className="w-4 h-4 text-gray-600 border-gray-300 rounded focus:ring-gray-500"
+                />
+                <span className="text-sm text-gray-700">No Stock</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showOutOfStock}
+                  onChange={(e) => setShowOutOfStock(e.target.checked)}
+                  className="w-4 h-4 text-red-600 border-red-300 rounded focus:ring-red-500"
+                />
+                <span className="text-sm text-red-700">Out of Stock</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showLowStock}
+                  onChange={(e) => setShowLowStock(e.target.checked)}
+                  className="w-4 h-4 text-amber-600 border-amber-300 rounded focus:ring-amber-500"
+                />
+                <span className="text-sm text-amber-700">Low Stock</span>
+              </label>
+            </div>
+
             {/* Clear Filters Button */}
-            {(selectedCategory !== "all" || selectedProductType !== "all" || selectedManufacturer !== "all" || selectedSupplier !== "all") && (
+            {(selectedCategory !== "all" || selectedProductType !== "all" || selectedManufacturer !== "all" || selectedSupplier !== "all" || showNoStock || showOutOfStock || showLowStock) && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -2607,6 +2839,9 @@ const Inventory = () => {
                   setSelectedProductType("all");
                   setSelectedManufacturer("all");
                   setSelectedSupplier("all");
+                  setShowNoStock(false);
+                  setShowOutOfStock(false);
+                  setShowLowStock(false);
                 }}
                 className="flex items-center gap-2 h-8 w-8 p-0"
                 title="Clear Filters"
@@ -2653,16 +2888,19 @@ const Inventory = () => {
                     </th>
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">Product</th>
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">Category</th>
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Supplier</th>
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Manufacturer</th>
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">Formula</th>
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">Price</th>
-                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Stock</th>
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Total Qty</th>
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Remaining</th>
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {products.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="text-center py-8 text-muted-foreground">
+                      <td colSpan={11} className="text-center py-8 text-muted-foreground">
                         <div className="flex flex-col items-center space-y-2">
                           <Package className="w-12 h-12 text-muted-foreground/50" />
                           <p className="text-lg font-medium">No products found</p>
@@ -2696,7 +2934,15 @@ const Inventory = () => {
                           </td>
                           <td className="py-4 px-4">
                             <div>
-                              <p className="font-medium text-foreground">{product.name}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium text-foreground">{product.name}</p>
+                                {product.requiresPrescription && (
+                                  <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-xs">
+                                    <AlertCircle className="w-3 h-3 mr-1" />
+                                    Rx
+                                  </Badge>
+                                )}
+                              </div>
                               {product.barcode && (
                                 <p className="text-sm text-muted-foreground flex items-center">
                                   <Barcode className="w-3 h-3 mr-1" />
@@ -2706,7 +2952,39 @@ const Inventory = () => {
                             </div>
                           </td>
                           <td className="py-4 px-4">
-                            <Badge variant="outline">{product.category.name}</Badge>
+                            <Badge variant="outline">{product.category?.name || 'Uncategorized'}</Badge>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="text-sm">
+                              {(() => {
+                                // Get supplier from first batch with supplier info
+                                const batchWithSupplier = product.batches?.find(b => b.supplier || b.supplierName);
+                                const supplierName = batchWithSupplier?.supplier?.name || batchWithSupplier?.supplierName;
+                                return supplierName ? (
+                                  <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200">
+                                    {supplierName}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-muted-foreground">-</span>
+                                );
+                              })()}
+                            </div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="text-sm">
+                              {(() => {
+                                // Get manufacturer from first batch's supplier
+                                const batchWithManufacturer = product.batches?.find(b => b.supplier?.manufacturer);
+                                const manufacturerName = batchWithManufacturer?.supplier?.manufacturer?.name;
+                                return manufacturerName ? (
+                                  <Badge variant="secondary" className="bg-purple-50 text-purple-700 border-purple-200">
+                                    {manufacturerName}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-muted-foreground">-</span>
+                                );
+                              })()}
+                            </div>
                           </td>
                           <td className="py-4 px-4">
                             <div className="text-sm">
@@ -2722,9 +3000,42 @@ const Inventory = () => {
                           </td>
                           <td className="py-4 px-4">
                             <div className="text-sm">
-                              <p className="font-medium text-blue-600">
-                                {product.stock || 0} units
-                              </p>
+                              {(() => {
+                                // Calculate ORIGINAL total quantity from all batches (totalBoxes × unitsPerBox)
+                                const totalQty = product.batches?.reduce((sum, batch) => {
+                                  const originalQty = (batch.totalBoxes || 0) * (batch.unitsPerBox || 1);
+                                  return sum + originalQty;
+                                }, 0) || 0;
+                                return (
+                                  <p className="font-medium text-purple-700 bg-purple-50 px-2 py-1 rounded">
+                                    {totalQty} units
+                                  </p>
+                                );
+                              })()}
+                            </div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="text-sm">
+                              {(() => {
+                                const remaining = product.stock || 0;
+                                const minStock = product.minStock || 10;
+                                let colorClass = 'text-green-600'; // Good stock
+                                let bgClass = 'bg-green-50';
+
+                                if (remaining === 0) {
+                                  colorClass = 'text-red-600';
+                                  bgClass = 'bg-red-50';
+                                } else if (remaining <= minStock) {
+                                  colorClass = 'text-amber-600';
+                                  bgClass = 'bg-amber-50';
+                                }
+
+                                return (
+                                  <span className={`font-medium ${colorClass} ${bgClass} px-2 py-1 rounded`}>
+                                    {remaining} units
+                                  </span>
+                                );
+                              })()}
                             </div>
                           </td>
                           <td className="py-4 px-4">

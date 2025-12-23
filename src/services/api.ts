@@ -4,6 +4,10 @@
 import { config } from '../lib/config';
 import { waitForBackend, checkBackendHealth } from '../utils/backendHealthCheck';
 
+// Cache backend health status to avoid excessive checks
+let backendHealthCache: { isHealthy: boolean; lastCheck: number } | null = null;
+const BACKEND_HEALTH_CACHE_TTL = 5000; // Cache for 5 seconds
+
 const API_BASE_URL = config.api.baseUrl;
 const API_TIMEOUT = config.api.timeout;
 const DEBUG_MODE = config.debug.enabled;
@@ -19,6 +23,7 @@ interface ApiResponse<T> {
   message?: string;
   errors?: string[];
   accountDisabled?: boolean;
+  code?: string; // For offline mode and other status codes
 }
 
 class ApiService {
@@ -64,63 +69,28 @@ class ApiService {
     const isElectron = typeof window !== 'undefined' && typeof (window as any).electronAPI !== 'undefined';
     const isHealthEndpoint = endpoint.includes('/health');
 
-    // For Electron, wait for backend to be ready (but not for health check itself)
+    // CRITICAL FIX: In Electron mode, skip health check and proceed directly to embedded server
+    // Embedded server should always be available and will handle all requests
     if (isElectron && !isHealthEndpoint && !backendReady) {
-      if (!backendCheckPromise) {
-        backendCheckPromise = waitForBackend(this.baseURL).then((ready) => {
-          backendReady = ready;
-          return ready;
-        }).catch(() => {
-          backendReady = false;
-          return false;
-        });
-      }
-
+      // Quick health check with short timeout (2 seconds max)
       try {
-        const ready = await backendCheckPromise;
-        if (!ready) {
-          // Double-check backend is actually ready with additional retries
-          console.log(`[API] Backend check returned false, performing additional health checks...`);
-          let isHealthy = false;
-          let retries = 0;
-          const maxRetries = 10; // Try 10 more times (20 seconds)
+        const quickCheck = await Promise.race([
+          checkBackendHealth(this.baseURL),
+          new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 2000))
+        ]);
 
-          while (!isHealthy && retries < maxRetries) {
-            isHealthy = await checkBackendHealth(this.baseURL);
-            if (isHealthy) {
-              console.log(`[API] ✓ Backend health check passed after ${retries + 1} additional attempts`);
-              break;
-            }
-            retries++;
-            if (retries < maxRetries) {
-              console.log(`[API] Backend not ready yet, retrying... (${retries}/${maxRetries})`);
-              await new Promise(resolve => setTimeout(resolve, 2000));
-            }
-          }
-
-          if (!isHealthy) {
-            const healthUrl = this.baseURL.replace('/api', '/health');
-            console.error(`[API] Backend health check failed after all retries. Base URL: ${this.baseURL}`);
-            console.error(`[API] Health check URL: ${healthUrl}`);
-            console.error(`[API] 💡 Please check:`);
-            console.error(`[API]    1. Is backend running? Test: curl ${healthUrl}`);
-            console.error(`[API]    2. In dev mode, build backend: cd backend-pharmachy && npm run build`);
-            console.error(`[API]    3. Or run backend separately: cd backend-pharmachy && npm run dev`);
-            console.error(`[API]    4. Check Electron console for backend startup messages`);
-            throw new Error('Cannot connect to server. Please ensure the backend is running on port 5001. In development mode, you may need to build the backend first (cd backend-pharmachy && npm run build) or run it separately (cd backend-pharmachy && npm run dev).');
-          }
+        if (quickCheck) {
+          backendReady = true;
+        } else {
+          // Main backend not available, but embedded server should be running
+          // In Electron, embedded server is always available - proceed with requests
+          console.log(`[API] Main backend not available, using embedded server (Electron mode)`);
+          backendReady = true; // Allow requests to proceed to embedded server
         }
-        backendReady = true;
-        console.log(`[API] ✓ Backend is ready at ${this.baseURL}`);
-      } catch (error: any) {
-        console.error(`[API] Backend connection failed:`, error.message);
-        // Don't throw immediately - try one more health check
-        const finalCheck = await checkBackendHealth(this.baseURL);
-        if (!finalCheck) {
-          throw new Error('Cannot connect to server. The backend may still be starting. Please wait a moment and try again.');
-        }
-        backendReady = true;
-        console.log(`[API] ✓ Backend is ready after final check`);
+      } catch (error) {
+        // Health check failed, but embedded server should still work
+        console.log(`[API] Health check failed, using embedded server (Electron mode)`);
+        backendReady = true; // Allow requests to proceed to embedded server
       }
     }
 
@@ -130,7 +100,7 @@ class ApiService {
     }
 
     // Check if we have a token for protected endpoints
-    const isProtectedEndpoint = !endpoint.includes('/auth/login') && !endpoint.includes('/auth/register');
+    const isProtectedEndpoint = !endpoint.includes('/auth/login') && !endpoint.includes('/auth/register') && !endpoint.includes('/auth/forgot-password');
     if (isProtectedEndpoint && !this.token) {
       throw new Error('Authentication required. Please log in.');
     }
@@ -165,14 +135,20 @@ class ApiService {
     console.log('🔍 API Service - Context retrieved:', context);
 
     // Create abort controller for timeout (AbortSignal.timeout may not be available in all environments)
+    // CRITICAL: Use shorter timeout for offline mode to prevent hanging
+    const isElectronMode = typeof window !== 'undefined' && typeof (window as any).electronAPI !== 'undefined';
+    // For Electron, use 8 seconds max - embedded server should respond quickly
+    const timeout = isElectronMode ? Math.min(API_TIMEOUT, 8000) : API_TIMEOUT;
+
     let abortController: AbortController | undefined;
     let timeoutId: NodeJS.Timeout | undefined;
 
     if (!options.signal) {
       abortController = new AbortController();
       timeoutId = setTimeout(() => {
+        console.warn(`[API] Request timeout after ${timeout}ms for ${endpoint}`);
         abortController?.abort();
-      }, API_TIMEOUT);
+      }, timeout);
     }
 
     const config: RequestInit = {
@@ -231,6 +207,54 @@ class ApiService {
 
         if (!response.ok) {
           console.error('API Error response:', data);
+          console.error('API Error status:', response.status);
+          console.error('API Error endpoint:', endpoint);
+
+          // CRITICAL: In Electron mode, if embedded server returns an error, it might be a database issue
+          // But we should still try to return the error response so UI can show it
+          const isElectron = typeof window !== 'undefined' && typeof (window as any).electronAPI !== 'undefined';
+
+          // For Electron mode, if we get a 500 error from embedded server, it's likely a database issue
+          // Return the error response instead of throwing, so UI can handle it
+          if (isElectron && response.status === 500) {
+            console.error('[API] Embedded server returned 500 error - this might be a database issue');
+            // Return the error response so UI can show the actual error message
+            return {
+              success: false,
+              message: data.message || 'Failed to save data. Please check the console for details.',
+              code: data.code,
+              errors: data.errors
+            } as ApiResponse<T>;
+          }
+
+          // CRITICAL: Only show offline message for actual network/connection issues
+          // API errors (400, 401, 403, 422, 500 with validation) should show actual error message
+
+          // Handle 500 errors - check if it's a configuration/validation error vs network issue
+          if (response.status === 500) {
+            // 500 errors are server errors, not network errors - show actual error message
+            // Only treat as offline if it's a specific network-related error code
+            if (data.code === 'NETWORK_ERROR' || data.code === 'CONNECTION_ERROR') {
+              // This is a network error - check backend availability
+              const backendAvailable = await checkBackendHealth(this.baseURL);
+              if (!backendAvailable) {
+                // Backend is actually offline
+                return {
+                  success: false,
+                  message: 'Backend is unavailable. Data will be saved locally and synced when connection is restored.',
+                  code: 'OFFLINE_MODE'
+                } as ApiResponse<T>;
+              }
+            }
+            // For other 500 errors, return the error response instead of throwing
+            // This allows UI to show the actual error message
+            return {
+              success: false,
+              message: data.message || 'Internal server error',
+              code: data.code,
+              errors: data.errors
+            } as ApiResponse<T>;
+          }
 
           // Handle authentication errors
           if (response.status === 401) {
@@ -261,7 +285,12 @@ class ApiService {
 
           // Handle account deactivation (403 status) - don't throw error, return the response
           if (response.status === 403 && data.accountDisabled) {
-            console.log('🔍 Account deactivated, returning response without throwing error');
+            console.log('🔍 Account deactivated, clearing any stored credentials');
+            // CRITICAL: Clear any stored credentials to prevent auto-login
+            localStorage.removeItem('token');
+            localStorage.removeItem('medibill_user');
+            localStorage.removeItem('auth_initialized');
+            this.token = null;
             return data;
           }
 
@@ -286,12 +315,207 @@ class ApiService {
         }
 
         // Handle network/connection errors
-        if (error.name === 'AbortError' || error.name === 'TimeoutError') {
-          throw new Error('Request timeout. The server may be starting up. Please wait a moment and try again.');
+        // CRITICAL: In Electron mode, embedded server should ALWAYS be available
+        // Only return OFFLINE_MODE if embedded server is truly unavailable
+        if (error.name === 'AbortError' || error.name === 'TimeoutError' || error.message?.includes('timeout')) {
+          const isElectron = typeof window !== 'undefined' && typeof (window as any).electronAPI !== 'undefined';
+
+          if (isElectron) {
+            // In Electron, try to restart embedded server if it's not responding
+            console.log(`[API] ⏱️ Request timeout in Electron - attempting to restart embedded server...`);
+
+            // Try to restart embedded server with multiple attempts
+            let restartSuccess = false;
+            for (let attempt = 0; attempt < 3; attempt++) {
+              try {
+                console.log(`[API] 🔄 Restart attempt ${attempt + 1}/3...`);
+                const restartResult = await Promise.race([
+                  (window as any).electronAPI?.restartBackend?.() || Promise.resolve({ success: false }),
+                  new Promise((resolve) => setTimeout(() => resolve({ success: false }), 5000))
+                ]);
+
+                if (restartResult?.success) {
+                  console.log(`[API] ✅ Embedded server restarted successfully`);
+                  restartSuccess = true;
+                  break;
+                } else {
+                  console.warn(`[API] ⚠️ Restart attempt ${attempt + 1} failed or timed out`);
+                  await new Promise(resolve => setTimeout(resolve, 2000));
+                }
+              } catch (restartError) {
+                console.error(`[API] Restart attempt ${attempt + 1} error:`, restartError);
+                await new Promise(resolve => setTimeout(resolve, 2000));
+              }
+            }
+
+            if (restartSuccess) {
+              // Wait for server to be fully ready
+              console.log(`[API] ⏳ Waiting for embedded server to be ready...`);
+              await new Promise(resolve => setTimeout(resolve, 3000));
+
+              // Verify server is responding
+              try {
+                const healthCheck = await Promise.race([
+                  fetch(`${this.baseURL.replace('/api', '')}/health`, {
+                    method: 'GET',
+                    signal: AbortSignal.timeout(3000)
+                  }),
+                  new Promise<Response>((_, reject) => setTimeout(() => reject(new Error('Health check timeout')), 3000))
+                ]) as Response;
+
+                if (healthCheck && healthCheck.ok) {
+                  console.log(`[API] ✅ Embedded server health check passed, retrying request...`);
+                  // Retry the request
+                  try {
+                    return await this.request<T>(endpoint, options);
+                  } catch (retryError) {
+                    console.error(`[API] ❌ Retry after server restart failed:`, retryError);
+                  }
+                } else if (healthCheck) {
+                  console.warn(`[API] ⚠️ Health check failed with status ${healthCheck.status}`);
+                }
+              } catch (healthError) {
+                console.warn(`[API] ⚠️ Health check failed:`, healthError);
+              }
+            } else {
+              console.warn(`[API] ⚠️ All restart attempts failed`);
+            }
+
+            // If embedded server is still not responding, return OFFLINE_MODE
+            // This should rarely happen - embedded server should always be available
+            console.log(`[API] ⚠️ Embedded server not responding - returning OFFLINE_MODE`);
+            return {
+              success: false,
+              message: 'Backend is unavailable. Data will be saved locally and synced when connection is restored.',
+              code: 'OFFLINE_MODE'
+            } as ApiResponse<T>;
+          }
+
+          // For non-Electron, check backend availability
+          let backendAvailable = false;
+          const now = Date.now();
+          if (backendHealthCache && (now - backendHealthCache.lastCheck) < BACKEND_HEALTH_CACHE_TTL) {
+            backendAvailable = backendHealthCache.isHealthy;
+          } else {
+            try {
+              backendAvailable = await Promise.race([
+                checkBackendHealth(this.baseURL),
+                new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 2000))
+              ]);
+            } catch (healthError) {
+              backendAvailable = false;
+            }
+            backendHealthCache = { isHealthy: backendAvailable, lastCheck: now };
+          }
+
+          if (!backendAvailable) {
+            throw new Error('Request timeout. The server may be starting up. Please wait a moment and try again.');
+          } else {
+            throw new Error('Request timeout. The server may be slow. Please try again.');
+          }
         }
 
+        // Handle network/connection errors (TypeError with fetch)
+        // CRITICAL: In Electron mode, embedded server should ALWAYS be available
+        // Try to restart embedded server if it's not responding
         if (error.name === 'TypeError' && (error.message.includes('fetch') || error.message.includes('Failed to fetch') || error.message.includes('NetworkError'))) {
-          throw new Error('Cannot connect to server. The backend may still be starting. Please wait a moment and try again.');
+          const isElectron = typeof window !== 'undefined' && typeof (window as any).electronAPI !== 'undefined';
+
+          if (isElectron) {
+            // In Electron, embedded server should always be available
+            // If we get a network error, try to restart the embedded server
+            console.log(`[API] 🔌 Network error in Electron - attempting to restart embedded server...`);
+
+            // Try to restart embedded server with multiple attempts
+            let restartSuccess = false;
+            for (let attempt = 0; attempt < 3; attempt++) {
+              try {
+                console.log(`[API] 🔄 Restart attempt ${attempt + 1}/3...`);
+                const restartResult = await Promise.race([
+                  (window as any).electronAPI?.restartBackend?.() || Promise.resolve({ success: false }),
+                  new Promise((resolve) => setTimeout(() => resolve({ success: false }), 5000))
+                ]);
+
+                if (restartResult?.success) {
+                  console.log(`[API] ✅ Embedded server restarted successfully`);
+                  restartSuccess = true;
+                  break;
+                } else {
+                  console.warn(`[API] ⚠️ Restart attempt ${attempt + 1} failed or timed out`);
+                  // Wait before next attempt
+                  await new Promise(resolve => setTimeout(resolve, 2000));
+                }
+              } catch (restartError) {
+                console.error(`[API] Restart attempt ${attempt + 1} error:`, restartError);
+                await new Promise(resolve => setTimeout(resolve, 2000));
+              }
+            }
+
+            if (restartSuccess) {
+              // Wait for server to be fully ready
+              console.log(`[API] ⏳ Waiting for embedded server to be ready...`);
+              await new Promise(resolve => setTimeout(resolve, 3000));
+
+              // Verify server is responding
+              try {
+                const healthCheck = await Promise.race([
+                  fetch(`${this.baseURL.replace('/api', '')}/health`, {
+                    method: 'GET',
+                    signal: AbortSignal.timeout(3000)
+                  }),
+                  new Promise<Response>((_, reject) => setTimeout(() => reject(new Error('Health check timeout')), 3000))
+                ]) as Response;
+
+                if (healthCheck && healthCheck.ok) {
+                  console.log(`[API] ✅ Embedded server health check passed, retrying request...`);
+                  // Retry the request
+                  try {
+                    return await this.request<T>(endpoint, options);
+                  } catch (retryError) {
+                    console.error(`[API] ❌ Retry after server restart failed:`, retryError);
+                  }
+                } else if (healthCheck) {
+                  console.warn(`[API] ⚠️ Health check failed with status ${healthCheck.status}`);
+                }
+              } catch (healthError) {
+                console.warn(`[API] ⚠️ Health check failed:`, healthError);
+              }
+            } else {
+              console.warn(`[API] ⚠️ All restart attempts failed`);
+            }
+
+            // If embedded server is still not responding after retries/restarts, return OFFLINE_MODE
+            // This should rarely happen - embedded server should always be available
+            console.log(`[API] ⚠️ Returning OFFLINE_MODE response - embedded server not available`);
+            return {
+              success: false,
+              message: 'Backend is unavailable. Data will be saved locally and synced when connection is restored.',
+              code: 'OFFLINE_MODE'
+            } as ApiResponse<T>;
+          }
+
+          // For non-Electron (web), check backend availability
+          let backendAvailable = false;
+          const now = Date.now();
+          if (backendHealthCache && (now - backendHealthCache.lastCheck) < BACKEND_HEALTH_CACHE_TTL) {
+            backendAvailable = backendHealthCache.isHealthy;
+          } else {
+            try {
+              backendAvailable = await Promise.race([
+                checkBackendHealth(this.baseURL),
+                new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 2000))
+              ]);
+            } catch (healthError) {
+              backendAvailable = false;
+            }
+            backendHealthCache = { isHealthy: backendAvailable, lastCheck: now };
+          }
+
+          if (!backendAvailable) {
+            throw new Error('Cannot connect to server. Please check your connection and try again.');
+          } else {
+            throw new Error('Network error occurred. Please check your connection and try again.');
+          }
         }
 
         throw error;
@@ -375,10 +599,19 @@ class ApiService {
       body: JSON.stringify(userData),
     });
 
-    if (response.success && response.data) {
+    // Only store credentials if registration was successful AND a token was returned
+    // For accounts pending activation, NO token is returned - don't store anything
+    if (response.success && response.data && response.data.token) {
       this.token = response.data.token;
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('medibill_user', JSON.stringify(response.data.user));
+    } else if (response.success) {
+      // Registration successful but no token (pending activation) - ensure no stale data
+      console.log('🔍 Registration successful but no token returned (pending activation)');
+      localStorage.removeItem('token');
+      localStorage.removeItem('medibill_user');
+      localStorage.removeItem('auth_initialized');
+      this.token = null;
     }
 
     return response;
@@ -397,6 +630,38 @@ class ApiService {
         name: string;
       };
     }>('/auth/profile');
+  }
+
+  // Forgot Password - Request password reset
+  async forgotPassword(email: string): Promise<{
+    success: boolean;
+    message: string;
+    contactNumber?: string;
+  }> {
+    const response = await this.request<{
+      contactNumber?: string;
+    }>('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+
+    // Return the response directly with contactNumber at root level
+    return {
+      success: response.success,
+      message: response.message || 'Request processed',
+      contactNumber: response.data?.contactNumber || (response as any).contactNumber || '+923107100663'
+    };
+  }
+
+  // Reset Password (Admin only)
+  async resetPassword(data: { userId?: string; email?: string; newPassword: string }) {
+    return this.request<{
+      email: string;
+      name: string;
+    }>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   async changePassword(passwordData: {
@@ -596,11 +861,11 @@ class ApiService {
     name: string;
     description?: string;
     formula?: string;
-    categoryId: string;
-    supplierId: string;
-    branchId: string;
-    barcode?: string;
-    requiresPrescription: boolean;
+    categoryId?: string | null;
+    supplierId?: string | null;
+    branchId?: string | null;
+    barcode?: string | null;
+    requiresPrescription?: boolean;
     isActive?: boolean;
     // Temporary fields for backend compatibility
     costPrice?: number;
@@ -609,30 +874,96 @@ class ApiService {
     minStock?: number;
     maxStock?: number;
     unitsPerPack?: number;
-  }) {
-    return this.request<{
-      id: string;
-      name: string;
-      description?: string;
-      formula?: string;
-      category: { id: string; name: string };
-      supplier: { id: string; name: string };
-      branch: { id: string; name: string };
-      barcode?: string;
-      requiresPrescription: boolean;
-      isActive: boolean;
-      createdAt: string;
-      // Temporary fields for backend compatibility
-      costPrice?: number;
-      sellingPrice?: number;
-      stock?: number;
-      minStock?: number;
-      maxStock?: number;
-      unitsPerPack?: number;
-    }>('/products', {
-      method: 'POST',
-      body: JSON.stringify(productData),
-    });
+  }): Promise<ApiResponse<{
+    id: string;
+    name: string;
+    description?: string;
+    formula?: string;
+    category: { id: string; name: string };
+    supplier: { id: string; name: string };
+    branch: { id: string; name: string };
+    barcode?: string;
+    requiresPrescription: boolean;
+    isActive: boolean;
+    createdAt: string;
+    // Temporary fields for backend compatibility
+    costPrice?: number;
+    sellingPrice?: number;
+    stock?: number;
+    minStock?: number;
+    maxStock?: number;
+    unitsPerPack?: number;
+  }>> {
+    const isElectron = typeof window !== 'undefined' && typeof (window as any).electronAPI !== 'undefined';
+
+    console.log('[API] createProduct called with data:', productData);
+    console.log('[API] isElectron:', isElectron);
+
+    // CRITICAL: In Electron mode, always try embedded server first (saves to SQLite immediately)
+    try {
+      const response = await this.request<{
+        id: string;
+        name: string;
+        description?: string;
+        formula?: string;
+        category: { id: string; name: string };
+        supplier: { id: string; name: string };
+        branch: { id: string; name: string };
+        barcode?: string;
+        requiresPrescription: boolean;
+        isActive: boolean;
+        createdAt: string;
+        // Temporary fields for backend compatibility
+        costPrice?: number;
+        sellingPrice?: number;
+        stock?: number;
+        minStock?: number;
+        maxStock?: number;
+        unitsPerPack?: number;
+      }>('/products', {
+        method: 'POST',
+        body: JSON.stringify(productData),
+      });
+
+      console.log('[API] createProduct response:', response);
+      console.log('[API] createProduct response.success:', response.success);
+      console.log('[API] createProduct response.code:', response.code);
+      console.log('[API] createProduct response.message:', response.message);
+      console.log('[API] createProduct response.data:', response.data);
+      console.log('[API] createProduct response.data type:', typeof response.data);
+
+      if (response.success) {
+        if (response.data) {
+          console.log('[API] ✅ Product created successfully with data:', response.data);
+        } else {
+          console.warn('[API] ⚠️ Product creation response.success is true but response.data is missing');
+        }
+        return response;
+      }
+
+      if (response.code === 'OFFLINE_MODE' && isElectron) {
+        console.warn('[API] Embedded server returned OFFLINE_MODE - this should not happen in Electron mode');
+        return response;
+      }
+
+      console.error('[API] ❌ Product creation failed:', response);
+      return response;
+    } catch (error: any) {
+      console.error('[API] createProduct error caught:', error);
+      console.error('[API] createProduct error message:', error.message);
+      console.error('[API] createProduct error name:', error.name);
+      console.error('[API] createProduct error stack:', error.stack);
+
+      if (isElectron && (error.message?.includes('fetch') || error.message?.includes('Failed to fetch') || error.name === 'TypeError')) {
+        console.error('[API] Network error in Electron mode - embedded server might not be running');
+        return {
+          success: false,
+          message: 'Backend is unavailable. Data will be saved locally and synced when connection is restored.',
+          code: 'OFFLINE_MODE'
+        } as ApiResponse<any>;
+      }
+      throw error;
+    }
   }
 
   async bulkImportProducts(products: Array<{
@@ -814,25 +1145,65 @@ class ApiService {
     email?: string;
     address?: string;
     branchId: string;
-  }) {
-    return this.request<{
-      id: string;
-      name: string;
-      phone: string;
-      email?: string;
-      address?: string;
-      branch: { id: string; name: string };
-      totalPurchases: number;
-      loyaltyPoints: number;
-      isVIP: boolean;
-      lastVisit?: string;
-      isActive: boolean;
-      createdAt: string;
-      updatedAt: string;
-    }>('/customers', {
-      method: 'POST',
-      body: JSON.stringify(customerData),
-    });
+  }): Promise<ApiResponse<{
+    id: string;
+    name: string;
+    phone: string;
+    email?: string;
+    address?: string;
+    branch: { id: string; name: string };
+    totalPurchases: number;
+    loyaltyPoints: number;
+    isVIP: boolean;
+    lastVisit?: string;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+  }>> {
+    const isElectron = typeof window !== 'undefined' && typeof (window as any).electronAPI !== 'undefined';
+
+    // CRITICAL: In Electron mode, always try embedded server first (saves to SQLite immediately)
+    try {
+      const response = await this.request<{
+        id: string;
+        name: string;
+        phone: string;
+        email?: string;
+        address?: string;
+        branch: { id: string; name: string };
+        totalPurchases: number;
+        loyaltyPoints: number;
+        isVIP: boolean;
+        lastVisit?: string;
+        isActive: boolean;
+        createdAt: string;
+        updatedAt: string;
+      }>('/customers', {
+        method: 'POST',
+        body: JSON.stringify(customerData),
+      });
+
+      if (response.success) {
+        return response;
+      }
+
+      if (response.code === 'OFFLINE_MODE' && isElectron) {
+        console.warn('[API] Embedded server returned OFFLINE_MODE - this should not happen in Electron mode');
+        return response;
+      }
+
+      return response;
+    } catch (error: any) {
+      if (isElectron && (error.message?.includes('fetch') || error.message?.includes('Failed to fetch') || error.name === 'TypeError')) {
+        console.error('[API] Network error in Electron mode - embedded server might not be running');
+        return {
+          success: false,
+          message: 'Backend is unavailable. Data will be saved locally and synced when connection is restored.',
+          code: 'OFFLINE_MODE'
+        } as ApiResponse<any>;
+      }
+      throw error;
+    }
   }
 
   // Sales
@@ -1178,6 +1549,7 @@ class ApiService {
     endDate?: string;
     branchId?: string;
     groupBy?: 'day' | 'week' | 'month' | 'year';
+    period?: 'today' | 'week' | 'month' | 'year';
   }) {
     const queryParams = new URLSearchParams();
     if (params) {
@@ -1990,18 +2362,51 @@ class ApiService {
     type?: string;
     color?: string;
     branchId?: string;
-  }) {
-    return this.request<{
-      id: string;
-      name: string;
-      description?: string;
-      type?: string;
-      color?: string;
-      createdAt: string;
-    }>('/categories', {
-      method: 'POST',
-      body: JSON.stringify(categoryData),
-    });
+  }): Promise<ApiResponse<{
+    id: string;
+    name: string;
+    description?: string;
+    type?: string;
+    color?: string;
+    createdAt: string;
+  }>> {
+    const isElectron = typeof window !== 'undefined' && typeof (window as any).electronAPI !== 'undefined';
+
+    // CRITICAL: In Electron mode, always try embedded server first (saves to SQLite immediately)
+    try {
+      const response = await this.request<{
+        id: string;
+        name: string;
+        description?: string;
+        type?: string;
+        color?: string;
+        createdAt: string;
+      }>('/categories', {
+        method: 'POST',
+        body: JSON.stringify(categoryData),
+      });
+
+      if (response.success) {
+        return response;
+      }
+
+      if (response.code === 'OFFLINE_MODE' && isElectron) {
+        console.warn('[API] Embedded server returned OFFLINE_MODE - this should not happen in Electron mode');
+        return response;
+      }
+
+      return response;
+    } catch (error: any) {
+      if (isElectron && (error.message?.includes('fetch') || error.message?.includes('Failed to fetch') || error.name === 'TypeError')) {
+        console.error('[API] Network error in Electron mode - embedded server might not be running');
+        return {
+          success: false,
+          message: 'Backend is unavailable. Data will be saved locally and synced when connection is restored.',
+          code: 'OFFLINE_MODE'
+        } as ApiResponse<any>;
+      }
+      throw error;
+    }
   }
 
   async updateCategory(categoryId: string, categoryData: {
@@ -2103,20 +2508,55 @@ class ApiService {
     email?: string;
     address?: string;
     manufacturerId?: string;
-  }) {
-    return this.request<{
-      id: string;
-      name: string;
-      contactPerson: string;
-      phone: string;
-      email: string;
-      address: string;
-      isActive: boolean;
-      createdAt: string;
-    }>('/suppliers', {
-      method: 'POST',
-      body: JSON.stringify(supplierData),
-    });
+  }): Promise<ApiResponse<{
+    id: string;
+    name: string;
+    contactPerson: string;
+    phone: string;
+    email: string;
+    address: string;
+    isActive: boolean;
+    createdAt: string;
+  }>> {
+    const isElectron = typeof window !== 'undefined' && typeof (window as any).electronAPI !== 'undefined';
+
+    // CRITICAL: In Electron mode, always try embedded server first (saves to SQLite immediately)
+    try {
+      const response = await this.request<{
+        id: string;
+        name: string;
+        contactPerson: string;
+        phone: string;
+        email: string;
+        address: string;
+        isActive: boolean;
+        createdAt: string;
+      }>('/suppliers', {
+        method: 'POST',
+        body: JSON.stringify(supplierData),
+      });
+
+      if (response.success) {
+        return response;
+      }
+
+      if (response.code === 'OFFLINE_MODE' && isElectron) {
+        console.warn('[API] Embedded server returned OFFLINE_MODE - this should not happen in Electron mode');
+        return response;
+      }
+
+      return response;
+    } catch (error: any) {
+      if (isElectron && (error.message?.includes('fetch') || error.message?.includes('Failed to fetch') || error.name === 'TypeError')) {
+        console.error('[API] Network error in Electron mode - embedded server might not be running');
+        return {
+          success: false,
+          message: 'Backend is unavailable. Data will be saved locally and synced when connection is restored.',
+          code: 'OFFLINE_MODE'
+        } as ApiResponse<any>;
+      }
+      throw error;
+    }
   }
 
   async updateSupplier(supplierId: string, supplierData: {
@@ -2215,20 +2655,69 @@ class ApiService {
   async createManufacturer(manufacturerData: {
     name: string;
     description?: string;
-  }) {
-    return this.request<{
-      id: string;
-      name: string;
-      description?: string;
-      website?: string;
-      country?: string;
-      isActive: boolean;
-      createdAt: string;
-      updatedAt: string;
-    }>('/manufacturers', {
-      method: 'POST',
-      body: JSON.stringify(manufacturerData),
-    });
+  }): Promise<ApiResponse<{
+    id: string;
+    name: string;
+    description?: string;
+    website?: string;
+    country?: string;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+  }>> {
+    const isElectron = typeof window !== 'undefined' && typeof (window as any).electronAPI !== 'undefined';
+
+    // CRITICAL: In Electron mode, always try embedded server first (saves to SQLite immediately)
+    // Embedded server saves to SQLite FIRST, then queues for sync to PostgreSQL
+    try {
+      const response = await this.request<{
+        id: string;
+        name: string;
+        description?: string;
+        website?: string;
+        country?: string;
+        isActive: boolean;
+        createdAt: string;
+        updatedAt: string;
+      }>('/manufacturers', {
+        method: 'POST',
+        body: JSON.stringify(manufacturerData),
+      });
+
+      // If embedded server responded successfully, SQLite save already happened
+      // Return success regardless of whether main backend sync succeeded
+      if (response.success) {
+        return response;
+      }
+
+      // If response has OFFLINE_MODE code, it means embedded server also failed
+      // This should rarely happen in Electron mode, but handle it gracefully
+      if (response.code === 'OFFLINE_MODE' && isElectron) {
+        // In Electron, embedded server should always be available
+        // If it's not, there's a critical issue - but still return the response
+        // so UI can show appropriate message
+        console.warn('[API] Embedded server returned OFFLINE_MODE - this should not happen in Electron mode');
+        return response;
+      }
+
+      return response;
+    } catch (error: any) {
+      // If request throws an error, check if it's a network error
+      // In Electron mode, embedded server should always be available
+      if (isElectron && (error.message?.includes('fetch') || error.message?.includes('Failed to fetch') || error.name === 'TypeError')) {
+        // Network error in Electron - embedded server might not be running
+        // Return OFFLINE_MODE so UI can handle it
+        console.error('[API] Network error in Electron mode - embedded server might not be running');
+        return {
+          success: false,
+          message: 'Backend is unavailable. Data will be saved locally and synced when connection is restored.',
+          code: 'OFFLINE_MODE'
+        } as ApiResponse<any>;
+      }
+
+      // Re-throw other errors (validation, auth, etc.)
+      throw error;
+    }
   }
 
   async updateManufacturer(manufacturerId: string, manufacturerData: {
@@ -2326,19 +2815,67 @@ class ApiService {
     name: string;
     description?: string;
     location?: string;
-  }) {
-    return this.request<{
-      id: string;
-      name: string;
-      description?: string;
-      location?: string;
-      isActive: boolean;
-      createdAt: string;
-      updatedAt: string;
-    }>('/shelves', {
-      method: 'POST',
-      body: JSON.stringify(shelfData),
-    });
+  }): Promise<ApiResponse<{
+    id: string;
+    name: string;
+    description?: string;
+    location?: string;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+  }>> {
+    const isElectron = typeof window !== 'undefined' && typeof (window as any).electronAPI !== 'undefined';
+
+    // CRITICAL: In Electron mode, always try embedded server first (saves to SQLite immediately)
+    // Embedded server saves to SQLite FIRST, then queues for sync to PostgreSQL
+    try {
+      const response = await this.request<{
+        id: string;
+        name: string;
+        description?: string;
+        location?: string;
+        isActive: boolean;
+        createdAt: string;
+        updatedAt: string;
+      }>('/shelves', {
+        method: 'POST',
+        body: JSON.stringify(shelfData),
+      });
+
+      // If embedded server responded successfully, SQLite save already happened
+      // Return success regardless of whether main backend sync succeeded
+      if (response.success) {
+        return response;
+      }
+
+      // If response has OFFLINE_MODE code, it means embedded server also failed
+      // This should rarely happen in Electron mode, but handle it gracefully
+      if (response.code === 'OFFLINE_MODE' && isElectron) {
+        // In Electron, embedded server should always be available
+        // If it's not, there's a critical issue - but still return the response
+        // so UI can show appropriate message
+        console.warn('[API] Embedded server returned OFFLINE_MODE - this should not happen in Electron mode');
+        return response;
+      }
+
+      return response;
+    } catch (error: any) {
+      // If request throws an error, check if it's a network error
+      // In Electron mode, embedded server should always be available
+      if (isElectron && (error.message?.includes('fetch') || error.message?.includes('Failed to fetch') || error.name === 'TypeError')) {
+        // Network error in Electron - embedded server might not be running
+        // Return OFFLINE_MODE so UI can handle it
+        console.error('[API] Network error in Electron mode - embedded server might not be running');
+        return {
+          success: false,
+          message: 'Backend is unavailable. Data will be saved locally and synced when connection is restored.',
+          code: 'OFFLINE_MODE'
+        } as ApiResponse<any>;
+      }
+
+      // Re-throw other errors (validation, auth, etc.)
+      throw error;
+    }
   }
 
   async updateShelf(shelfId: string, shelfData: {
@@ -3990,25 +4527,17 @@ class ApiService {
   async restockBatch(id: string, restockData: {
     quantity: number;
     notes?: string;
-  }): Promise<{
-    success: boolean;
-    message: string;
-    data: {
+  }): Promise<ApiResponse<{
+    id: string;
+    batchNo: string;
+    stockQuantity: number;
+    updatedAt: string;
+  }>> {
+    return this.request<{
       id: string;
       batchNo: string;
       stockQuantity: number;
       updatedAt: string;
-    };
-  }> {
-    return this.request<{
-      success: boolean;
-      message: string;
-      data: {
-        id: string;
-        batchNo: string;
-        stockQuantity: number;
-        updatedAt: string;
-      };
     }>(`/batches/${id}/restock`, {
       method: 'POST',
       body: JSON.stringify(restockData),

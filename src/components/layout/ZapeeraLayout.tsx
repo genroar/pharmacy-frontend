@@ -6,17 +6,28 @@ import {
   Settings,
   MessageCircle,
   Calendar,
-  Bell,
-  ShoppingCart
+  UserCircle,
+  LogOut,
+  User,
+  ArrowLeft,
+  ChevronDown
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 
 interface ZapeeraLayoutProps {
   children: React.ReactNode;
 }
 
 const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -65,29 +76,36 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
   };
 
   const handleScheduleDemo = () => {
-    // Open email client to schedule a demo call
-    const subject = "Schedule Demo Call - Zapeera";
-    const body = `Hello,
+    // Redirect to Zapeera contact page
+    window.open('https://zapeera.com/contact', '_blank');
+  };
 
-I would like to schedule a demo call to learn more about Zapeera.
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
 
-Please let me know your available time slots.
+  const handleEditProfile = () => {
+    navigate('/settings');
+  };
 
-Best regards,
-${user?.name || 'User'}`;
-
-    const emailUrl = `mailto:zapeeraofficial@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.open(emailUrl, '_blank');
+  const handleBackToProfile = () => {
+    navigate('/zapeera');
   };
 
   return (
     <div className="min-h-screen bg-white flex">
       {/* Left Sidebar */}
       <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
-        {/* Logo */}
-        <div className="px-4 py-[1px] border-b border-gray-200">
-          <div className="flex items-center space-x-3">
-              <img src={`${import.meta.env.BASE_URL}images/logo.png`} alt="logo" className="w-45 object-cover" />
+        {/* Logo - Icon with text */}
+        <div className="px-4 py-3 border-b border-gray-200">
+          <div className="flex items-center space-x-2">
+            <img src={`${import.meta.env.BASE_URL}images/favicon.png`} alt="Zapeera" className="w-8 h-8 object-contain" />
+            <span className="text-lg font-bold text-blue-900">Zapeera</span>
           </div>
         </div>
 
@@ -159,15 +177,53 @@ ${user?.name || 'User'}`;
         <header className="bg-white border-b border-gray-200 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <h2 className="text-xl font-bold">Smart. Seamless. Scalable. That’s Zapeera.</h2>
+              <h2 className="text-xl font-bold">Smart. Seamless. Scalable. That's Zapeera.</h2>
             </div>
             <div className="flex items-center space-x-4">
-              <button
-                className="p-2 text-gray-500 hover:text-gray-700 transition-colors"
-                aria-label="Notifications"
-              >
-                <Bell className="w-5 h-5" />
-              </button>
+              {/* Profile Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="flex items-center space-x-2 p-2 hover:bg-gray-100 rounded-full"
+                  >
+                    {user?.profileImage ? (
+                      <img
+                        src={user.profileImage}
+                        alt="Profile"
+                        className="w-8 h-8 rounded-full object-cover border-2 border-blue-600"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                        <span className="text-white text-sm font-medium">
+                          {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                        </span>
+                      </div>
+                    )}
+                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <div className="px-3 py-2">
+                    <p className="text-sm font-medium text-gray-900">{user?.name || 'User'}</p>
+                    <p className="text-xs text-gray-500">{user?.email || ''}</p>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleEditProfile} className="cursor-pointer">
+                    <User className="w-4 h-4 mr-2" />
+                    Edit Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleBackToProfile} className="cursor-pointer">
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Back to Dashboard
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600 focus:text-red-600">
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </header>

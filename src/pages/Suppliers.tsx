@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { apiService } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAdmin } from "@/contexts/AdminContext";
 import { toast } from "@/hooks/use-toast";
 
 interface Supplier {
@@ -57,6 +58,7 @@ interface Manufacturer {
 
 const Suppliers = () => {
   const { user } = useAuth();
+  const { selectedCompanyId, selectedBranchId, selectedBranch } = useAdmin();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [manufacturers, setManufacturers] = useState<Manufacturer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,7 +103,7 @@ const Suppliers = () => {
   const loadSuppliers = async () => {
     try {
       setLoading(true);
-      console.log('🔍 Loading suppliers...');
+      console.log('🔍 Loading suppliers for branch:', selectedBranchId, 'company:', selectedCompanyId);
       const response = await apiService.getSuppliers({
         page: 1,
         limit: 100,
@@ -122,10 +124,11 @@ const Suppliers = () => {
     }
   };
 
+  // Reload suppliers when branch or company changes
   useEffect(() => {
     loadSuppliers();
     loadManufacturers();
-  }, [searchQuery]);
+  }, [searchQuery, selectedBranchId, selectedCompanyId]);
 
   // Filter suppliers based on search
   const filteredSuppliers = suppliers.filter(supplier => {
@@ -153,11 +156,15 @@ const Suppliers = () => {
         address: formData.address?.trim() || undefined,
         manufacturerId: formData.manufacturerId || undefined
       };
-      console.log('🔍 Form data being sent:', cleanedFormData);
-      const response = await apiService.createSupplier(cleanedFormData);
-      console.log('🔍 Create supplier response:', response);
 
+      // CRITICAL: Create supplier - embedded server saves to SQLite FIRST
+      // Then optionally syncs to PostgreSQL backend (non-blocking)
+      const response = await apiService.createSupplier(cleanedFormData);
+
+      // CRITICAL: Show success if SQLite save succeeded (response.success === true)
+      // This means data is saved locally, regardless of backend sync status
       if (response.success) {
+        // SQLite save succeeded - show success immediately
         toast({
           title: "Supplier Added",
           description: "Supplier has been added successfully.",
@@ -171,21 +178,59 @@ const Suppliers = () => {
           address: '',
           manufacturerId: ''
         });
-        loadSuppliers();
+        // Reload to show the new supplier
+        setTimeout(() => loadSuppliers(), 500);
+        return;
+      }
+
+      // Handle offline mode - embedded server saved to SQLite but backend sync failed
+      // This is still a success from user perspective (data is saved locally)
+      if (response.code === 'OFFLINE_MODE') {
+        // Data was saved to SQLite via embedded server
+        // Backend sync will happen later when backend is available
+        toast({
+          title: "Supplier Added (Offline)",
+          description: "Supplier has been saved locally. It will sync when connection is restored.",
+        });
+        setShowAddDialog(false);
+        setFormData({
+          name: '',
+          contactPerson: '',
+          phone: '',
+          email: '',
+          address: '',
+          manufacturerId: ''
+        });
+        // Reload to show the new supplier from SQLite
+        setTimeout(() => loadSuppliers(), 1000);
+        return;
+      }
+
+      // Only show error for actual failures (validation, database errors, etc.)
+      // NOT for network/backend unavailability (that's handled above)
+      toast({
+        title: "Error",
+        description: response.message || "Failed to add supplier",
+        variant: "destructive",
+      });
+    } catch (err: any) {
+      console.error('Error adding supplier:', err);
+      // Check if it's a timeout
+      if (err.message?.includes('timeout') || err.name === 'AbortError') {
+        toast({
+          title: "Supplier Added (Offline)",
+          description: "Supplier has been saved locally. It will sync when connection is restored.",
+        });
+        setShowAddDialog(false);
+        setFormData({ name: '', contactPerson: '', phone: '', email: '', address: '', manufacturerId: '' });
+        setTimeout(() => loadSuppliers(), 1000);
       } else {
         toast({
           title: "Error",
-          description: response.message || "Failed to add supplier",
+          description: "Failed to add supplier",
           variant: "destructive",
         });
       }
-    } catch (err) {
-      console.error('Error adding supplier:', err);
-      toast({
-        title: "Error",
-        description: "Failed to add supplier",
-        variant: "destructive",
-      });
     } finally {
       setIsSubmitting(false);
     }
@@ -329,6 +374,16 @@ const Suppliers = () => {
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] p-6">
+      {/* Branch Context Info */}
+      {selectedBranchId && selectedBranch && (
+        <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 flex items-center gap-2 mb-4">
+          <Building2 className="w-5 h-5 text-purple-600" />
+          <span className="text-purple-800">
+            Showing suppliers for: <strong>{selectedBranch.name}</strong>
+          </span>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
         <div>
@@ -642,7 +697,7 @@ const Suppliers = () => {
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Enter company name"
+                  placeholder="Enter supplier name"
                 />
               </div>
               <div>

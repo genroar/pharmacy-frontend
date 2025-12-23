@@ -89,13 +89,13 @@ const Manufacturers: React.FC = () => {
   }, []);
 
   const handleAddManufacturer = async () => {
+    if (!formData.name.trim()) {
+      toast.error('Manufacturer name is required');
+      return;
+    }
+
     try {
       setIsSubmitting(true);
-
-      if (!formData.name.trim()) {
-        toast.error('Manufacturer name is required');
-        return;
-      }
 
       // Clean up form data - convert empty strings to undefined for optional fields
       const cleanedFormData: { name: string; description?: string } = {
@@ -106,19 +106,56 @@ const Manufacturers: React.FC = () => {
         cleanedFormData.description = formData.description.trim();
       }
 
+      // CRITICAL: Create manufacturer - embedded server saves to SQLite FIRST
+      // Then optionally syncs to PostgreSQL backend (non-blocking)
       const response = await apiService.createManufacturer(cleanedFormData);
 
+      // CRITICAL: Show success if SQLite save succeeded (response.success === true)
+      // This means data is saved locally, regardless of backend sync status
       if (response.success) {
+        // SQLite save succeeded - show success immediately
         toast.success('Manufacturer created successfully');
         setIsCreateDialogOpen(false);
         setFormData({ name: '', description: '' });
-        loadManufacturers();
-      } else {
-        toast.error(response.message || 'Failed to create manufacturer');
+        // Reload to show the new manufacturer
+        setTimeout(() => loadManufacturers(), 500);
+        return;
       }
-    } catch (error) {
+
+      // Handle offline mode - embedded server saved to SQLite but backend sync failed
+      // This is still a success from user perspective (data is saved locally)
+      if (response.code === 'OFFLINE_MODE') {
+        // Data was saved to SQLite via embedded server
+        // Backend sync will happen later when backend is available
+        toast.success('Manufacturer has been saved locally. It will sync when connection is restored.');
+        setIsCreateDialogOpen(false);
+        setFormData({ name: '', description: '' });
+        // Reload to show the new manufacturer from SQLite
+        setTimeout(() => loadManufacturers(), 1000);
+        return;
+      }
+
+      // Only show error for actual failures (validation, database errors, etc.)
+      // NOT for network/backend unavailability (that's handled above)
+      toast.error(response.message || 'Failed to create manufacturer');
+    } catch (error: any) {
       console.error('Error creating manufacturer:', error);
-      toast.error('Failed to create manufacturer');
+
+      // Check if error is a network/connection issue
+      // In Electron mode, embedded server should handle this, but if it fails:
+      const isNetworkError = error.message?.includes('fetch') ||
+                            error.message?.includes('Failed to fetch') ||
+                            error.message?.includes('NetworkError') ||
+                            error.name === 'TypeError';
+
+      if (isNetworkError) {
+        // Network error - embedded server might not be running
+        // This is a critical issue in Electron mode
+        toast.error('Cannot connect to local server. Please restart the application.');
+      } else {
+        // Other errors (validation, auth, etc.) - show actual error
+        toast.error(error.message || 'Failed to create manufacturer');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -311,12 +348,12 @@ const Manufacturers: React.FC = () => {
       <td className="px-6 py-4">
         <div className="flex items-center space-x-3">
           <Building2 className="h-5 w-5 text-blue-600" />
-          <div>
-            <div className="font-medium text-gray-900">{manufacturer.name}</div>
-            {manufacturer.description && (
-              <div className="text-sm text-gray-500 line-clamp-1">{manufacturer.description}</div>
-            )}
-          </div>
+          <div className="font-medium text-gray-900">{manufacturer.name}</div>
+        </div>
+      </td>
+      <td className="px-6 py-4">
+        <div className="text-sm text-gray-600 max-w-xs truncate">
+          {manufacturer.description || <span className="text-gray-400 italic">No description</span>}
         </div>
       </td>
       <td className="px-6 py-4">
@@ -494,6 +531,9 @@ const Manufacturers: React.FC = () => {
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Manufacturer
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Description
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Suppliers

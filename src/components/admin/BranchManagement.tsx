@@ -40,6 +40,12 @@ interface Branch {
     id: string;
     name: string;
   };
+  manager?: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  } | null;
   _count?: {
     users: number;
     products: number;
@@ -65,7 +71,7 @@ interface User {
 
 const BranchManagement = () => {
   const { user } = useAuth();
-  const { refreshBranches: refreshGlobalBranches, refreshCompanies: refreshGlobalCompanies } = useAdmin();
+  const { refreshBranches: refreshGlobalBranches, refreshCompanies: refreshGlobalCompanies, selectedCompanyId: globalSelectedCompanyId } = useAdmin();
   const [branches, setBranches] = useState<Branch[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -111,8 +117,14 @@ const BranchManagement = () => {
       setIsLoading(true);
       const response = await apiService.getBranches();
 
+      console.log('🏢 Branches API Response:', response);
+
       if (response.success && response.data) {
         const branchesData = Array.isArray(response.data) ? response.data : response.data.branches;
+        console.log('🏢 Branches Data:', branchesData);
+        branchesData.forEach((branch: any) => {
+          console.log(`Branch: ${branch.name}, Manager:`, branch.manager);
+        });
         setBranches(branchesData as Branch[]);
       }
     } catch (error) {
@@ -158,7 +170,7 @@ const BranchManagement = () => {
 
   const handleCreateBranch = async () => {
     if (!newBranch.name || !newBranch.address || !newBranch.phone || !newBranch.email || !newBranch.companyId) {
-      setError("Please fill in all required fields including company selection!");
+      setError("Please fill in all required fields including business selection!");
       return;
     }
 
@@ -199,10 +211,21 @@ const BranchManagement = () => {
 
     try {
       setIsLoading(true);
-      const response = await apiService.updateBranch(editingBranch.id, {
-        ...editBranch,
-        managerId: editBranch.managerId || undefined
-      });
+
+      const updateData = {
+        name: editBranch.name,
+        address: editBranch.address,
+        phone: editBranch.phone,
+        email: editBranch.email,
+        managerId: editBranch.managerId || undefined,
+        isActive: editBranch.isActive
+      };
+
+      console.log('📝 Updating branch:', editingBranch.id, 'with data:', updateData);
+
+      const response = await apiService.updateBranch(editingBranch.id, updateData);
+
+      console.log('📝 Update response:', response);
 
       if (response.success) {
         setEditingBranch(null);
@@ -267,15 +290,34 @@ const BranchManagement = () => {
     setIsDeleteDialogOpen(true);
   };
 
-  const getManagerName = (managerId?: string) => {
-    if (!managerId) return "No Manager";
-    const manager = users.find(user => user.id === managerId);
+  // Open create dialog with pre-selected business from header dropdown
+  const openCreateDialog = () => {
+    // Pre-select the currently active business from the header dropdown
+    setNewBranch({
+      name: "",
+      address: "",
+      phone: "",
+      email: "",
+      companyId: globalSelectedCompanyId || (companies.length > 0 ? companies[0].id : "")
+    });
+    setIsCreateDialogOpen(true);
+  };
+
+  const getManagerName = (branch: Branch) => {
+    if (branch.manager) {
+      return branch.manager.name;
+    }
+    if (!branch.managerId) return "No Manager";
+    const manager = users.find(user => user.id === branch.managerId);
     return manager ? manager.name : "Unknown Manager";
   };
 
-  const getManagerRole = (managerId?: string) => {
-    if (!managerId) return "";
-    const manager = users.find(user => user.id === managerId);
+  const getManagerRole = (branch: Branch) => {
+    if (branch.manager) {
+      return branch.manager.role;
+    }
+    if (!branch.managerId) return "";
+    const manager = users.find(user => user.id === branch.managerId);
     return manager ? manager.role : "";
   };
 
@@ -301,12 +343,12 @@ const BranchManagement = () => {
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Branch Management</h1>
             <p className="text-gray-600 mt-1">
-              Manage pharmacy branches and their details • {branches.length} branches total
+              Manage your branches and their details • {branches.length} branches total
             </p>
           </div>
           <div className="flex items-center space-x-4">
             <Button
-              onClick={() => setIsCreateDialogOpen(true)}
+              onClick={openCreateDialog}
               className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white border-blue-600 shadow-md hover:shadow-lg transition-all duration-200"
             >
               <Plus className="w-4 h-4" />
@@ -385,7 +427,7 @@ const BranchManagement = () => {
                             {branch.name}
                           </div>
                           <div className="text-xs text-gray-500">
-                            {branch.company?.name || 'Unknown Company'} • Created {new Date(branch.createdAt).toLocaleDateString()}
+                            {branch.company?.name || 'Unknown Business'} • Created {new Date(branch.createdAt).toLocaleDateString()}
                           </div>
                         </div>
                       </div>
@@ -415,11 +457,11 @@ const BranchManagement = () => {
                         <UserCheck className="w-4 h-4 text-gray-400 flex-shrink-0" />
                         <div>
                           <div className="text-sm font-medium text-gray-900">
-                            {getManagerName(branch.managerId)}
+                            {getManagerName(branch)}
                           </div>
-                          {getManagerRole(branch.managerId) ? (
+                          {getManagerRole(branch) ? (
                             <div className="text-xs text-gray-500">
-                              {getManagerRole(branch.managerId)}
+                              {getManagerRole(branch)}
                             </div>
                           ) : (
                             <div className="text-xs text-gray-500">
@@ -436,7 +478,7 @@ const BranchManagement = () => {
                             <div className="font-semibold text-primary">
                               {branch._count.users || 0}
                             </div>
-                            <div className="text-xs text-gray-500">Users</div>
+                            <div className="text-xs text-gray-500">Staff</div>
                           </div>
                           <div className="text-center">
                             <div className="font-semibold text-primary">
@@ -504,12 +546,12 @@ const BranchManagement = () => {
             <p className="text-gray-600 mb-6 max-w-md mx-auto">
               {searchTerm
                 ? "No branches match your search criteria. Try adjusting your search terms."
-                : "Get started by creating your first pharmacy branch to manage your business operations."
+                : "Get started by creating your first branch to manage your business operations."
               }
             </p>
             {!searchTerm && (
               <Button
-                onClick={() => setIsCreateDialogOpen(true)}
+                onClick={openCreateDialog}
                 className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600 shadow-md hover:shadow-lg transition-all duration-200"
               >
                 <Plus className="w-4 h-4 mr-2" />
@@ -526,15 +568,15 @@ const BranchManagement = () => {
           <DialogHeader>
             <DialogTitle>Create New Branch</DialogTitle>
             <DialogDescription>
-              Add a new pharmacy branch to the system. You can assign a manager later after creating users.
+              Add a new branch to the system. You can assign a manager later after creating users.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="company">Company *</Label>
+              <Label htmlFor="company">Business *</Label>
               <Select value={newBranch.companyId} onValueChange={(value) => setNewBranch({ ...newBranch, companyId: value })}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a company" />
+                  <SelectValue placeholder="Select a business" />
                 </SelectTrigger>
                 <SelectContent>
                   {companies.map(company => (

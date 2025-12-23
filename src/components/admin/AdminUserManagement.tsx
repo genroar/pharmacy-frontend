@@ -96,11 +96,11 @@ const AdminUserManagement = ({ adminId, adminName, branchId }: AdminUserManageme
       if (response.success) {
         setCompanies(response.data);
       } else {
-        toast.error(response.message || 'Failed to load companies');
+        toast.error(response.message || 'Failed to load businesses');
       }
     } catch (error) {
       console.error('Error loading companies:', error);
-      toast.error('Failed to load companies');
+      toast.error('Failed to load businesses');
     }
   };
 
@@ -140,7 +140,7 @@ const AdminUserManagement = ({ adminId, adminName, branchId }: AdminUserManageme
 
   const createUser = async () => {
     if (!newUser.name || !newUser.email || !newUser.username || !newUser.password || !newUser.companyId || !newUser.branchId) {
-      toast.error("Please fill in all required fields including company and branch!");
+      toast.error("Please fill in all required fields including business and branch!");
       return;
     }
 
@@ -157,7 +157,7 @@ const AdminUserManagement = ({ adminId, adminName, branchId }: AdminUserManageme
       });
 
       if (response.success) {
-        toast.success("User created successfully!");
+        toast.success("Staff created successfully!");
         loadUsers();
         setNewUser({
           name: "",
@@ -170,11 +170,11 @@ const AdminUserManagement = ({ adminId, adminName, branchId }: AdminUserManageme
         });
         setIsCreateUserOpen(false);
       } else {
-        toast.error(response.message || "Failed to create user");
+        toast.error(response.message || "Failed to create staff");
       }
     } catch (error) {
       console.error('Error creating user:', error);
-      toast.error("Failed to create user. Please try again.");
+      toast.error("Failed to create staff. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -226,14 +226,14 @@ const AdminUserManagement = ({ adminId, adminName, branchId }: AdminUserManageme
           <DialogTrigger asChild>
             <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all duration-200">
               <Plus className="w-4 h-4 mr-2" />
-              Add User
+              Add Staff
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center space-x-2">
                 <UserPlus className="w-5 h-5 text-primary" />
-                <span>Add New User</span>
+                <span>Add New Staff</span>
               </DialogTitle>
             </DialogHeader>
 
@@ -316,7 +316,7 @@ const AdminUserManagement = ({ adminId, adminName, branchId }: AdminUserManageme
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="userCompany">Company *</Label>
+                <Label htmlFor="userCompany">Business *</Label>
                 <Select
                   value={newUser.companyId}
                   onValueChange={(value) => {
@@ -327,7 +327,7 @@ const AdminUserManagement = ({ adminId, adminName, branchId }: AdminUserManageme
                   }}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a company" />
+                    <SelectValue placeholder="Select a business" />
                   </SelectTrigger>
                   <SelectContent>
                     {companies.map((company) => (
@@ -351,7 +351,7 @@ const AdminUserManagement = ({ adminId, adminName, branchId }: AdminUserManageme
                   disabled={!newUser.companyId}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={newUser.companyId ? "Select a branch" : "Select a company first"} />
+                    <SelectValue placeholder={newUser.companyId ? "Select a branch" : "Select a business first"} />
                   </SelectTrigger>
                   <SelectContent>
                     {branches
@@ -379,7 +379,7 @@ const AdminUserManagement = ({ adminId, adminName, branchId }: AdminUserManageme
                 disabled={isSubmitting}
                 className="bg-[linear-gradient(135deg,#1C623C_0%,#247449_50%,#6EB469_100%)] text-white hover:opacity-90"
               >
-                {isSubmitting ? 'Creating...' : 'Create User'}
+                {isSubmitting ? 'Creating...' : 'Create Staff'}
               </Button>
             </div>
           </DialogContent>
@@ -406,7 +406,7 @@ const AdminUserManagement = ({ adminId, adminName, branchId }: AdminUserManageme
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search users by name, email, or role..."
+            placeholder="Search staff by name, email, or role..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"

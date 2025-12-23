@@ -56,7 +56,7 @@ const roleInfo: Record<string, RoleInfo> = {
   },
   SUPER_ADMIN: {
     role: 'Super Admin',
-    description: 'Full access across all branches of their pharmacy',
+    description: 'Full access across all branches of the business',
     permissions: ['Manage all users', 'Manage all branches', 'Full system control', 'All reports access'],
     color: 'bg-red-100 text-red-800'
   },
@@ -176,13 +176,13 @@ const RoleManagement: React.FC = () => {
         <div>
           <h1 className="text-3xl font-bold text-foreground">Role Management</h1>
           <p className="text-muted-foreground">
-            Manage user roles and permissions across your pharmacy system
+            Manage user roles and permissions across your business
           </p>
         </div>
         <RoleGuard roles={['PRODUCT_OWNER', 'SUPER_ADMIN']}>
           <Button>
             <UserCog className="w-4 h-4 mr-2" />
-            Add User
+            Add Staff
           </Button>
         </RoleGuard>
       </div>

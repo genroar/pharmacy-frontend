@@ -12,7 +12,8 @@ import {
   Mail,
   Building,
   CheckCircle,
-  Phone
+  Phone,
+  AlertCircle
 } from "lucide-react";
 import { apiService } from "@/services/api";
 import { useNavigate, Link } from "react-router-dom";
@@ -42,9 +43,11 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [step, setStep] = useState<1 | 2>(1);
+  const [nameError, setNameError] = useState("");
   const [usernameError, setUsernameError] = useState("");
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const [confirmPasswordError, setConfirmPasswordError] = useState("");
   const [showSuccessDialog, setShowSuccessDialog] = useState(false); // NEW: Success dialog
   const [passwordStrength, setPasswordStrength] = useState({
     hasUpperCase: false,
@@ -94,39 +97,68 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
 
     // Step-wise validation / progression
     if (step === 1) {
-      if (!formData.name || !formData.username || !formData.email) {
-        setError("Please fill all required fields");
-        toast({
-          title: "Missing fields",
-          description: "Name, Username and Email are required.",
-          duration: 2000,
-        });
+      let hasErrors = false;
+
+      // Validate name
+      if (!formData.name.trim()) {
+        setNameError("Full name is required");
+        hasErrors = true;
+      } else if (formData.name.trim().length < 2) {
+        setNameError("Name must be at least 2 characters");
+        hasErrors = true;
+      }
+
+      // Validate username
+      if (!formData.username.trim()) {
+        setUsernameError("Username is required");
+        hasErrors = true;
+      } else if (formData.username.trim().length < 3) {
+        setUsernameError("Username must be at least 3 characters");
+        hasErrors = true;
+      } else if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
+        setUsernameError("Username can only contain letters, numbers and underscore");
+        hasErrors = true;
+      }
+
+      // Validate email
+      if (!formData.email.trim()) {
+        setEmailError("Email address is required");
+        hasErrors = true;
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        setEmailError("Please enter a valid email address");
+        hasErrors = true;
+      }
+
+      if (hasErrors) {
         return;
       }
+
       setStep(2);
       return;
     }
 
     if (step === 2) {
-      // Validate password strength
-      if (!validatePassword(formData.password)) {
-        setPasswordError("Password does not meet requirements");
-        setError("Password does not meet the required criteria");
-        toast({
-          title: "Weak password",
-          description: "Password must contain at least one uppercase letter, one lowercase letter, one number, one special character, and be at least 8 characters long.",
-          duration: 5000,
-          variant: "destructive",
-        });
-        return;
+      let hasErrors = false;
+
+      // Validate password
+      if (!formData.password.trim()) {
+        setPasswordError("Password is required");
+        hasErrors = true;
+      } else if (!validatePassword(formData.password)) {
+        setPasswordError("Password does not meet all requirements");
+        hasErrors = true;
       }
-      if (formData.password !== formData.confirmPassword) {
-        setError("Passwords do not match");
-        toast({
-          title: "Passwords do not match",
-          description: "Make sure both password fields are identical.",
-          duration: 2000,
-        });
+
+      // Validate confirm password
+      if (!formData.confirmPassword.trim()) {
+        setConfirmPasswordError("Please confirm your password");
+        hasErrors = true;
+      } else if (formData.password !== formData.confirmPassword) {
+        setConfirmPasswordError("Passwords do not match");
+        hasErrors = true;
+      }
+
+      if (hasErrors) {
         return;
       }
       // Final submit on step 2 (no more steps needed)
@@ -239,13 +271,17 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
     if (error) setError("");
 
     // Clear field-specific errors when user starts typing
-    if (field === 'username') {
+    if (field === 'name') {
+      setNameError("");
+    } else if (field === 'username') {
       setUsernameError("");
     } else if (field === 'email') {
       setEmailError("");
     } else if (field === 'password') {
       setPasswordError("");
       validatePassword(value);
+    } else if (field === 'confirmPassword') {
+      setConfirmPasswordError("");
     }
   };
 
@@ -342,8 +378,8 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
                <div className="w-16 h-0.5 bg-white/30 mx-auto"></div>
              </div>
             <h2 className="text-4xl font-bold">Create Account!</h2>
-            <p className="text-lg text-purple-100 max-w-xs">
-            Your pharmacy, organized. Set up your account to manage inventory, billing, and reports
+            <p className="text-lg text-blue-100 max-w-xs">
+              Complete Business Management & POS System for your business
             </p>
 
           </div>
@@ -354,12 +390,12 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
       <div className="w-full bg-white lg:w-3/5 flex items-center justify-center rounded-tl-[50px] rounded-bl-[50px] p-8 lg:p-12">
         <div className="w-full max-w-2xl">
           {/* Signup Form */}
-          <Card className="shadow-xl border-0">
+          <Card className="border-0">
             <CardHeader className="text-center pb-4">
               <div className="flex items-center justify-center">
-                <CardTitle className="text-lg font-bold text-gray-900 text-center">Secure, reliable, pharmacy-first POS  system for your business</CardTitle>
+                <CardTitle className="text-lg font-bold text-gray-900 text-center">Secure, reliable business management system</CardTitle>
               </div>
-              <p className="text-gray-600">Set up your pharmacy management system</p>
+              <p className="text-gray-600">Set up your business management account</p>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -382,10 +418,19 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
                           placeholder="Enter your full name"
                           value={formData.name}
                           onChange={(e) => handleInputChange("name", e.target.value)}
-                          className="pl-10 h-10 border-gray-300 focus:border-green-500 focus:ring-green-500"
-
+                          className={`pl-10 h-10 ${
+                            nameError
+                              ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+                              : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                          }`}
                         />
                       </div>
+                      {nameError && (
+                        <div className="flex items-center mt-1.5 text-red-600">
+                          <AlertCircle className="w-4 h-4 mr-1" />
+                          <span className="text-sm">{nameError}</span>
+                        </div>
+                      )}
                     </div>
 
                     <div className="space-y-1">
@@ -407,7 +452,10 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
                           }`}
                         />
                         {usernameError && (
-                          <p className="text-sm text-red-600 mt-1">{usernameError}</p>
+                          <div className="flex items-center mt-1.5 text-red-600">
+                            <AlertCircle className="w-4 h-4 mr-1" />
+                            <span className="text-sm">{usernameError}</span>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -432,7 +480,10 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
                         }`}
                       />
                       {emailError && (
-                        <p className="text-sm text-red-600 mt-1">{emailError}</p>
+                        <div className="flex items-center mt-1.5 text-red-600">
+                          <AlertCircle className="w-4 h-4 mr-1" />
+                          <span className="text-sm">{emailError}</span>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -458,8 +509,11 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
                           placeholder="Create a password"
                           value={formData.password}
                           onChange={(e) => handleInputChange("password", e.target.value)}
-                          className="pl-10 pr-10 h-10 border-gray-300 focus:border-green-500 focus:ring-green-500"
-
+                          className={`pl-10 pr-10 h-10 ${
+                            passwordError
+                              ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+                              : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                          }`}
                         />
                         <button
                           type="button"
@@ -469,6 +523,12 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
                           {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                       </div>
+                      {passwordError && (
+                        <div className="flex items-center mt-1.5 text-red-600">
+                          <AlertCircle className="w-4 h-4 mr-1" />
+                          <span className="text-sm">{passwordError}</span>
+                        </div>
+                      )}
                       {/* Password Strength Indicator */}
                       {formData.password && (
                         <div className="mt-2 space-y-2">
@@ -511,8 +571,11 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
                           placeholder="Confirm your password"
                           value={formData.confirmPassword}
                           onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
-                          className="pl-10 pr-10 h-10 border-gray-300 focus:border-green-500 focus:ring-green-500"
-
+                          className={`pl-10 pr-10 h-10 ${
+                            confirmPasswordError
+                              ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+                              : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                          }`}
                         />
                         <button
                           type="button"
@@ -522,6 +585,12 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
                           {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                       </div>
+                      {confirmPasswordError && (
+                        <div className="flex items-center mt-1.5 text-red-600">
+                          <AlertCircle className="w-4 h-4 mr-1" />
+                          <span className="text-sm">{confirmPasswordError}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -530,14 +599,16 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
 
                 {/* Error/Success Messages */}
                 {error && (
-                  <div className="p-2 bg-red-50 border border-red-200 rounded-md">
-                    <p className="text-sm text-red-600">{error}</p>
+                  <div className="p-3 bg-red-50 border border-red-300 rounded-lg flex items-start">
+                    <AlertCircle className="w-5 h-5 text-red-600 mr-2 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-red-700">{error}</p>
                   </div>
                 )}
 
                 {success && (
-                  <div className="p-2 bg-green-50 border border-green-200 rounded-md">
-                    <p className="text-sm text-green-600">{success}</p>
+                  <div className="p-3 bg-green-50 border border-green-300 rounded-lg flex items-start">
+                    <CheckCircle className="w-5 h-5 text-green-600 mr-2 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-green-700">{success}</p>
                   </div>
                 )}
 
@@ -583,7 +654,7 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
           </div>
           {/* Compliance note */}
           <p className="mt-4 text-xs text-gray-500 text-center">
-            We keep your data secure and compliant with healthcare standards.
+            We keep your data secure and compliant with industry standards.
           </p>
         </div>
       </div>

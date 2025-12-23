@@ -172,7 +172,7 @@ const AdminManagement = () => {
       } else {
         toast({
           title: "Error",
-          description: "Failed to load users",
+          description: "Failed to load staff",
           variant: "destructive",
         });
       }
@@ -180,7 +180,7 @@ const AdminManagement = () => {
       console.error('Error loading users:', error);
       toast({
         title: "Error",
-        description: "Failed to load users",
+        description: "Failed to load staff",
         variant: "destructive",
       });
     } finally {
@@ -234,7 +234,7 @@ const AdminManagement = () => {
       } else {
         toast({
           title: "Error",
-          description: "Failed to update user status",
+          description: "Failed to update staff status",
           variant: "destructive",
         });
       }
@@ -242,7 +242,7 @@ const AdminManagement = () => {
       console.error('Error updating user status:', error);
       toast({
         title: "Error",
-        description: "Failed to update user status",
+        description: "Failed to update staff status",
         variant: "destructive",
       });
     }
@@ -410,8 +410,8 @@ const AdminManagement = () => {
                   <Input id="phone" placeholder="Enter phone number" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="company">Company/Pharmacy Name</Label>
-                  <Input id="company" placeholder="Enter company name" />
+                  <Label htmlFor="company">Business Name</Label>
+                  <Input id="company" placeholder="Enter business name" />
                 </div>
               </div>
               <DialogFooter>
@@ -486,7 +486,7 @@ const AdminManagement = () => {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
-                  placeholder="Search by admin name, company, or email..."
+                  placeholder="Search by admin name, business, or email..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -549,7 +549,7 @@ const AdminManagement = () => {
               <div className="grid grid-cols-2 gap-4 pt-2 border-t">
                 <div className="text-center">
                   <p className="text-2xl font-bold text-blue-600">{admin.userCount}</p>
-                  <p className="text-xs text-muted-foreground">Users</p>
+                  <p className="text-xs text-muted-foreground">Staff</p>
                 </div>
                 <div className="text-center">
                   <p className="text-2xl font-bold text-green-600">${admin.totalSales.toLocaleString()}</p>
@@ -605,7 +605,7 @@ const AdminManagement = () => {
             <Tabs defaultValue="overview" className="w-full">
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="users">Users ({users.length})</TabsTrigger>
+                <TabsTrigger value="users">Staff ({users.length})</TabsTrigger>
                 <TabsTrigger value="branches">Branches</TabsTrigger>
               </TabsList>
 
@@ -808,7 +808,7 @@ const AdminManagement = () => {
                           <div className="grid grid-cols-3 gap-2 pt-2 border-t">
                             <div className="text-center">
                               <p className="text-lg font-bold text-blue-600">{branch._count.users}</p>
-                              <p className="text-xs text-muted-foreground">Users</p>
+                              <p className="text-xs text-muted-foreground">Staff</p>
                             </div>
                             <div className="text-center">
                               <p className="text-lg font-bold text-green-600">{branch._count.products}</p>

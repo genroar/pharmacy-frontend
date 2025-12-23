@@ -25,6 +25,15 @@ export const useRealtimeNotifications = () => {
       return;
     }
 
+    // CRITICAL: In Electron mode, disable SSE connection to remote backend
+    // Embedded server doesn't support SSE, and we don't want to spam console with connection errors
+    const isElectron = typeof window !== 'undefined' && typeof (window as any).electronAPI !== 'undefined';
+    if (isElectron) {
+      // In Electron mode, skip SSE connection - embedded server doesn't support it
+      // Real-time updates are not critical for offline-first operation
+      return;
+    }
+
     // Listen for account deactivation events from API calls
     const handleAccountDeactivation = (event: CustomEvent) => {
       // Debug: Account deactivated via API call
@@ -41,7 +50,7 @@ export const useRealtimeNotifications = () => {
 
     window.addEventListener('accountDeactivated', handleAccountDeactivation as EventListener);
 
-    // Create SSE connection
+    // Create SSE connection (only in web mode, not Electron)
     const token = localStorage.getItem('token');
     if (!token) return;
 
@@ -201,15 +210,17 @@ export const useRealtimeNotifications = () => {
     };
 
     eventSource.onerror = (error) => {
-      console.error('SSE connection error:', error);
+      // Only log errors in web mode, not Electron
+      const isElectron = typeof window !== 'undefined' && typeof (window as any).electronAPI !== 'undefined';
+      if (!isElectron) {
+        // Silently handle errors - don't spam console
+        // Connection will retry automatically
+      }
 
-      // Try to reconnect after 5 seconds
-      setTimeout(() => {
-        if (user && !eventSourceRef.current) {
-          // Debug: Attempting to reconnect
-          // The useEffect will run again and create a new connection
-        }
-      }, 5000);
+      // Close and cleanup on persistent errors
+      if (eventSource.readyState === EventSource.CLOSED) {
+        eventSourceRef.current = null;
+      }
     };
 
     // Cleanup on unmount

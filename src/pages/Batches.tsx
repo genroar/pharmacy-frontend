@@ -2229,7 +2229,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
         description: "",
         formula: formData.formula || "",
         categoryId: formData.categoryId,
-        supplierId: 'default-supplier',
+        // supplierId not needed - supplier is assigned at batch level
         branchId: 'default-branch',
         barcode: formData.barcode || null,
         requiresPrescription: false,

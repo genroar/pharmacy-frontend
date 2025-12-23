@@ -22,16 +22,17 @@ function isProductionMode(): boolean {
 }
 
 // Maximum retries - more for production EXE builds
+// CRITICAL: Increased retries to handle slower backend startup
 function getMaxRetries(): number {
   const isWin = isWindowsPlatform();
   const isProd = isProductionMode();
 
   if (isProd && isWin) {
-    return 60; // Windows EXE: 60 retries = 120 seconds total
+    return 90; // Windows EXE: 90 retries = 180 seconds total (increased from 60)
   } else if (isProd) {
-    return 50; // Production (non-Windows): 50 retries = 100 seconds
+    return 75; // Production (non-Windows): 75 retries = 150 seconds (increased from 50)
   } else {
-    return 40; // Dev: 40 retries = 80 seconds
+    return 60; // Dev: 60 retries = 120 seconds (increased from 40)
   }
 }
 
@@ -39,18 +40,19 @@ const MAX_RETRIES = getMaxRetries();
 
 // For Electron, wait a bit longer initially as backend might be starting
 // Windows EXE in production needs significantly more time due to slower startup
+// CRITICAL: Increased wait times to handle slower backend startup
 function getInitialWaitTime(): number {
   const isWin = isWindowsPlatform();
   const isProd = isProductionMode();
 
   if (isProd && isWin) {
-    return 15000; // Windows EXE: 15 seconds
+    return 30000; // Windows EXE: 30 seconds (increased from 15)
   } else if (isProd) {
-    return 10000; // Production (non-Windows): 10 seconds
+    return 20000; // Production (non-Windows): 20 seconds (increased from 10)
   } else if (isWin) {
-    return 8000;  // Dev Windows: 8 seconds
+    return 15000;  // Dev Windows: 15 seconds (increased from 8)
   } else {
-    return 5000;  // Dev others: 5 seconds
+    return 10000;  // Dev others: 10 seconds (increased from 5)
   }
 }
 
@@ -70,7 +72,10 @@ export async function checkBackendHealth(baseUrl: string): Promise<boolean> {
 
     const controller = new AbortController();
     // Windows EXE may need more time for backend to respond
-    const healthCheckTimeout = isWindowsPlatform() ? 10000 : 5000; // Windows: 10 seconds, others: 5 seconds
+    // CRITICAL: Increased timeout to handle slower backend responses
+    const isWin = isWindowsPlatform();
+    const isProd = isProductionMode();
+    const healthCheckTimeout = (isProd && isWin) ? 20000 : (isWin ? 15000 : 10000); // Windows EXE: 20s, Windows Dev: 15s, Others: 10s
     const timeoutId = setTimeout(() => controller.abort(), healthCheckTimeout);
 
     try {

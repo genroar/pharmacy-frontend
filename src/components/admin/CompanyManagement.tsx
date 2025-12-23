@@ -35,7 +35,8 @@ import {
   Users,
   Package,
   Store,
-  ArrowRight
+  ArrowRight,
+  AlertTriangle
 } from 'lucide-react';
 import { apiService } from '@/services/api';
 import { useAuth } from '@/contexts/AuthContext';
@@ -81,6 +82,8 @@ const CompanyManagement = () => {
   const [loading, setLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [companyToDelete, setCompanyToDelete] = useState<Company | null>(null);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -111,11 +114,11 @@ const CompanyManagement = () => {
     };
 
     if (!formData.name.trim()) {
-      errors.name = 'Company name is required';
+      errors.name = 'Business name is required';
     } else if (formData.name.length < 2) {
-      errors.name = 'Company name must be at least 2 characters';
+      errors.name = 'Business name must be at least 2 characters';
     } else if (formData.name.length > 100) {
-      errors.name = 'Company name must be less than 100 characters';
+      errors.name = 'Business name must be less than 100 characters';
     }
 
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
@@ -185,7 +188,7 @@ const CompanyManagement = () => {
       console.error('Error loading companies:', error);
       toast({
         title: "Error",
-        description: "Failed to load companies",
+        description: "Failed to load businesses",
         variant: "destructive",
       });
     } finally {
@@ -205,10 +208,10 @@ const CompanyManagement = () => {
     );
 
     if (existingCompany) {
-      setFormErrors(prev => ({ ...prev, name: 'A company with this name already exists' }));
+      setFormErrors(prev => ({ ...prev, name: 'A business with this name already exists' }));
       toast({
         title: "Error",
-        description: "A company with this name already exists. Please choose a different name.",
+        description: "A business with this name already exists. Please choose a different name.",
         variant: "destructive",
       });
       return;
@@ -219,7 +222,7 @@ const CompanyManagement = () => {
       if (response.success) {
         toast({
           title: "Success",
-          description: "Company created successfully",
+          description: "Business created successfully",
         });
         setIsCreateDialogOpen(false);
         setFormData({
@@ -246,16 +249,16 @@ const CompanyManagement = () => {
 
       // Handle specific server validation errors
       if (error.message && error.message.includes('already exists')) {
-        setFormErrors(prev => ({ ...prev, name: 'A company with this name already exists' }));
+        setFormErrors(prev => ({ ...prev, name: 'A business with this name already exists' }));
         toast({
           title: "Error",
-          description: "A company with this name already exists. Please choose a different name.",
+          description: "A business with this name already exists. Please choose a different name.",
           variant: "destructive",
         });
       } else {
         toast({
           title: "Error",
-          description: error.message || "Failed to create company",
+          description: error.message || "Failed to create business",
           variant: "destructive",
         });
       }
@@ -277,10 +280,10 @@ const CompanyManagement = () => {
     );
 
     if (existingCompany) {
-      setFormErrors(prev => ({ ...prev, name: 'A company with this name already exists' }));
+      setFormErrors(prev => ({ ...prev, name: 'A business with this name already exists' }));
       toast({
         title: "Error",
-        description: "A company with this name already exists. Please choose a different name.",
+        description: "A business with this name already exists. Please choose a different name.",
         variant: "destructive",
       });
       return;
@@ -291,7 +294,7 @@ const CompanyManagement = () => {
       if (response.success) {
         toast({
           title: "Success",
-          description: "Company updated successfully",
+          description: "Business updated successfully",
         });
         setIsEditDialogOpen(false);
         setSelectedCompany(null);
@@ -312,45 +315,50 @@ const CompanyManagement = () => {
 
       // Handle specific server validation errors
       if (error.message && error.message.includes('already exists')) {
-        setFormErrors(prev => ({ ...prev, name: 'A company with this name already exists' }));
+        setFormErrors(prev => ({ ...prev, name: 'A business with this name already exists' }));
         toast({
           title: "Error",
-          description: "A company with this name already exists. Please choose a different name.",
+          description: "A business with this name already exists. Please choose a different name.",
           variant: "destructive",
         });
       } else {
         toast({
           title: "Error",
-          description: error.message || "Failed to update company",
+          description: error.message || "Failed to update business",
           variant: "destructive",
         });
       }
     }
   };
 
-  const handleDeleteCompany = async (companyId: string) => {
-    if (!confirm('Are you sure you want to delete this company? This action cannot be undone.')) {
-      return;
-    }
+  const openDeleteDialog = (company: Company) => {
+    setCompanyToDelete(company);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteCompany = async () => {
+    if (!companyToDelete) return;
 
     try {
-      const response = await apiService.deleteCompany(companyId);
+      const response = await apiService.deleteCompany(companyToDelete.id);
       if (response.success) {
         toast({
           title: "Success",
-          description: "Company deleted successfully",
+          description: "Business deleted successfully",
         });
+        setIsDeleteDialogOpen(false);
+        setCompanyToDelete(null);
         loadCompanies();
         // Refresh global companies and branches to update dropdowns instantly
         await refreshGlobalCompanies();
         await refreshGlobalBranches();
-        console.log('✅ Company deleted and global dropdowns updated');
+        console.log('✅ Business deleted and global dropdowns updated');
       }
     } catch (error: any) {
-      console.error('Error deleting company:', error);
+      console.error('Error deleting business:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to delete company",
+        description: error.message || "Failed to delete business",
         variant: "destructive",
       });
     }
@@ -370,8 +378,8 @@ const CompanyManagement = () => {
 
     // Show success message
     toast({
-      title: "Company Selected",
-      description: `You are now viewing ${company?.name || 'the selected company'}'s dashboard.`,
+      title: "Business Selected",
+      description: `You are now viewing ${company?.name || 'the selected business'}'s dashboard.`,
       duration: 3000,
     });
 
@@ -404,7 +412,7 @@ const CompanyManagement = () => {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Loading companies...</p>
+          <p className="mt-2 text-gray-600">Loading businesses...</p>
         </div>
       </div>
     );
@@ -427,8 +435,8 @@ const CompanyManagement = () => {
                   </h1>
                   <p className="text-gray-600 text-lg">
                     {user?.role === 'ADMIN'
-                      ? 'Manage your companies and their branches'
-                      : 'Manage all companies and their branches'
+                      ? 'Manage your businesses and their branches'
+                      : 'Manage all businesses and their branches'
                     }
                   </p>
                 </div>
@@ -436,7 +444,7 @@ const CompanyManagement = () => {
             </div>
             <div className="flex  items-end gap-[20px] space-y-3">
               <div className="text-right flex  items-center gap-[10px] ">
-                <p className="text-sm text-gray-500">Total Companies :</p>
+                <p className="text-sm text-gray-500">Total Businesses :</p>
                 <p className="text-2xl font-bold text-gray-900">{companies.length}</p>
               </div>
               <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
@@ -449,24 +457,24 @@ const CompanyManagement = () => {
                 <DialogTrigger asChild>
                   <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105">
                     <Plus className="w-5 h-5 mr-2" />
-                    Create Company
+                    Create Business
                   </Button>
                 </DialogTrigger>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Create New Company</DialogTitle>
+              <DialogTitle>Create New Business</DialogTitle>
               <DialogDescription>
-                Add a new company to your account
+                Add a new business to your account
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="name">Company Name *</Label>
+                <Label htmlFor="name">Business Name *</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => handleInputChange('name', e.target.value)}
-                  placeholder="Enter company name"
+                  placeholder="Enter business name"
                   className={formErrors.name ? 'border-red-500' : ''}
                 />
                 {formErrors.name && (
@@ -479,7 +487,7 @@ const CompanyManagement = () => {
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Enter company description"
+                  placeholder="Enter business description"
                   rows={3}
                 />
               </div>
@@ -489,7 +497,7 @@ const CompanyManagement = () => {
                   id="address"
                   value={formData.address}
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  placeholder="Enter company address"
+                  placeholder="Enter business address"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -523,7 +531,7 @@ const CompanyManagement = () => {
                 Cancel
               </Button>
               <Button onClick={handleCreateCompany} disabled={!formData.name.trim()}>
-                Create Company
+                Create Business
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -537,8 +545,8 @@ const CompanyManagement = () => {
         <Card>
           <CardContent className="text-center py-12">
             <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Companies Found</h3>
-            <p className="text-gray-600 mb-4">Get started by creating your first company</p>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Businesses Found</h3>
+            <p className="text-gray-600 mb-4">Get started by creating your first business</p>
             <Button onClick={openCreateDialog} className="bg-blue-600 hover:bg-blue-700">
               <Plus className="w-4 h-4 mr-2" />
               Create Your First Business
@@ -561,7 +569,7 @@ const CompanyManagement = () => {
                     <TableHead className="font-semibold text-gray-900">Business</TableHead>
                     <TableHead className="font-semibold text-gray-900">Contact</TableHead>
                     <TableHead className="font-semibold text-gray-900">Branches</TableHead>
-                    <TableHead className="font-semibold text-gray-900">Users</TableHead>
+                    <TableHead className="font-semibold text-gray-900">Staff</TableHead>
                     <TableHead className="font-semibold text-gray-900">Created</TableHead>
                     <TableHead className="font-semibold text-gray-900 text-center">Actions</TableHead>
                   </TableRow>
@@ -615,7 +623,7 @@ const CompanyManagement = () => {
                       <TableCell className="py-4">
                         <div className="flex items-center space-x-2">
                           <Users className="w-4 h-4 text-blue-600" />
-                          <span className="font-semibold text-blue-700">{company._count.users}</span>
+                          <span className="font-semibold text-blue-700">{company._count.users + company._count.employees}</span>
                         </div>
                       </TableCell>
                       <TableCell className="py-4">
@@ -627,8 +635,8 @@ const CompanyManagement = () => {
                             onClick={() => handleClickToGo(company.id)}
                             className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 text-sm"
                           >
-                            <ArrowRight className="w-3 h-3 mr-1" />
-                            Click to Go
+                            Manage
+                            <ArrowRight className="w-3 h-3 ml-1" />
                           </Button>
                           <Button
                             variant="ghost"
@@ -641,7 +649,7 @@ const CompanyManagement = () => {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleDeleteCompany(company.id)}
+                            onClick={() => openDeleteDialog(company)}
                             className="h-8 w-8 p-0 hover:bg-red-100"
                           >
                             <Trash2 className="w-4 h-4 text-red-600" />
@@ -662,19 +670,19 @@ const CompanyManagement = () => {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Edit Company</DialogTitle>
+            <DialogTitle>Edit Business</DialogTitle>
             <DialogDescription>
-              Update company information
+              Update business information
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="edit-name">Company Name *</Label>
+              <Label htmlFor="edit-name">Business Name *</Label>
               <Input
                 id="edit-name"
                 value={formData.name}
                 onChange={(e) => handleInputChange('name', e.target.value)}
-                placeholder="Enter company name"
+                placeholder="Enter business name"
                 className={formErrors.name ? 'border-red-500' : ''}
               />
               {formErrors.name && (
@@ -687,7 +695,7 @@ const CompanyManagement = () => {
                 id="edit-description"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Enter company description"
+                placeholder="Enter business description"
                 rows={3}
               />
             </div>
@@ -697,7 +705,7 @@ const CompanyManagement = () => {
                 id="edit-address"
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                placeholder="Enter company address"
+                placeholder="Enter business address"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -731,7 +739,54 @@ const CompanyManagement = () => {
               Cancel
             </Button>
             <Button onClick={handleEditCompany} disabled={!formData.name.trim()}>
-              Update Company
+              Update Business
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader className="text-center">
+            <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+              <AlertTriangle className="w-8 h-8 text-red-600" />
+            </div>
+            <DialogTitle className="text-xl font-bold text-gray-900 text-center">
+              Delete Business
+            </DialogTitle>
+            <DialogDescription className="text-center text-gray-600 mt-2">
+              Are you sure you want to delete <span className="font-semibold text-gray-900">"{companyToDelete?.name}"</span>?
+              This action cannot be undone and will remove all associated data including branches, staff, and products.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mt-4">
+            <div className="flex items-start space-x-3">
+              <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-red-800">
+                <p className="font-medium mb-1">Warning: This will permanently delete:</p>
+                <ul className="list-disc list-inside space-y-1 text-red-700">
+                  <li>All branches ({companyToDelete?.branches?.length || 0})</li>
+                  <li>All staff members ({(companyToDelete?._count?.users || 0) + (companyToDelete?._count?.employees || 0)})</li>
+                  <li>All products and inventory data</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="mt-6 flex gap-3 sm:gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+              className="flex-1 border-gray-300 hover:bg-gray-50"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteCompany}
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete Business
             </Button>
           </DialogFooter>
         </DialogContent>

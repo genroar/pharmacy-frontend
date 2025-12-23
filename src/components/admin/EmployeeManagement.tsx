@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -14,19 +14,19 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
-  Users, 
-  UserPlus, 
-  Clock, 
-  DollarSign, 
-  TrendingUp, 
+import {
+  Users,
+  UserPlus,
+  Clock,
+  DollarSign,
+  TrendingUp,
   Search,
   Edit,
   Trash2,
@@ -218,10 +218,10 @@ const EmployeeManagement = () => {
     try {
       setIsLoading(true);
       setError("");
-      
+
       console.log('🔄 Loading employee data...');
       console.log('🔑 Token:', localStorage.getItem('token'));
-      
+
       const [employeesResponse, branchesResponse, attendanceResponse, shiftsResponse, commissionsResponse] = await Promise.all([
         apiService.getEmployees(),
         apiService.getBranches(),
@@ -239,14 +239,14 @@ const EmployeeManagement = () => {
       } else {
         console.error('❌ Failed to load employees:', employeesResponse.message);
         setError(employeesResponse.message || 'Failed to load employees');
-        
+
         // Show sample data for testing
         const sampleEmployees: Employee[] = [
           {
             id: 'emp1',
             employeeId: 'EMP001',
             name: 'John Doe',
-            email: 'john.doe@pharmacy.com',
+            email: 'john.doe@company.com',
             phone: '+1234567890',
             address: '123 Main St, City',
             position: 'Cashier',
@@ -267,7 +267,7 @@ const EmployeeManagement = () => {
             id: 'emp2',
             employeeId: 'EMP002',
             name: 'Sarah Smith',
-            email: 'sarah.smith@pharmacy.com',
+            email: 'sarah.smith@company.com',
             phone: '+1234567892',
             address: '456 Oak Ave, City',
             position: 'Manager',
@@ -288,11 +288,11 @@ const EmployeeManagement = () => {
             id: 'emp3',
             employeeId: 'EMP003',
             name: 'Mike Johnson',
-            email: 'mike.johnson@pharmacy.com',
+            email: 'mike.johnson@company.com',
             phone: '+1234567894',
             address: '789 Pine St, City',
-            position: 'Pharmacist',
-            department: 'Pharmacy',
+            position: 'Specialist',
+            department: 'Operations',
             salary: 6000,
             hireDate: '2023-03-10',
             status: 'ACTIVE',
@@ -315,7 +315,7 @@ const EmployeeManagement = () => {
         console.log('✅ Branches loaded:', branchesResponse.data.branches);
       } else {
         console.error('❌ Failed to load branches:', branchesResponse.message);
-        
+
         // Add sample branch data
         const sampleBranches: Branch[] = [
           { id: 'branch1', name: 'Main Branch' },
@@ -340,7 +340,7 @@ const EmployeeManagement = () => {
         limit: 50,
         startDate: new Date().toISOString().split('T')[0]
       });
-      
+
       if (response.success) {
         setAttendance(response.data.attendance);
       } else {
@@ -360,7 +360,7 @@ const EmployeeManagement = () => {
         limit: 50,
         startDate: new Date().toISOString().split('T')[0]
       });
-      
+
       if (response.success) {
         setShifts(response.data.shifts);
       } else {
@@ -379,7 +379,7 @@ const EmployeeManagement = () => {
         page: 1,
         limit: 50
       });
-      
+
       if (response.success) {
         setCommissions(response.data.commissions);
       } else {
@@ -408,7 +408,7 @@ const EmployeeManagement = () => {
       console.log('Creating employee with data:', newEmployee);
       console.log('Available branches:', branches);
       const response = await apiService.createEmployee(newEmployee);
-      
+
       if (response.success) {
         await loadData();
         setNewEmployee({
@@ -445,7 +445,7 @@ const EmployeeManagement = () => {
       try {
         setIsLoading(true);
         const response = await apiService.deleteEmployee(id);
-        
+
         if (response.success) {
           await loadData();
           alert("Employee deleted successfully!");
@@ -503,7 +503,7 @@ const EmployeeManagement = () => {
   });
 
   console.log('🎯 EmployeeManagement component rendering, employees count:', employees.length);
-  
+
   return (
     <div className="p-6 space-y-6 bg-background min-h-screen">
       {/* Debug Info */}
@@ -512,7 +512,7 @@ const EmployeeManagement = () => {
           <strong>Debug:</strong> Component loaded. Employees: {employees.length}, Loading: {isLoading.toString()}, Error: {error || 'None'}
         </p>
       </div>
-      
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -848,8 +848,8 @@ const EmployeeManagement = () => {
                               <Button variant="ghost" size="sm" title="Edit">
                                 <Edit className="w-4 h-4" />
                               </Button>
-                              <Button 
-                                variant="ghost" 
+                              <Button
+                                variant="ghost"
                                 size="sm"
                                 onClick={() => handleDeleteEmployee(employee.id)}
                                 className="text-destructive hover:text-destructive"
@@ -969,8 +969,8 @@ const EmployeeManagement = () => {
                         </td>
                         <td className="py-4 px-4">
                           <span className="text-sm">
-                            {shift.startTime && shift.endTime ? 
-                              `${Math.round((new Date(shift.endTime).getTime() - new Date(shift.startTime).getTime()) / (1000 * 60 * 60) * 10) / 10}h` : 
+                            {shift.startTime && shift.endTime ?
+                              `${Math.round((new Date(shift.endTime).getTime() - new Date(shift.startTime).getTime()) / (1000 * 60 * 60) * 10) / 10}h` :
                               'Active'
                             }
                           </span>
@@ -986,7 +986,7 @@ const EmployeeManagement = () => {
                         </td>
                         <td className="py-4 px-4">
                           <span className={`text-sm font-medium ${
-                            shift.difference === 0 ? 'text-green-600' : 
+                            shift.difference === 0 ? 'text-green-600' :
                             shift.difference && shift.difference > 0 ? 'text-green-600' : 'text-red-600'
                           }`}>
                             {shift.difference !== null ? `PKR ${shift.difference.toLocaleString()}` : 'N/A'}

@@ -32,7 +32,7 @@ import { apiService } from "@/services/api";
 const Settings = () => {
   const { user } = useAuth();
   const [isOnline, setIsOnline] = useState(true);
-  const [isEditingPharmacy, setIsEditingPharmacy] = useState(false);
+  const [isEditingBusiness, setIsEditingBusiness] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isEditingPOS, setIsEditingPOS] = useState(false);
@@ -46,21 +46,21 @@ const Settings = () => {
     role: '',
     branchName: ''
   });
-  const [originalPharmacySettings, setOriginalPharmacySettings] = useState({
-    name: "Al-Shifa Pharmacy",
+  const [originalBusinessSettings, setOriginalBusinessSettings] = useState({
+    name: "My Business",
     address: "Block A, Gulberg III, Lahore",
     phone: "+92 42 1234567",
-    email: "info@alshifapharmacy.com",
-    license: "PHR-LHR-2024-001",
+    email: "info@mybusiness.com",
+    license: "BUS-LHR-2024-001",
     taxNumber: "1234567890123"
   });
   const [settings, setSettings] = useState({
-    pharmacy: {
-      name: "Al-Shifa Pharmacy",
+    business: {
+      name: "My Business",
       address: "Block A, Gulberg III, Lahore",
       phone: "+92 42 1234567",
-      email: "info@alshifapharmacy.com",
-      license: "PHR-LHR-2024-001",
+      email: "info@mybusiness.com",
+      license: "BUS-LHR-2024-001",
       taxNumber: "1234567890123"
     },
     pos: {
@@ -214,14 +214,14 @@ const Settings = () => {
               offlineMode: settingsData.data.offlineMode === 'true',
               receiptPrinter: settingsData.data.receiptPrinter || 'EPSON TM-T20II'
             },
-            pharmacy: {
-              ...prev.pharmacy,
-              name: settingsData.data.pharmacyName || 'Al-Shifa Pharmacy',
-              address: settingsData.data.pharmacyAddress || 'Block A, Gulberg III, Lahore',
-              phone: settingsData.data.pharmacyPhone || '+92 42 1234567',
-              email: settingsData.data.pharmacyEmail || 'info@alshifapharmacy.com',
-              license: settingsData.data.pharmacyLicense || 'PHR-LHR-2024-001',
-              taxNumber: settingsData.data.pharmacyTaxNumber || '1234567890123'
+            business: {
+              ...prev.business,
+              name: settingsData.data.businessName || 'My Business',
+              address: settingsData.data.businessAddress || 'Block A, Gulberg III, Lahore',
+              phone: settingsData.data.businessPhone || '+92 42 1234567',
+              email: settingsData.data.businessEmail || 'info@mybusiness.com',
+              license: settingsData.data.businessLicense || 'BUS-LHR-2024-001',
+              taxNumber: settingsData.data.businessTaxNumber || '1234567890123'
             }
           }));
         }
@@ -269,12 +269,12 @@ const Settings = () => {
           autoSync: settings.pos.autoSync,
           offlineMode: settings.pos.offlineMode,
           receiptPrinter: settings.pos.receiptPrinter,
-          pharmacyName: settings.pharmacy.name,
-          pharmacyAddress: settings.pharmacy.address,
-          pharmacyPhone: settings.pharmacy.phone,
-          pharmacyEmail: settings.pharmacy.email,
-          pharmacyLicense: settings.pharmacy.license,
-          pharmacyTaxNumber: settings.pharmacy.taxNumber
+          businessName: settings.business.name,
+          businessAddress: settings.business.address,
+          businessPhone: settings.business.phone,
+          businessEmail: settings.business.email,
+          businessLicense: settings.business.license,
+          businessTaxNumber: settings.business.taxNumber
         })
       });
 
@@ -297,7 +297,7 @@ const Settings = () => {
         settings: settings,
         timestamp: new Date().toISOString(),
         version: "1.0.0",
-        pharmacy: settings.pharmacy
+        business: settings.business
       };
 
       // Convert to JSON
@@ -308,7 +308,7 @@ const Settings = () => {
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
-      link.setAttribute('download', `pharmacy_backup_${new Date().toISOString().split('T')[0]}.json`);
+      link.setAttribute('download', `business_backup_${new Date().toISOString().split('T')[0]}.json`);
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
@@ -335,7 +335,7 @@ const Settings = () => {
         const importedData = JSON.parse(text);
 
         // Validate imported data
-        if (importedData.settings && importedData.pharmacy) {
+        if (importedData.settings && importedData.business) {
           // Confirm import
           const confirmed = window.confirm(
             'This will replace your current settings. Are you sure you want to continue?'
@@ -370,11 +370,11 @@ const Settings = () => {
       if (doubleConfirm) {
         // Reset to default settings
         setSettings({
-          pharmacy: {
-            name: "Al-Shifa Pharmacy",
+          business: {
+            name: "My Business",
             address: "Block A, Gulberg III, Lahore",
             phone: "+92 42 1234567",
-            email: "info@alshifapharmacy.com",
+            email: "info@mybusiness.com",
             license: "PHR-LHR-2024-001",
             taxNumber: "1234567890123"
           },
@@ -576,7 +576,7 @@ const Settings = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Settings</h1>
-          <p className="text-muted-foreground">Manage your pharmacy POS configuration</p>
+          <p className="text-muted-foreground">Manage your business POS configuration</p>
         </div>
         <div className="flex items-center space-x-3">
           <Button variant="outline">
@@ -803,68 +803,68 @@ const Settings = () => {
 
       {/* Settings Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Pharmacy Information */}
+        {/* Business Information */}
         {/* <Card className="shadow-soft border-0">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <Building className="w-5 h-5 text-primary" />
-              <span>Pharmacy Information</span>
+              <span>Business Information</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="pharmacy-name">Pharmacy Name</Label>
+              <Label htmlFor="business-name">Business Name</Label>
               <Input
-                id="pharmacy-name"
-                value={settings.pharmacy.name}
-                onChange={(e) => handleSettingChange('pharmacy', 'name', e.target.value)}
+                id="business-name"
+                value={settings.business.name}
+                onChange={(e) => handleSettingChange('business', 'name', e.target.value)}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="pharmacy-address">Address</Label>
+              <Label htmlFor="business-address">Address</Label>
               <Input
-                id="pharmacy-address"
-                value={settings.pharmacy.address}
-                onChange={(e) => handleSettingChange('pharmacy', 'address', e.target.value)}
+                id="business-address"
+                value={settings.business.address}
+                onChange={(e) => handleSettingChange('business', 'address', e.target.value)}
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="pharmacy-phone">Phone</Label>
+                <Label htmlFor="business-phone">Phone</Label>
                 <Input
-                  id="pharmacy-phone"
-                  value={settings.pharmacy.phone}
-                  onChange={(e) => handleSettingChange('pharmacy', 'phone', e.target.value)}
+                  id="business-phone"
+                  value={settings.business.phone}
+                  onChange={(e) => handleSettingChange('business', 'phone', e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="pharmacy-email">Email</Label>
+                <Label htmlFor="business-email">Email</Label>
                 <Input
-                  id="pharmacy-email"
+                  id="business-email"
                   type="email"
-                  value={settings.pharmacy.email}
-                  onChange={(e) => handleSettingChange('pharmacy', 'email', e.target.value)}
+                  value={settings.business.email}
+                  onChange={(e) => handleSettingChange('business', 'email', e.target.value)}
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="pharmacy-license">License Number</Label>
+                <Label htmlFor="business-license">License Number</Label>
                 <Input
-                  id="pharmacy-license"
-                  value={settings.pharmacy.license}
-                  onChange={(e) => handleSettingChange('pharmacy', 'license', e.target.value)}
+                  id="business-license"
+                  value={settings.business.license}
+                  onChange={(e) => handleSettingChange('business', 'license', e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="pharmacy-tax">Tax Number</Label>
+                <Label htmlFor="business-tax">Tax Number</Label>
                 <Input
-                  id="pharmacy-tax"
-                  value={settings.pharmacy.taxNumber}
-                  onChange={(e) => handleSettingChange('pharmacy', 'taxNumber', e.target.value)}
+                  id="business-tax"
+                  value={settings.business.taxNumber}
+                  onChange={(e) => handleSettingChange('business', 'taxNumber', e.target.value)}
                 />
               </div>
             </div>

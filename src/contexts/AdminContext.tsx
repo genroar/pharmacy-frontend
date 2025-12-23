@@ -215,6 +215,33 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
     }
   }, [isAuthenticated, user, hasInitialized, refreshCompanies, refreshBranches]);
 
+  // Auto-select first branch for ADMIN/SUPERADMIN if no branch is selected (after branches are loaded)
+  useEffect(() => {
+    if (isAuthenticated && user && (user.role === 'ADMIN' || user.role === 'SUPERADMIN') && hasInitialized) {
+      // Only auto-select if no branch is currently selected and branches are loaded
+      if (!selectedBranchId && allBranches.length > 0) {
+        // Check if there's a saved branch first
+        const savedBranchId = localStorage.getItem(`selected_branch_${user.id}`);
+        if (savedBranchId && allBranches.find(b => b.id === savedBranchId)) {
+          // Use saved branch if it exists
+          setSelectedBranchId(savedBranchId);
+          console.log('🏢 Auto-selected saved branch:', savedBranchId);
+        } else {
+          // Auto-select first branch
+          const firstBranch = allBranches[0];
+          if (firstBranch) {
+            setSelectedBranchId(firstBranch.id);
+            // Also set company if not already set
+            if (!selectedCompanyId && firstBranch.companyId) {
+              setSelectedCompanyId(firstBranch.companyId);
+            }
+            console.log('🏢 Auto-selected first branch:', firstBranch.name);
+          }
+        }
+      }
+    }
+  }, [isAuthenticated, user, allBranches, selectedBranchId, selectedCompanyId, hasInitialized, setSelectedBranchId, setSelectedCompanyId]);
+
   // Save company selection to localStorage
   const handleSetSelectedCompanyId = useCallback((companyId: string | null) => {
     // For managers, prevent company selection changes

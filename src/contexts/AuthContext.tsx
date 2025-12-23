@@ -177,6 +177,53 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
   }, [isAuthenticated, logout]);
 
+  // Periodic account status check (every 60 seconds when authenticated)
+  // This checks if the account is still active and forces logout if deactivated
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+
+    const checkAccountStatus = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        // Check if we're online
+        if (!navigator.onLine) {
+          console.log('📴 Offline - skipping account status check');
+          return;
+        }
+
+        // Call the account status check API
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/auth/check-status`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        const data = await response.json();
+
+        // If account is deactivated, force logout
+        if (data.shouldLogout || data.accountDeactivated || data.isActive === false) {
+          console.log('🔒 Account status check: Account deactivated or session invalid');
+          window.dispatchEvent(new CustomEvent('accountDeactivated', { detail: data }));
+        }
+      } catch (error) {
+        // Don't logout on network errors - could be temporary
+        console.log('⚠️ Account status check failed:', error);
+      }
+    };
+
+    // Check immediately on login
+    checkAccountStatus();
+
+    // Then check every 60 seconds
+    const intervalId = setInterval(checkAccountStatus, 60000);
+
+    return () => clearInterval(intervalId);
+  }, [isAuthenticated, user]);
+
   // Role-based permission checking
   const hasPermission = (resource: string, action: string): boolean => {
     if (!user) return false;

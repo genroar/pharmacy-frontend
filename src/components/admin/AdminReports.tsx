@@ -2,15 +2,15 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
-  TrendingUp, 
+import {
+  TrendingUp,
   TrendingDown,
   DollarSign,
   ShoppingCart,
@@ -45,7 +45,7 @@ const AdminReports = () => {
   const branches = [
     "All Branches",
     "Main Branch",
-    "North Branch", 
+    "North Branch",
     "South Branch",
     "East Branch",
     "West Branch"
@@ -150,11 +150,11 @@ const AdminReports = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Admin Reports & Analytics</h1>
-          <p className="text-muted-foreground">Comprehensive insights across all pharmacy operations</p>
+          <p className="text-muted-foreground">Comprehensive insights across all business operations</p>
         </div>
         <div className="flex items-center space-x-3">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => window.location.href = '/admin'}
           >
             ← Back to Admin Dashboard
@@ -329,7 +329,7 @@ const AdminReports = () => {
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Transactions</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Customers</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Growth</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Users</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Staff</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Actions</th>
                 </tr>
               </thead>
@@ -421,8 +421,8 @@ const AdminReports = () => {
                     </div>
                   </div>
                   <div className="w-full bg-muted rounded-full h-2">
-                    <div 
-                      className="bg-primary h-2 rounded-full transition-all duration-300" 
+                    <div
+                      className="bg-primary h-2 rounded-full transition-all duration-300"
                       style={{ width: `${segment.percentage}%` }}
                     ></div>
                   </div>
@@ -485,7 +485,7 @@ const AdminReports = () => {
         </CardContent>
       </Card>
 
-  
+
     </div>
   );
 };

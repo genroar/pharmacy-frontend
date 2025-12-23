@@ -39,7 +39,8 @@ import {
   ChevronDown,
   ChevronUp,
   Search,
-  Filter
+  Filter,
+  ArrowRight
 } from "lucide-react";
 import { apiService } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -439,14 +440,14 @@ const AdminDashboard = () => {
       value: selectedCompanyId
         ? allBranches.filter(branch => branch.companyId === selectedCompanyId).length.toString()
         : allBranches.length.toString(),
-      change: selectedCompanyId ? "Company Data" : "All Data",
+      change: selectedCompanyId ? "Business Data" : "All Data",
       icon: Building2,
       trend: "up",
       trendValue: "+2.0%",
       description: "vs last month"
     },
     {
-      title: selectedBranchId ? `${globalSelectedBranch?.name} Users` : (currentUser?.role === 'ADMIN' ? "All My Users" : "Total Users"),
+      title: selectedBranchId ? `${globalSelectedBranch?.name} Staff` : (currentUser?.role === 'ADMIN' ? "All My Staff" : "Total Staff"),
       value: selectedBranchId ? filteredData.users.length.toString() : allUsers.length.toString(),
       change: selectedBranchId ? "Branch Data" : "All Data",
       icon: Users,
@@ -581,7 +582,7 @@ const AdminDashboard = () => {
                 ? `Overview of ${selectedCompany.name}'s branches, revenue, users, and products`
                 : currentUser?.role === 'ADMIN'
                   ? 'Overview of all your branches, revenue, users, and products'
-                  : 'Complete overview of all pharmacy operations'
+                  : 'Complete overview of all business operations'
               }
             </p>
           </div>
@@ -601,7 +602,7 @@ const AdminDashboard = () => {
                 <span className="truncate">
                   {selectedCompanyId
                     ? globalSelectedCompany?.name
-                    : "All Companies"
+                    : "All Businesses"
                   }
                 </span>
               </div>
@@ -610,7 +611,7 @@ const AdminDashboard = () => {
           </PopoverTrigger>
           <PopoverContent className="w-80 p-0 bg-white border border-gray-200 shadow-lg">
             <Command>
-              <CommandInput placeholder="Search companies..." />
+              <CommandInput placeholder="Search businesses..." />
               <CommandList>
                 <CommandEmpty>No companies found.</CommandEmpty>
                 <CommandGroup>
@@ -984,7 +985,7 @@ const AdminDashboard = () => {
                   <div className="text-xs text-muted-foreground flex items-center space-x-4">
                     <span>📞 {branch.phone}</span>
                     <span>📧 {branch.email}</span>
-                    <span className="text-primary">Click for details</span>
+                    <span className="text-primary flex items-center gap-1">Manage <ArrowRight className="w-3 h-3" /></span>
                   </div>
                 </div>
               ))}
@@ -1011,7 +1012,7 @@ const AdminDashboard = () => {
               <div className="flex items-center space-x-2">
                 <Users className="w-5 h-5 text-[#0C2C8A]" />
                 <span>
-                  {currentUser?.role === 'ADMIN' ? 'All My Users' : 'All Users'} ({allUsers.length})
+                  {currentUser?.role === 'ADMIN' ? 'All My Staff' : 'All Staff'} ({allUsers.length})
                 </span>
               </div>
               {currentUser?.role !== 'ADMIN' && (
@@ -1068,7 +1069,7 @@ const AdminDashboard = () => {
                 </div>
               ))}
               {allUsers.length === 0 && (
-                <p className="text-muted-foreground text-center py-4">No users found</p>
+                <p className="text-muted-foreground text-center py-4">No staff found</p>
               )}
               <Button
                 variant="outline"
@@ -1077,7 +1078,7 @@ const AdminDashboard = () => {
                 onClick={handleGoToUsers}
               >
                 <UserPlus className="w-4 h-4 mr-2" />
-                Manage Users
+                Manage Staff
               </Button>
             </div>
           </CardContent>

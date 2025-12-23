@@ -22,7 +22,8 @@ import {
   UserPlus,
   Receipt,
   X,
-  CheckCircle
+  CheckCircle,
+  ArrowRight
 } from "lucide-react";
 import { apiService } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -405,7 +406,7 @@ const Dashboard = () => {
           </h1>
           <p className="text-muted-foreground text-sm mt-[5px]">
             {user?.role === 'ADMIN' || user?.role === 'MANAGER'
-              ? 'Complete overview of all pharmacy operations'
+              ? 'Complete overview of all business operations'
               : 'Inventory and stock management overview'
             }
           </p>
@@ -776,8 +777,8 @@ const Dashboard = () => {
                           <p className="text-primary font-medium">{formatCurrency(salesData.totalAmount)}</p>
                         </div>
                       </div>
-                      <div className="text-xs text-primary text-center">
-                        Click for details →
+                      <div className="text-xs text-primary text-center flex items-center justify-center gap-1">
+                        Manage <ArrowRight className="w-3 h-3" />
                       </div>
                     </div>
                   );
@@ -798,13 +799,13 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          {/* All Users */}
+          {/* All Staff */}
           <Card className="shadow-soft border-0">
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <Users className="w-5 h-5 text-primary" />
-                  <span>All Users ({allUsers.length})</span>
+                  <span>All Staff ({allUsers.length})</span>
                 </div>
                 <Button
                   variant="outline"
@@ -867,14 +868,14 @@ const Dashboard = () => {
                           <p className="text-primary font-medium">{formatCurrency(salesData.totalAmount)}</p>
                         </div>
                       </div>
-                      <div className="text-xs text-primary text-center">
-                        Click for details →
+                      <div className="text-xs text-primary text-center flex items-center justify-center gap-1">
+                        Manage <ArrowRight className="w-3 h-3" />
                       </div>
                     </div>
                   );
                 })}
                 {allUsers.length === 0 && (
-                  <p className="text-muted-foreground text-center py-4">No users found</p>
+                  <p className="text-muted-foreground text-center py-4">No staff found</p>
                 )}
                 <Button
                   variant="outline"
@@ -883,7 +884,7 @@ const Dashboard = () => {
                   onClick={() => window.location.href = '/admin/users'}
                 >
                   <UserPlus className="w-4 h-4 mr-2" />
-                  Manage Users
+                  Manage Staff
                 </Button>
               </div>
             </CardContent>

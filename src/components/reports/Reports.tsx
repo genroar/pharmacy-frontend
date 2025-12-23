@@ -76,7 +76,7 @@ const Reports = () => {
     try {
       const activeSales = realSalesData.filter((sale: any) => sale.status !== 'REFUNDED');
       const csvData = [
-        ['Report Type', 'Period', 'Revenue', 'Sales Count', 'Products', 'Users'],
+        ['Report Type', 'Period', 'Revenue', 'Sales Count', 'Products', 'Staff'],
         ['Sales Report', selectedPeriod, formatCurrency(activeSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0)), activeSales.length.toString(), realProductsData.length.toString(), realUsersData.length.toString()],
         ['Branch Performance', 'All Branches', formatCurrency(allBranches.reduce((sum, branch) => sum + (branch.revenue || 0), 0)), allBranches.reduce((sum, branch) => sum + (branch.salesCount || 0), 0).toString(), allBranches.reduce((sum, branch) => sum + (branch.productsCount || 0), 0).toString(), allBranches.reduce((sum, branch) => sum + (branch.usersCount || 0), 0).toString()]
       ];
@@ -426,7 +426,8 @@ const Reports = () => {
             startDate,
             endDate,
             branchId: branchId || "",
-            groupBy: (selectedPeriod === 'week' ? 'week' : selectedPeriod === 'month' ? 'month' : selectedPeriod === 'year' ? 'year' : 'day') as 'day' | 'week' | 'month' | 'year'
+            groupBy: (selectedPeriod === 'week' ? 'week' : selectedPeriod === 'month' ? 'month' : selectedPeriod === 'year' ? 'year' : 'day') as 'day' | 'week' | 'month' | 'year',
+            period: selectedPeriod as 'today' | 'week' | 'month' | 'year' // Pass period for backend to handle 'today' hourly grouping
           };
           response = await apiService.getSalesReport(salesParams);
           break;
@@ -466,7 +467,8 @@ const Reports = () => {
               startDate: previousStartDate,
               endDate: previousEndDate,
               branchId: branchId || "",
-              groupBy: (selectedPeriod === 'week' ? 'week' : selectedPeriod === 'month' ? 'month' : selectedPeriod === 'year' ? 'year' : 'day') as 'day' | 'week' | 'month' | 'year'
+              groupBy: (selectedPeriod === 'week' ? 'week' : selectedPeriod === 'month' ? 'month' : selectedPeriod === 'year' ? 'year' : 'day') as 'day' | 'week' | 'month' | 'year',
+              period: selectedPeriod as 'today' | 'week' | 'month' | 'year'
             });
           } else if (selectedReport === 'customers') {
             previousResponse = await apiService.getCustomerReport({
@@ -512,18 +514,30 @@ const Reports = () => {
           }
 
           // Process all chart data from API response
-          if (response.data?.salesTrend) {
+          if (response.data?.salesTrend && Array.isArray(response.data.salesTrend) && response.data.salesTrend.length > 0) {
+            console.log('📊 Processing sales trend data:', response.data.salesTrend.length, 'records');
+
             const processedSalesData = processSalesTrendData(response.data.salesTrend, selectedPeriod);
+            console.log('📊 Processed sales data:', processedSalesData.length, 'points');
             setChartData(processedSalesData);
 
             const processedCustomerData = processCustomerGrowthData(response.data.salesTrend);
+            console.log('📊 Processed customer growth data:', processedCustomerData.length, 'points');
             setCustomerGrowthData(processedCustomerData);
 
             const processedProfitData = processProfitExpenseData(response.data.salesTrend);
+            console.log('📊 Processed profit/expense data:', processedProfitData.length, 'points');
             setProfitExpenseData(processedProfitData);
 
             const margin = calculateProfitMargin(response.data.salesTrend);
+            console.log('📊 Profit margin:', margin, '%');
             setProfitMargin(margin);
+          } else {
+            console.log('⚠️ No sales trend data available or empty array');
+            setChartData([]);
+            setCustomerGrowthData([]);
+            setProfitExpenseData([]);
+            setProfitMargin(0);
           }
 
           // Process top products data
@@ -890,7 +904,7 @@ const Reports = () => {
           <p className="text-muted-foreground">
             {user?.role === 'ADMIN' || user?.role === 'SUPERADMIN' || user?.role === 'MANAGER'
               ? 'Comprehensive insights across all your branches'
-              : 'Real-time insights into your pharmacy performance'
+              : 'Real-time insights into your business performance'
             }
           </p>
         </div>
@@ -987,7 +1001,7 @@ const Reports = () => {
               <div className="p-4 bg-gradient-to-r from-orange-50 to-orange-100 rounded-lg border border-orange-200">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-orange-600">Total Users</p>
+                    <p className="text-sm font-medium text-orange-600">Total Staff</p>
                     <p className="text-2xl font-bold text-orange-900">
                       {realUsersData.length}
                     </p>
@@ -1038,7 +1052,7 @@ const Reports = () => {
                             <span className="text-foreground">{branchProducts.length}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-muted-foreground">Users:</span>
+                            <span className="text-muted-foreground">Staff:</span>
                             <span className="text-foreground">{branchUsers.length}</span>
                           </div>
                         </div>
@@ -1121,7 +1135,7 @@ const Reports = () => {
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-orange-600">Total Users</p>
+                      <p className="text-sm font-medium text-orange-600">Total Staff</p>
                       <p className="text-2xl font-bold text-orange-900">{realUsersData.length}</p>
                     </div>
                     <Users className="w-8 h-8 text-orange-500" />
@@ -1158,7 +1172,7 @@ const Reports = () => {
                               <div><span className="text-muted-foreground">Revenue:</span> <span className="text-foreground font-semibold">{formatCurrency(branchRevenue)}</span></div>
                               <div><span className="text-muted-foreground">Sales:</span> <span className="text-foreground">{branchSales.length}</span></div>
                               <div><span className="text-muted-foreground">Products:</span> <span className="text-foreground">{branchProducts.length}</span></div>
-                              <div><span className="text-muted-foreground">Users:</span> <span className="text-foreground">{branchUsers.length}</span></div>
+                              <div><span className="text-muted-foreground">Staff:</span> <span className="text-foreground">{branchUsers.length}</span></div>
                             </div>
                           </div>
                         </CardContent>
@@ -1647,7 +1661,7 @@ const Reports = () => {
                       <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm font-medium text-muted-foreground">Users</p>
+                            <p className="text-sm font-medium text-muted-foreground">Staff</p>
                             <p className="text-2xl font-bold text-foreground">{branchStats.users}</p>
                           </div>
                           <Users className="w-8 h-8 text-orange-600" />
@@ -1714,7 +1728,7 @@ const Reports = () => {
                   {/* Users */}
                   {branchStats.branchUsers.length > 0 && (
                     <div>
-                      <h4 className="font-semibold text-foreground mb-3">Users ({branchStats.branchUsers.length})</h4>
+                      <h4 className="font-semibold text-foreground mb-3">Staff ({branchStats.branchUsers.length})</h4>
                       <div className="space-y-2 max-h-60 overflow-y-auto">
                         {branchStats.branchUsers.map((user: any, index: number) => (
                           <div key={user.id || index} className="flex justify-between items-center p-2 bg-muted/20 rounded">

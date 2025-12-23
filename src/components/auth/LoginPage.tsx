@@ -202,7 +202,7 @@ const LoginPage = () => {
 
         {/* Footer */}
         <div className="text-center text-xs text-muted-foreground">
-          <p>Offline-First Pharmacy POS</p>
+          <p>Offline-First Business POS</p>
           <p className="mt-1">Device ID: DEVICE-001 • Last Sync: 2 min ago</p>
         </div>
       </div>

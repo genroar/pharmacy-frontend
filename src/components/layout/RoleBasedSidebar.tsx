@@ -293,24 +293,16 @@ export const RoleBasedSidebar: React.FC = () => {
 
   return (
     <div className={`fixed  top-0 left-0 h-screen flex flex-col bg-white border-r border-gray-200 z-50 transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-64'}`}>
-      {/* Logo / Title */}
-      <div className="p-6 text-gray-900 text-xl font-semibold flex items-center justify-between border-b border-gray-200">
-        {!isCollapsed && (
-          <div className="flex items-center space-x-2">
-            <img
-              src={`${import.meta.env.BASE_URL}images/logo.png`}
-              alt="Zapeera Logo"
-              className=" w-40 object-contain"
-            />
-          </div>
-        )}
-        {isCollapsed && (
+      {/* Logo / Title - Always show icon with text */}
+      <div className="p-4 text-gray-900 text-xl font-semibold flex items-center justify-between border-b border-gray-200">
+        <div className="flex items-center space-x-2">
           <img
             src={`${import.meta.env.BASE_URL}images/favicon.png`}
-            alt="Zapeera Logo"
+            alt="Zapeera"
             className="w-8 h-8 object-contain"
           />
-        )}
+          {!isCollapsed && <span className="text-lg font-bold text-blue-900">Zapeera</span>}
+        </div>
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
           className="p-1 hover:bg-gray-100 rounded-md transition-all"

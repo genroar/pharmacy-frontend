@@ -3,7 +3,7 @@ import AppSidebar from "@/components/layout/AppSidebar";
 import { RoleBasedSidebar } from "@/components/layout/RoleBasedSidebar";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { Bell, Menu, LogOut, User, Building2, ShoppingCart, UserCircle, Building, ChevronDown, Wifi, WifiOff } from "lucide-react";
+import { Menu, LogOut, User, Building2, ShoppingCart, UserCircle, Building, ChevronDown, Wifi, WifiOff, ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/AdminContext";
@@ -188,47 +188,52 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                   </DropdownMenu>
                 )}
 
-                {/* Profile Icon Dropdown - Only visible to Admin and SuperAdmin */}
-                {(user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="p-0 hover:bg-blue-100 rounded-full transition-colors h-10 w-10"
-                      >
-                        {user?.profileImage ? (
-                          <img
-                            src={user.profileImage}
-                            alt="Profile"
-                            className="w-full h-full rounded-full object-cover border-2 border-blue-600"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <UserCircle className="w-10 h-10 text-blue-600" />
-                          </div>
-                        )}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                      <DropdownMenuLabel className="font-normal">
-                        <div className="flex flex-col space-y-1">
-                          <p className="text-sm font-medium leading-none">{user?.name || 'User'}</p>
-                          <p className="text-xs leading-none text-muted-foreground">{user?.email || 'No email'}</p>
+                {/* Profile Icon Dropdown - Visible to all users */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="p-0 hover:bg-blue-100 rounded-full transition-colors h-10 w-10"
+                    >
+                      {user?.profileImage ? (
+                        <img
+                          src={user.profileImage}
+                          alt="Profile"
+                          className="w-full h-full rounded-full object-cover border-2 border-blue-600"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <UserCircle className="w-10 h-10 text-blue-600" />
                         </div>
-                      </DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => navigate('/settings')} className="cursor-pointer">
-                        <UserCircle className="w-4 h-4 mr-2" />
-                        Edit Profile
-                      </DropdownMenuItem>
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel className="font-normal">
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium leading-none">{user?.name || 'User'}</p>
+                        <p className="text-xs leading-none text-muted-foreground">{user?.email || 'No email'}</p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => navigate('/settings')} className="cursor-pointer">
+                      <User className="w-4 h-4 mr-2" />
+                      Edit Profile
+                    </DropdownMenuItem>
+                    {(user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') && (
                       <DropdownMenuItem onClick={() => navigate('/zapeera')} className="cursor-pointer">
-                        <UserCircle className="w-4 h-4 mr-2" />
-                        Back to Profile
+                        <ArrowLeft className="w-4 h-4 mr-2" />
+                        Back to Dashboard
                       </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
+                    )}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={logout} className="cursor-pointer text-red-600 focus:text-red-600">
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Logout
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
 

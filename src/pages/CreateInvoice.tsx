@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -42,6 +43,7 @@ interface Product {
   expiry: string;
   formula?: string; // Product composition/formula for search
   barcode?: string;
+  requiresPrescription?: boolean;
 }
 
 interface Batch {
@@ -289,7 +291,8 @@ const CreateInvoice = () => {
           batch: product.currentBatch?.batchNo || 'BATCH001',
           expiry: product.currentBatch?.expireDate ? new Date(product.currentBatch.expireDate).toLocaleDateString() : 'Dec 2025',
           formula: product.formula || '', // Product formula/composition for search
-          barcode: product.barcode || ''
+          barcode: product.barcode || '',
+          requiresPrescription: product.requiresPrescription || false
         }));
 
         setProducts(transformedProducts);
@@ -623,7 +626,7 @@ const CreateInvoice = () => {
         <!DOCTYPE html>
         <html>
         <head>
-          <title>Pharmacy Receipt - ${currentReceipt.receiptNumber}</title>
+          <title>Receipt - ${currentReceipt.receiptNumber}</title>
           <style>
           * { box-sizing: border-box; }
             body {
@@ -737,7 +740,7 @@ const CreateInvoice = () => {
         </head>
         <body>
           <div class="receipt-header">
-          <h1>Zapeera Pharmacy</h1>
+          <h1>Zapeera</h1>
             <p>Your Health, Our Priority</p>
           </div>
 
@@ -910,7 +913,7 @@ const CreateInvoice = () => {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Pharmacy Receipt - ${receipt.receiptNumber}</title>
+        <title>Receipt - ${receipt.receiptNumber}</title>
         <style>
           body {
             font-family: 'Courier New', monospace;
@@ -1014,7 +1017,7 @@ const CreateInvoice = () => {
       </head>
       <body>
         <div class="receipt-header">
-          <h1>Zapeera Pharmacy</h1>
+          <h1>Zapeera</h1>
           <p>Your Health, Our Priority</p>
         </div>
 
@@ -1076,7 +1079,7 @@ const CreateInvoice = () => {
         </div>
 
         <div class="footer">
-          <p>Thank you for choosing Zapeera Pharmacy!</p>
+          <p>Thank you for choosing Zapeera!</p>
           <p>For any queries, contact us at: +92-XXX-XXXXXXX</p>
           <p>Your Health, Our Priority</p>
         </div>
@@ -1387,10 +1390,18 @@ const CreateInvoice = () => {
                               </div>
                             </div>
 
-                            {/* Price */}
-                            <span className="text-sm font-bold text-primary whitespace-nowrap">
-                              PKR {selectedBatch?.sellingPrice || product.price}
-                            </span>
+                            {/* Price and Prescription Badge */}
+                            <div className="flex flex-col items-end">
+                              <span className="text-sm font-bold text-primary whitespace-nowrap">
+                                PKR {selectedBatch?.sellingPrice || product.price}
+                              </span>
+                              {product.requiresPrescription && (
+                                <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px] px-1.5 py-0.5 mt-1">
+                                  <AlertCircle className="w-2.5 h-2.5 mr-0.5" />
+                                  Rx Required
+                                </Badge>
+                              )}
+                            </div>
                           </div>
 
                           {/* Quantity Input and Action Buttons */}
@@ -1848,7 +1859,7 @@ const CreateInvoice = () => {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
-              <span>Pharmacy Receipt</span>
+              <span>Receipt</span>
               <div className="flex space-x-2">
                 <Button variant="outline" size="sm" onClick={printReceipt}>
                   <Printer className="w-4 h-4 mr-2" />
@@ -1860,7 +1871,7 @@ const CreateInvoice = () => {
                 </Button>
                 {currentReceipt?.customer?.phone && (
                   <Button variant="outline" size="sm" onClick={() => {
-                    const smsUrl = `sms:${currentReceipt.customer.phone}?body=${encodeURIComponent(`Zapeera Pharmacy Receipt\nReceipt: ${currentReceipt.receiptNumber}\nTotal: PKR ${currentReceipt.total.toFixed(2)}\nDate: ${currentReceipt.date} ${currentReceipt.time}\n\nThank you for choosing us!`)}`;
+                    const smsUrl = `sms:${currentReceipt.customer.phone}?body=${encodeURIComponent(`Zapeera Receipt\nReceipt: ${currentReceipt.receiptNumber}\nTotal: PKR ${currentReceipt.total.toFixed(2)}\nDate: ${currentReceipt.date} ${currentReceipt.time}\n\nThank you for choosing us!`)}`;
                     window.location.href = smsUrl;
                   }}>
                     <Phone className="w-4 h-4 mr-2" />
@@ -1869,8 +1880,8 @@ const CreateInvoice = () => {
                 )}
                 {currentReceipt?.customer?.email && (
                   <Button variant="outline" size="sm" onClick={() => {
-                    const emailSubject = `Receipt from Zapeera Pharmacy - ${currentReceipt.receiptNumber}`;
-                    const emailBody = `Dear ${currentReceipt.customer.name},\n\nThank you for your purchase at Zapeera Pharmacy!\n\nReceipt Details:\n- Receipt Number: ${currentReceipt.receiptNumber}\n- Date: ${currentReceipt.date}\n- Time: ${currentReceipt.time}\n- Total: PKR ${currentReceipt.total.toFixed(2)}\n\nThank you for choosing us!`;
+                    const emailSubject = `Receipt from Zapeera - ${currentReceipt.receiptNumber}`;
+                    const emailBody = `Dear ${currentReceipt.customer.name},\n\nThank you for your purchase at Zapeera!\n\nReceipt Details:\n- Receipt Number: ${currentReceipt.receiptNumber}\n- Date: ${currentReceipt.date}\n- Time: ${currentReceipt.time}\n- Total: PKR ${currentReceipt.total.toFixed(2)}\n\nThank you for choosing us!`;
                     const emailUrl = `mailto:${currentReceipt.customer.email}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
                     window.location.href = emailUrl;
                   }}>
@@ -1903,7 +1914,7 @@ const CreateInvoice = () => {
 
               {/* Receipt Header */}
               <div className="text-center border-b pb-4">
-                <h1 className="text-2xl font-bold text-gray-900">Zapeera Pharmacy</h1>
+                <h1 className="text-2xl font-bold text-gray-900">Zapeera</h1>
                 <p className="text-sm text-gray-600">Your Health, Our Priority</p>
               </div>
 
@@ -1980,7 +1991,7 @@ const CreateInvoice = () => {
 
               {/* Footer */}
               <div className="text-center text-sm text-gray-600 border-t pt-4">
-                <p>Thank you for choosing Zapeera Pharmacy!</p>
+                <p>Thank you for choosing Zapeera!</p>
                 <p>For any queries, contact us at: +92-XXX-XXXXXXX</p>
                 <p>Your Health, Our Priority</p>
               </div>

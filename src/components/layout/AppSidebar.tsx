@@ -22,7 +22,6 @@ import {
   Stethoscope,
   Wifi,
   WifiOff,
-  Bell,
   Shield,
   RotateCcw,
   UserCheck,
@@ -79,9 +78,9 @@ const AppSidebar = () => {
     { title: "Invoices", url: "/invoices", icon: Receipt },
     { title: "Reports", url: "/reports", icon: TrendingUp },
     { title: "Prescriptions", url: "/prescriptions", icon: Stethoscope },
-    { title: "User Management", url: "/admin/users", icon: Shield },
+    { title: "Staff Management", url: "/admin/users", icon: Shield },
     { title: "Employee Management", url: "/admin/employees", icon: UserCheck },
-    { title: "Company Management", url: "/admin/companies", icon: Building2 },
+    { title: "Business Management", url: "/admin/companies", icon: Building2 },
     { title: "Branch Management", url: "/admin/branches", icon: Building2 },
   ];
 
@@ -96,9 +95,9 @@ const AppSidebar = () => {
     { title: "Invoices", url: "/invoices", icon: Receipt },
     { title: "Reports", url: "/reports", icon: TrendingUp },
     { title: "Prescriptions", url: "/prescriptions", icon: Stethoscope },
-    { title: "User Management", url: "/admin/users", icon: Shield },
+    { title: "Staff Management", url: "/admin/users", icon: Shield },
     { title: "Employee Management", url: "/admin/employees", icon: UserCheck },
-    { title: "Company Management", url: "/admin/companies", icon: Building2 },
+    { title: "Business Management", url: "/admin/companies", icon: Building2 },
     { title: "Branch Management", url: "/admin/branches", icon: Building2 },
     { title: "Admin Payment", url: "/superadmin/payments", icon: CreditCard },
     { title: "Admin Management", url: "/superadmin/admins", icon: UserCog },
@@ -148,7 +147,7 @@ const AppSidebar = () => {
             {!collapsed && (
               <div className="flex-1">
                 <h2 className="font-bold text-gray-900">POS</h2>
-                <p className="text-xs text-gray-500">Pharmacy POS</p>
+                <p className="text-xs text-gray-500">Business POS</p>
                 <Badge
                   variant="outline"
                   className={`text-xs mt-1 ${
@@ -173,7 +172,7 @@ const AppSidebar = () => {
         {/* Connection Status */}
         {!collapsed && (
           <div className="p-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-center">
               <Badge
                 variant="outline"
                 className={
@@ -189,15 +188,6 @@ const AppSidebar = () => {
                 )}
                 {isOnline ? "Online" : "Offline"}
               </Badge>
-              <div className="flex items-center space-x-1">
-                <Bell className="w-4 h-4 text-gray-400" />
-                <Badge
-
-                  className="w-5 h-5 rounded-full bg-gray-100 text-black p-0 flex items-center justify-center text-xs"
-                >
-                  3
-                </Badge>
-              </div>
             </div>
           </div>
         )}

@@ -123,6 +123,9 @@ const Customers = () => {
 
     try {
       setIsSubmitting(true);
+
+      // CRITICAL: Create customer - embedded server saves to SQLite FIRST
+      // Then optionally syncs to PostgreSQL backend (non-blocking)
       const response = await apiService.createCustomer({
         name: newCustomer.name,
         phone: newCustomer.phone,
@@ -131,12 +134,14 @@ const Customers = () => {
         branchId: selectedBranchId || user?.branchId || ""
       });
 
+      // CRITICAL: Show success if SQLite save succeeded (response.success === true)
+      // This means data is saved locally, regardless of backend sync status
       if (response.success) {
+        // SQLite save succeeded - show success immediately
         toast({
           title: "Success",
           description: "Customer added successfully!",
         });
-
         // Reset form
         setNewCustomer({
           name: "",
@@ -144,23 +149,60 @@ const Customers = () => {
           email: "",
           address: ""
         });
-
         setIsAddDialogOpen(false);
-        loadCustomers();
-      } else {
+        // Reload to show the new customer
+        setTimeout(() => loadCustomers(), 500);
+        return;
+      }
+
+      // Handle offline mode - embedded server saved to SQLite but backend sync failed
+      // This is still a success from user perspective (data is saved locally)
+      if (response.code === 'OFFLINE_MODE') {
+        // Data was saved to SQLite via embedded server
+        // Backend sync will happen later when backend is available
+        toast({
+          title: "Customer Added (Offline)",
+          description: "Customer has been saved locally. It will sync when connection is restored.",
+        });
+        setNewCustomer({ name: "", phone: "", email: "", address: "" });
+        setIsAddDialogOpen(false);
+        // Reload to show the new customer from SQLite
+        setTimeout(() => loadCustomers(), 1000);
+        return;
+      }
+
+      // Only show error for actual failures (validation, database errors, etc.)
+      // NOT for network/backend unavailability (that's handled above)
+      toast({
+        title: "Error",
+        description: response.message || "Failed to add customer",
+        variant: "destructive",
+      });
+    } catch (error: any) {
+      console.error('Error adding customer:', error);
+
+      // Check if error is a network/connection issue
+      const isNetworkError = error.message?.includes('fetch') ||
+                            error.message?.includes('Failed to fetch') ||
+                            error.message?.includes('NetworkError') ||
+                            error.name === 'TypeError';
+
+      if (isNetworkError) {
+        // Network error - embedded server might not be running
+        // This is a critical issue in Electron mode
         toast({
           title: "Error",
-          description: response.message || "Failed to add customer",
+          description: "Cannot connect to local server. Please restart the application.",
+          variant: "destructive",
+        });
+      } else {
+        // Other errors (validation, auth, etc.) - show actual error
+        toast({
+          title: "Error",
+          description: error.message || "Failed to add customer. Please try again.",
           variant: "destructive",
         });
       }
-    } catch (error) {
-      console.error('Error adding customer:', error);
-      toast({
-        title: "Error",
-        description: "Failed to add customer. Please try again.",
-        variant: "destructive",
-      });
     } finally {
       setIsSubmitting(false);
     }
@@ -411,7 +453,7 @@ const Customers = () => {
                   <SelectValue placeholder="Created By" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Users</SelectItem>
+                  <SelectItem value="all">All Staff</SelectItem>
                   <SelectItem value="ADMIN">Admin</SelectItem>
                   <SelectItem value="MANAGER">Manager</SelectItem>
                   <SelectItem value="CASHIER">Cashier</SelectItem>
